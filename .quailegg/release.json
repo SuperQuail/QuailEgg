@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.1.0",
-  "created_at": "2026-10-28T12:20:57.066354012Z",
+  "version": "0.2.0",
+  "created_at": "2026-10-28T21:17:16.7384414+08:00",
   "mode": "commit",
-  "fingerprint": "sha256:829b360564afecd914956d79a5233745d8b4f7bc9f44a98bc6b6ffebeb852be4",
+  "fingerprint": "sha256:a75b090043381def076045a1d2d106ab96b7d171268aff8c820e6967ce86f300",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,35 +15,28 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-28T12:20:57.066354583Z"
+    "at": "2026-10-28T21:17:16.7384414+08:00"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.0.0",
-      "next": "0.1.0",
+      "current": "0.1.0",
+      "next": "0.2.0",
       "bump": "minor",
       "publish": true
     }
   ],
   "changes": [
     {
-      "file": ".changes/implement-quailegg.md",
+      "file": ".changes/build-assets.md",
       "type": "feat",
+      "scope": "assets",
       "bump": "minor",
-      "body": "Implement quailegg with tag based Go releases and a pre-commit test gate.",
-      "commit": "8767ef2bf6307e038df9fc0209d3b7727731c90e",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8767ef2bf6307e038df9fc0209d3b7727731c90e"
-    },
-    {
-      "file": ".changes/isolate-tests.md",
-      "type": "fix",
-      "bump": "patch",
-      "body": "Isolate release tests from the CI environment, so they pass on GitHub Actions.",
-      "commit": "8785fc6f9268727d5e099f3263ca07fa921c1e34",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8785fc6f9268727d5e099f3263ca07fa921c1e34"
+      "body": "Cross compile Go binaries for five platforms, package them with checksums and upload them to the GitHub Release.",
+      "commit": "771a4ea1d651082fd3573ef3300631fd04679b33",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/771a4ea1d651082fd3573ef3300631fd04679b33"
     }
   ]
 }
