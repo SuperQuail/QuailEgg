@@ -1,0 +1,33 @@
+.qegg-steps {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 24px 24px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 48px;
+}
+
+.qegg-steps__name {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--rp-c-brand);
+  border: none;
+  padding: 0;
+}
+
+.qegg-steps__desc {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--rp-c-text-2);
+}
+
+@media (max-width: 768px) {
+  .qegg-steps {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-bottom: 8px;
+  }
+}

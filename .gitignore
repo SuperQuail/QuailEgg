@@ -24,6 +24,10 @@ target
 **/mutants.out*/
 rustc-ice-*.txt
 
+# Docs site
+/site/node_modules/
+/site/doc_build/
+
 # IDE
 .idea/
 .vscode/
