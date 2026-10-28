@@ -54,6 +54,10 @@ func newRepo(t *testing.T) string {
 
 func deps(t *testing.T, dir string) *Deps {
 	t.Helper()
+	// The preflight demands the default branch when it detects CI, so tests
+	// pin the environment to a local run.
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_ACTIONS", "")
 	ctx := context.Background()
 	repo, err := git.Open(ctx, dir, execx.OSRunner{})
 	if err != nil {

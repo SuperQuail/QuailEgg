@@ -57,6 +57,8 @@ func tagGo(t *testing.T, dir, tag string) {
 
 func goDeps(t *testing.T, dir string) *Deps {
 	t.Helper()
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_ACTIONS", "")
 	ctx := context.Background()
 	repo, err := git.Open(ctx, dir, execx.OSRunner{})
 	if err != nil {
