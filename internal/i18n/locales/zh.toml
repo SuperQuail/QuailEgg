@@ -1,0 +1,261 @@
+# QuailEgg 文案目录（中文）。键集合必须与 en.toml 完全一致。
+
+# --- 命令 -------------------------------------------------------------------
+"cmd.root.short" = "从 .changes 变更记录自动发版"
+"cmd.init.short" = "生成配置、变更记录目录、git hook 与 GitHub Actions 工作流"
+"cmd.check.short" = "检查配置、生态、工具与变更记录"
+"cmd.commit.short" = "生成一条变更记录并提交"
+"cmd.changelog.short" = "根据待发变更生成 CHANGELOG.md"
+"cmd.plan.short" = "预览发版计划，不修改任何文件"
+"cmd.verify.short" = "执行发版前校验命令"
+"cmd.release.short" = "提升版本并发布"
+"cmd.resume.short" = "继续上一次中断的发布"
+"cmd.status.short" = "查看发布状态"
+"cmd.hook.short" = "git hook 入口"
+"cmd.hook.pre_commit.short" = "校验暂存区是否包含变更记录"
+"cmd.lang.short" = "查看或设置界面语言"
+"cmd.version.short" = "打印 qegg 版本"
+
+# --- 通用参数 ---------------------------------------------------------------
+"flag.config" = ".quailegg.toml 的路径"
+"flag.cwd" = "工作目录（默认为当前目录）"
+"flag.verbose" = "输出详细日志"
+"flag.no_color" = "禁用颜色"
+"flag.lang" = "界面语言（en、zh）"
+"flag.no_input" = "不进入交互界面"
+"flag.dry_run" = "只打印结果，不写文件"
+"flag.json" = "输出 JSON"
+"flag.force" = "覆盖已存在的文件"
+"flag.mode" = "发布方式：pr 或 commit"
+"flag.branch" = "主分支名"
+"flag.tag_prefix" = "Tag 前缀（默认 v）"
+"flag.remote" = "git remote（默认 origin）"
+"flag.registries" = "发布目标，例如 npm,pypi,go"
+"flag.changes_dir" = "变更记录目录（默认 .changes）"
+"flag.scope" = "hook 生效的目录"
+"flag.verify_cmd" = "发版前校验命令（可重复）"
+"flag.no_verify_cmd" = "不写入校验命令"
+"flag.no_hook" = "不生成 git hook"
+"flag.no_workflows" = "不生成 GitHub Actions 工作流"
+"flag.no_status_workflow" = "不生成 status 工作流"
+"flag.no_add_packages" = "不自动登记新发现的包"
+"flag.qegg_version" = "生成的工作流固定使用的 qegg 版本（默认取当前运行版本）"
+"flag.message" = "提交信息（conventional commits）"
+"flag.type" = "变更类型，例如 feat"
+"flag.scope_flag" = "影响范围"
+"flag.body" = "变更说明"
+"flag.packages" = "包与升级级别，例如 my-pkg:minor"
+"flag.no_commit" = "只写记录，不提交"
+"flag.yes" = "跳过确认"
+"flag.markdown" = "输出 CHANGELOG 片段"
+"flag.allow_dirty" = "允许工作区不干净"
+"flag.skip_verify" = "跳过发版前校验"
+"flag.no_push" = "不推送"
+"flag.no_github_release" = "不创建 GitHub Release"
+"flag.no_publish" = "不发布到 registry"
+"flag.offline" = "跳过 registry 查询"
+"flag.ci" = "按 PR 差异检查是否缺少变更记录"
+
+# --- 错误 -------------------------------------------------------------------
+"error.no_config" = "未找到 .quailegg.toml，请先运行 qegg init"
+"error.not_git_repo" = "当前目录不是 git 仓库"
+"error.no_packages" = "没有检测到任何包；支持的清单：%s。请先在仓库根目录创建其一，再运行 qegg init"
+"error.unsupported_resolver" = "不支持的生态：%s"
+"error.qegg_version" = "无效的 qegg 版本 %q（应为 latest 或 vX.Y.Z）"
+
+# --- init -------------------------------------------------------------------
+"init.write" = "[写入] %s"
+"init.would_write" = "[将要写入] %s"
+"init.update" = "[更新] %s"
+"init.skip" = "[跳过] %s（%s）"
+"init.registered" = "已登记 %d 个新包：%s"
+"init.done" = "初始化完成，下一步：qegg commit"
+"init.warn_new_config" = "已创建新配置，请与生成的文件一起提交"
+"init.warn_latest_qegg" = "生成的工作流安装 qegg@latest；首个版本发布后请用 qegg init --qegg-version vX.Y.Z 固定版本"
+
+# --- check ------------------------------------------------------------------
+"check.summary" = "生态: %s  包: %s  版本: %s"
+"check.fix" = "  修复: %s"
+"check.passed" = "检查通过"
+"check.problem.unregistered_package" = "检测到未登记的包：%s"
+"check.fix.run_init" = "运行 qegg init 补充登记"
+"check.problem.no_package" = "没有可用的包；请先运行 qegg init"
+"check.problem.tool_missing" = "缺少 %s（用于 %s）"
+"check.problem.verify_empty" = "未配置发版前校验命令"
+"check.problem.commit_mode" = "commit 模式没有人工评审环节"
+"check.problem.record_invalid" = "%s: %v"
+"check.fix.record_invalid" = "修正记录格式后重试"
+"check.problem.missing_record" = "本 PR 修改了发版范围内的文件，但没有新增变更记录"
+"check.fix.missing_record" = "运行 qegg commit 生成 .changes 记录"
+"hook.missing_record" = "%s 下没有暂存的变更记录；请用 qegg commit 创建"
+"hook.verify_failed" = "提交前校验失败：%s。请修复，或使用 git commit --no-verify 跳过"
+
+# --- plan -------------------------------------------------------------------
+"plan.phase_version" = "阶段: 提升版本 v%s → v%s（%s）"
+"plan.phase_publish" = "阶段: 发布 v%s"
+"plan.nothing" = "没有待发布的内容"
+"plan.tag" = "Tag: %s"
+"plan.change_line" = "  - [%s] %s"
+"plan.step_line" = "  %s %s"
+
+# --- commit -----------------------------------------------------------------
+"commit.missing_packages" = "缺少 --packages（非交互模式需要 name:level，例如 my-pkg:minor）"
+"commit.packages_format" = "--packages 需要 name:level 形式，收到 %q"
+"commit.unknown_package" = "未知包 %q（可用：%s）"
+"commit.written" = "已写入 %s"
+"commit.committed" = "已提交 %s"
+"commit.err.no_type" = "必须提供 -m 或 --type"
+"commit.err.conventional" = "提交信息需要符合 conventional commits（例如 feat(cache): ...）"
+"commit.err.exists" = "%s 已存在，请换一个描述"
+"commit.err.no_bumps" = "必须至少为 1 个包选择升级级别"
+
+# --- changelog 命令 ---------------------------------------------------------
+"changelog.nothing" = "没有可生成 CHANGELOG 的待发变更"
+"changelog.updated" = "已更新 CHANGELOG.md（v%s）"
+
+# --- verify 命令 ------------------------------------------------------------
+"verify.none_configured" = "未配置 [verify].commands"
+"verify.passed" = "校验通过，用时 %s"
+
+# --- status -----------------------------------------------------------------
+"status.marker" = "待发布版本: v%s（%s）"
+"status.no_marker" = "没有待发布的版本"
+"status.tag" = "Tag: %s  存在: %v  已发布: %s"
+"status.pending" = "待处理变更记录: %d 条"
+"status.last_run" = "最近一次运行: %s（%s，%s）"
+
+# --- release ----------------------------------------------------------------
+"release.nothing" = "没有需要发布的变更记录"
+"release.done" = "发布流程完成：v%s"
+"release.skip" = "跳过 %s: %s"
+"release.err.dirty" = "工作区不干净，请先提交或暂存改动（或使用 --allow-dirty）"
+"release.err.branch" = "只能在 %q 分支发版（当前 %q）"
+"release.err.package_missing" = "包 %q 不再存在"
+"release.err.version_changed" = "包 %q 的清单版本已从 %s 变为 %s，请重新运行 qegg plan"
+"release.err.no_marker" = "没有待发布的版本（缺少 .quailegg/release.json）"
+"release.err.marker_mismatch" = "发布标记版本 %s 与计划版本 %s 不一致"
+"release.err.tag_mismatch" = "Tag %s 已存在且不指向 HEAD"
+"release.err.go_major" = "Go 模块 %s 不能发布 v%s：module 路径必须为 %s（v2 及以上需要 /vN 后缀，v0/v1 不能带后缀）"
+"release.warn.no_verify" = "未配置发版前校验命令，建议在 [verify].commands 中配置测试命令"
+"release.warn.commit_mode" = "commit 模式没有人工评审环节"
+"release.warn.marker_mismatch" = "发布标记版本与清单不一致；在刷新前将忽略该标记"
+"release.warn.tag_version_prefix" = "Go 模块版本来自带 v 前缀的 tag，但 git.tag_prefix 为 %q"
+"release.msg.committed" = "已提交 %s (%s)"
+"release.msg.pr" = "已创建/更新发布 PR: %s"
+"release.msg.registry_exists" = "%s@%s 已存在于 registry，跳过发布"
+"release.msg.published" = "已发布 %s@%s"
+"release.msg.release_exists" = "GitHub Release %s 已存在，跳过"
+"release.msg.release_created" = "已创建 GitHub Release %s"
+"release.skip.no_publish" = "已通过 --no-publish 跳过"
+"release.skip.no_push" = "已通过 --no-push 跳过"
+"release.skip.no_release" = "已通过 --no-github-release 跳过"
+"release.skip.github_disabled" = "github_release=false"
+"release.skip.skip_verify" = "已通过 --skip-verify 跳过"
+"release.skip.tag_exists" = "Tag 已存在"
+"release.pr.header" = "本 PR 由 qegg 自动生成，合并后会触发 v%s 的发布。"
+"release.pr.version" = "### 版本"
+"release.pr.changes" = "### 变更"
+"release.pr.verify" = "### 校验"
+"release.pr.package" = "- %s: %s -> %s (%s)"
+"release.pr.line" = "- %s"
+"release.pr.command" = "- %s"
+"release.warn.unregistered_package" = "检测到未登记的包 %q；运行 qegg init 补充登记"
+"resume.previous" = "续跑最近一次运行 %s（阶段 %s，状态 %s）"
+
+# --- 步骤 -------------------------------------------------------------------
+"step.preflight" = "预检"
+"step.verify" = "发版前校验"
+"step.bump" = "更新版本"
+"step.changelog" = "生成 CHANGELOG"
+"step.commit" = "提交发版"
+"step.publish" = "发布"
+"step.tag" = "打 Tag"
+"step.push" = "推送"
+"step.github_release" = "创建 Release"
+
+# --- changelog 分组 ---------------------------------------------------------
+"changelog.group.feat" = "新功能"
+"changelog.group.fix" = "修复"
+"changelog.group.perf" = "性能"
+"changelog.group.refactor" = "重构"
+"changelog.group.docs" = "文档"
+"changelog.group.test" = "测试"
+"changelog.group.build" = "构建"
+"changelog.group.ci" = "持续集成"
+"changelog.group.chore" = "杂项"
+"changelog.group.style" = "样式"
+"changelog.group.revert" = "回滚"
+
+# --- tui --------------------------------------------------------------------
+"tui.commit.title" = "QuailEgg 变更记录"
+"tui.commit.step1" = "1/5 提交信息"
+"tui.commit.step2" = "2/5 变更说明"
+"tui.commit.step3" = "3/5 选择需要升版本的包（空格切换，回车下一步）"
+"tui.commit.step4" = "4/5 选择升级级别（←/→ 切换，回车下一步）"
+"tui.commit.step5" = "5/5 确认"
+"tui.commit.placeholder" = "feat(cache): 支持自定义缓存有效期"
+"tui.commit.body_placeholder" = "写入 CHANGELOG 的说明；留空则取提交信息的描述部分"
+"tui.commit.err_body" = "请填写变更说明"
+"tui.commit.err_packages" = "至少选择一个包"
+"tui.commit.hint" = "回车 下一步 · esc 上一步 · ctrl+c 取消"
+"tui.commit.message" = "提交信息: %s"
+"tui.commit.body" = "变更说明: %s"
+"tui.commit.body_same" = "同提交信息"
+"tui.init.title" = "QuailEgg 初始化"
+"tui.init.mode" = "发布方式: %s（pr = 走发布 PR，commit = 直接提交）"
+"tui.init.hook" = "生成 git hook: %v"
+"tui.init.workflows" = "生成 GitHub Actions: %v"
+"tui.init.status" = "生成 status 工作流: %v"
+"tui.init.added" = "新登记包: %s"
+"tui.init.hint" = "空格 切换 · 上下 移动 · 回车 应用 · q 取消"
+"tui.confirm.hint" = "y 确认 · n 取消"
+"tui.release.title" = "确认发布"
+"tui.release.body" = "阶段: %s\n版本: v%s -> v%s\nTag: %s"
+
+# --- 语言 -------------------------------------------------------------------
+"lang.current" = "当前语言: %s"
+"lang.supported" = "支持的语言: %s"
+"lang.set" = "语言已设置为 %s"
+"lang.invalid" = "不支持的语言 %q（支持：%s）"
+"lang.saved" = "已保存到 %s"
+
+# --- 外部工具 ---------------------------------------------------------------
+"tool.npm.purpose" = "发布与 registry 探测"
+"tool.npm.install" = "安装 Node.js 20+"
+"tool.gh.purpose" = "创建 GitHub Release 与 PR"
+"tool.gh.install" = "安装 GitHub CLI"
+"tool.uv.purpose" = "构建与发布 Python 包"
+"tool.uv.install" = "安装 uv: https://docs.astral.sh/uv/"
+"tool.cargo.purpose" = "发布到 crates.io"
+"tool.cargo.install" = "安装 Rust 工具链"
+"tool.go.purpose" = "构建与测试 Go 模块"
+"tool.go.install" = "安装 Go 1.26+"
+
+# --- scaffold ---------------------------------------------------------------
+"scaffold.warn_new_config" = "已创建新配置，请与生成的文件一起提交"
+"scaffold.hook_note" = "qegg: 未找到 qegg 命令，请安装后重试"
+"scaffold.changes_readme" = '''
+# 变更记录
+
+每个用户可见的改动都需要在本目录新增一个 Markdown 文件。
+
+记录示例：
+
+    ---
+    type: feat
+    scope: cache
+    packages:
+      my-package: minor
+    ---
+
+    用一两句话描述这次改动。
+
+字段说明：
+
+- type: feat、fix、perf、docs、refactor、test、build、ci、chore、style 或 revert
+- scope: 可选，影响范围
+- packages: 包名与升级级别（patch、minor、major）
+- release: 可选，默认 true；为 false 时只写入 Changelog
+
+用 qegg commit 生成记录。
+'''

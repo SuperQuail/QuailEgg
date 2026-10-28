@@ -1,0 +1,32 @@
+name: QuailEgg PR
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ["[[ .BaseBranch ]]"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: qegg-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26', cache: true }
+      - run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@[[ .QeggVersion ]]
+      - name: Check
+        run: qegg check --ci
+      - name: Preview
+        run: |
+          qegg plan --markdown > plan.md
+          gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none -F plan.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

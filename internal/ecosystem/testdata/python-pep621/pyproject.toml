@@ -1,0 +1,5 @@
+[project]
+name = "pep-demo"
+version = "1.0.0"
+description = "fixture"
+dependencies = []

@@ -1,0 +1,5 @@
+* text=auto
+
+# Scaffold templates are embedded into generated files, which must stay in LF.
+internal/scaffold/assets/** text eol=lf
+*.tmpl text eol=lf

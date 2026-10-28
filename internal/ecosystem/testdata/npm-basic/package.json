@@ -1,0 +1,7 @@
+{
+  "name": "npm-basic",
+  "version": "1.2.3",
+  "scripts": {
+    "test": "node -e \"process.exit(0)\""
+  }
+}

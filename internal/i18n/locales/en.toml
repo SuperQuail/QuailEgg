@@ -1,0 +1,261 @@
+# QuailEgg message catalog (English). Keys are flat; missing entries fall back to English.
+
+# --- commands ---------------------------------------------------------------
+"cmd.root.short" = "QuailEgg releases your project from .changes records"
+"cmd.init.short" = "Create config, change record directory, git hook and GitHub Actions workflows"
+"cmd.check.short" = "Validate config, ecosystem, tools and change records"
+"cmd.commit.short" = "Create a change record and commit it"
+"cmd.changelog.short" = "Generate CHANGELOG.md from pending change records"
+"cmd.plan.short" = "Preview the release plan without touching files"
+"cmd.verify.short" = "Run the pre-release verification commands"
+"cmd.release.short" = "Bump the version and publish"
+"cmd.resume.short" = "Resume the last interrupted release"
+"cmd.status.short" = "Show release status"
+"cmd.hook.short" = "git hook entry points"
+"cmd.hook.pre_commit.short" = "Validate that staged changes include a change record"
+"cmd.lang.short" = "Show or set the CLI language"
+"cmd.version.short" = "Print the qegg version"
+
+# --- shared flags -----------------------------------------------------------
+"flag.config" = "path to .quailegg.toml"
+"flag.cwd" = "working directory (defaults to current)"
+"flag.verbose" = "verbose output"
+"flag.no_color" = "disable colours"
+"flag.lang" = "language for user-facing output (en, zh)"
+"flag.no_input" = "do not open interactive wizards"
+"flag.dry_run" = "print the result without writing anything"
+"flag.json" = "emit JSON"
+"flag.force" = "overwrite existing files"
+"flag.mode" = "release mode: pr or commit"
+"flag.branch" = "default branch name"
+"flag.tag_prefix" = "tag prefix (default v)"
+"flag.remote" = "git remote (default origin)"
+"flag.registries" = "publish targets, for example npm,pypi,go"
+"flag.changes_dir" = "change record directory (default .changes)"
+"flag.scope" = "directories watched by the hook"
+"flag.verify_cmd" = "pre-release verification command (repeatable)"
+"flag.no_verify_cmd" = "do not write verification commands"
+"flag.no_hook" = "do not install the git hook"
+"flag.no_workflows" = "do not generate GitHub Actions workflows"
+"flag.no_status_workflow" = "do not generate the status workflow"
+"flag.no_add_packages" = "do not register newly detected packages"
+"flag.qegg_version" = "qegg version pinned in generated workflows (defaults to the running version)"
+"flag.message" = "commit message (conventional commits)"
+"flag.type" = "change type, for example feat"
+"flag.scope_flag" = "change scope"
+"flag.body" = "change description"
+"flag.packages" = "package bump level, for example my-pkg:minor"
+"flag.no_commit" = "write the record without committing"
+"flag.yes" = "skip confirmation"
+"flag.markdown" = "emit the CHANGELOG fragment"
+"flag.allow_dirty" = "allow a dirty working tree"
+"flag.skip_verify" = "skip pre-release verification"
+"flag.no_push" = "do not push"
+"flag.no_github_release" = "do not create a GitHub Release"
+"flag.no_publish" = "do not publish to a registry"
+"flag.offline" = "skip registry queries"
+"flag.ci" = "check PR changes for a missing change record"
+
+# --- errors ---------------------------------------------------------------
+"error.no_config" = "no .quailegg.toml found; run qegg init first"
+"error.not_git_repo" = "the current directory is not a git repository"
+"error.no_packages" = "no package detected; supported manifests: %s. Create one in the repository root and run qegg init"
+"error.unsupported_resolver" = "unsupported ecosystem: %s"
+"error.qegg_version" = "invalid qegg version %q (want latest or vX.Y.Z)"
+
+# --- init -------------------------------------------------------------------
+"init.write" = "[write] %s"
+"init.would_write" = "[would write] %s"
+"init.update" = "[update] %s"
+"init.skip" = "[skip] %s (%s)"
+"init.registered" = "registered %d new package(s): %s"
+"init.done" = "initialised; next step: qegg commit"
+"init.warn_new_config" = "created a new configuration; commit it together with the generated files"
+"init.warn_latest_qegg" = "generated workflows install qegg@latest; rerun qegg init --qegg-version vX.Y.Z after the first release to pin it"
+
+# --- check ------------------------------------------------------------------
+"check.summary" = "ecosystem: %s  package: %s  version: %s"
+"check.fix" = "  fix: %s"
+"check.passed" = "check passed"
+"check.problem.unregistered_package" = "unregistered packages detected: %s"
+"check.fix.run_init" = "run qegg init to register them"
+"check.problem.no_package" = "no package available; run qegg init first"
+"check.problem.tool_missing" = "missing %s (used for %s)"
+"check.problem.verify_empty" = "no pre-release verification commands configured"
+"check.problem.commit_mode" = "commit mode has no human review step"
+"check.problem.record_invalid" = "%s: %v"
+"check.fix.record_invalid" = "fix the record and retry"
+"check.problem.missing_record" = "this PR changes release-scoped files but adds no change record"
+"check.fix.missing_record" = "run qegg commit to create a .changes record"
+"hook.missing_record" = "no change record staged under %s; create one with qegg commit"
+"hook.verify_failed" = "pre-commit verification failed: %s. Fix it, or skip the hook with git commit --no-verify"
+
+# --- plan -------------------------------------------------------------------
+"plan.phase_version" = "phase: bump v%s -> v%s (%s)"
+"plan.phase_publish" = "phase: publish v%s"
+"plan.nothing" = "nothing to release"
+"plan.tag" = "tag: %s"
+"plan.change_line" = "  - [%s] %s"
+"plan.step_line" = "  %s %s"
+
+# --- commit -----------------------------------------------------------------
+"commit.missing_packages" = "missing --packages (non-interactive mode needs name:level, for example my-pkg:minor)"
+"commit.packages_format" = "--packages needs name:level, got %q"
+"commit.unknown_package" = "unknown package %q (available: %s)"
+"commit.written" = "wrote %s"
+"commit.committed" = "committed %s"
+"commit.err.no_type" = "either -m or --type is required"
+"commit.err.conventional" = "the commit message must follow conventional commits (for example feat(cache): ...)"
+"commit.err.exists" = "%s already exists; use another description"
+"commit.err.no_bumps" = "select a bump level for at least one package"
+
+# --- changelog command ------------------------------------------------------
+"changelog.nothing" = "no pending changes to render"
+"changelog.updated" = "updated CHANGELOG.md (v%s)"
+
+# --- verify command ---------------------------------------------------------
+"verify.none_configured" = "no [verify].commands configured"
+"verify.passed" = "verification passed in %s"
+
+# --- status -----------------------------------------------------------------
+"status.marker" = "pending release: v%s (%s)"
+"status.no_marker" = "no pending release"
+"status.tag" = "tag: %s  exists: %v  published: %s"
+"status.pending" = "pending change records: %d"
+"status.last_run" = "last run: %s (%s, %s)"
+
+# --- release ----------------------------------------------------------------
+"release.nothing" = "no change records to release"
+"release.done" = "release finished: v%s"
+"release.skip" = "skip %s: %s"
+"release.err.dirty" = "the working tree is dirty; commit or stash your changes first (or pass --allow-dirty)"
+"release.err.branch" = "releases must run on %q (current: %q)"
+"release.err.package_missing" = "package %q no longer exists"
+"release.err.version_changed" = "package %q changed from %s to %s; run qegg plan again"
+"release.err.no_marker" = "no pending release (missing .quailegg/release.json)"
+"release.err.marker_mismatch" = "release marker version %s does not match planned version %s"
+"release.err.tag_mismatch" = "tag %s already exists and does not point to HEAD"
+"release.err.go_major" = "Go module %s cannot release v%s: the module path must be %s (v2 and later need a /vN suffix, v0 and v1 must not have one)"
+"release.warn.no_verify" = "no pre-release verification commands configured; add them under [verify].commands"
+"release.warn.commit_mode" = "mode=commit publishes without a human review step"
+"release.warn.marker_mismatch" = "the release marker version differs from the manifest; the marker is ignored until it is refreshed"
+"release.warn.tag_version_prefix" = "Go module versions come from v-prefixed tags, but git.tag_prefix is %q"
+"release.msg.committed" = "committed %s (%s)"
+"release.msg.pr" = "created or updated the release PR: %s"
+"release.msg.registry_exists" = "%s@%s already exists in the registry; skipping publish"
+"release.msg.published" = "published %s@%s"
+"release.msg.release_exists" = "GitHub Release %s already exists; skipping"
+"release.msg.release_created" = "created GitHub Release %s"
+"release.skip.no_publish" = "skipped by --no-publish"
+"release.skip.no_push" = "skipped by --no-push"
+"release.skip.no_release" = "skipped by --no-github-release"
+"release.skip.github_disabled" = "github_release=false"
+"release.skip.skip_verify" = "skipped by --skip-verify"
+"release.skip.tag_exists" = "the tag already exists"
+"release.pr.header" = "This PR is generated by qegg. Merging it triggers the v%s release."
+"release.pr.version" = "### Version"
+"release.pr.changes" = "### Changes"
+"release.pr.verify" = "### Verification"
+"release.pr.package" = "- %s: %s -> %s (%s)"
+"release.pr.line" = "- %s"
+"release.pr.command" = "- %s"
+"release.warn.unregistered_package" = "detected package %q is not registered; run qegg init to add it"
+"resume.previous" = "resuming run %s (phase %s, status %s)"
+
+# --- steps ------------------------------------------------------------------
+"step.preflight" = "preflight"
+"step.verify" = "verify"
+"step.bump" = "bump version"
+"step.changelog" = "update changelog"
+"step.commit" = "release commit"
+"step.publish" = "publish"
+"step.tag" = "tag"
+"step.push" = "push"
+"step.github_release" = "GitHub Release"
+
+# --- changelog groups -------------------------------------------------------
+"changelog.group.feat" = "Features"
+"changelog.group.fix" = "Bug Fixes"
+"changelog.group.perf" = "Performance"
+"changelog.group.refactor" = "Refactors"
+"changelog.group.docs" = "Documentation"
+"changelog.group.test" = "Tests"
+"changelog.group.build" = "Build"
+"changelog.group.ci" = "CI"
+"changelog.group.chore" = "Chores"
+"changelog.group.style" = "Style"
+"changelog.group.revert" = "Reverts"
+
+# --- tui --------------------------------------------------------------------
+"tui.commit.title" = "QuailEgg change record"
+"tui.commit.step1" = "1/5 commit message"
+"tui.commit.step2" = "2/5 change description"
+"tui.commit.step3" = "3/5 select packages to bump (space toggles, enter continues)"
+"tui.commit.step4" = "4/5 choose the bump level (left/right, enter continues)"
+"tui.commit.step5" = "5/5 confirm"
+"tui.commit.placeholder" = "feat(cache): support configurable cache ttl"
+"tui.commit.body_placeholder" = "description for the changelog; empty takes it from the commit message"
+"tui.commit.err_body" = "describe the change first"
+"tui.commit.err_packages" = "select at least one package"
+"tui.commit.hint" = "enter next · esc back · ctrl+c cancel"
+"tui.commit.message" = "commit message: %s"
+"tui.commit.body" = "change description: %s"
+"tui.commit.body_same" = "same as the commit message"
+"tui.init.title" = "QuailEgg initialisation"
+"tui.init.mode" = "release mode: %s (pr = release PR, commit = direct commit)"
+"tui.init.hook" = "install git hook: %v"
+"tui.init.workflows" = "generate GitHub Actions: %v"
+"tui.init.status" = "generate status workflow: %v"
+"tui.init.added" = "newly registered packages: %s"
+"tui.init.hint" = "space toggle · up/down move · enter apply · q cancel"
+"tui.confirm.hint" = "y confirm · n cancel"
+"tui.release.title" = "Confirm release"
+"tui.release.body" = "phase: %s\nversion: v%s -> v%s\ntag: %s"
+
+# --- language ---------------------------------------------------------------
+"lang.current" = "current language: %s"
+"lang.supported" = "supported languages: %s"
+"lang.set" = "language set to %s"
+"lang.invalid" = "unsupported language %q (supported: %s)"
+"lang.saved" = "saved to %s"
+
+# --- external tools ---------------------------------------------------------
+"tool.npm.purpose" = "publish and registry checks"
+"tool.npm.install" = "install Node.js 20+"
+"tool.gh.purpose" = "create GitHub Releases and pull requests"
+"tool.gh.install" = "install the GitHub CLI"
+"tool.uv.purpose" = "build and publish Python packages"
+"tool.uv.install" = "install uv: https://docs.astral.sh/uv/"
+"tool.cargo.purpose" = "publish to crates.io"
+"tool.cargo.install" = "install the Rust toolchain"
+"tool.go.purpose" = "build and test Go modules"
+"tool.go.install" = "install Go 1.26+"
+
+# --- scaffold ---------------------------------------------------------------
+"scaffold.warn_new_config" = "created a new configuration; commit it together with the generated files"
+"scaffold.hook_note" = "qegg: command not found; install qegg first"
+"scaffold.changes_readme" = '''
+# Change records
+
+Every user-visible change needs one Markdown file in this directory.
+
+Example record:
+
+    ---
+    type: feat
+    scope: cache
+    packages:
+      my-package: minor
+    ---
+
+    Describe the change in one or two sentences.
+
+Fields:
+
+- type: feat, fix, perf, docs, refactor, test, build, ci, chore, style or revert
+- scope: optional area name
+- packages: package name to bump level (patch, minor, major)
+- release: optional, defaults to true; false records only appear in the changelog
+
+Create records with qegg commit.
+'''

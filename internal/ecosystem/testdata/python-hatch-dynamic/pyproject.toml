@@ -1,0 +1,6 @@
+[project]
+name = "hatch-demo"
+dynamic = ["version"]
+
+[tool.hatch.version]
+path = "src/hatch_demo/__init__.py"

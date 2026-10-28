@@ -1,0 +1,4 @@
+[tool.poetry]
+name = "poetry-demo"
+version = "2.1.0"
+description = "fixture"
