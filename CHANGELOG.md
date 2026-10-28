@@ -3,7 +3,7 @@
 <!-- qegg:release 0.2.0 -->
 ## v0.2.0 - 2026-10-28
 
-### 新功能
+### Features
 
 - [`771a4ea`](https://github.com/SuperQuail/QuailEgg/commit/771a4ea1d651082fd3573ef3300631fd04679b33): Cross compile Go binaries for five platforms, package them with checksums and upload them to the GitHub Release.
 
