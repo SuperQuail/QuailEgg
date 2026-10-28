@@ -56,6 +56,9 @@ func printPlan(p *ui.Printer, plan *release.Plan) {
 		return
 	}
 	p.Info("%s", i18n.Tf("plan.tag", plan.Tag))
+	if plan.Assets != nil {
+		p.Info("%s", i18n.Tf("plan.assets_line", plan.Assets.Name, len(plan.Assets.Targets)))
+	}
 	for _, change := range plan.Changes {
 		p.Info("%s", i18n.Tf("plan.change_line", change.Type, change.Body))
 	}

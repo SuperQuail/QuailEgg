@@ -2,6 +2,19 @@ package github
 
 import "testing"
 
+func TestUploadArgs(t *testing.T) {
+	got := uploadArgs("v1.0.0", []string{"/tmp/demo.tar.gz", "/tmp/checksums.txt"})
+	want := []string{"release", "upload", "v1.0.0", "--clobber", "/tmp/demo.tar.gz", "/tmp/checksums.txt"}
+	if len(got) != len(want) {
+		t.Fatalf("uploadArgs = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("uploadArgs[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestParseRemote(t *testing.T) {
 	cases := []struct {
 		remote string

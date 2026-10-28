@@ -25,6 +25,9 @@ fail_fast = true
 [publish]
 registries = ["go"]
 
+[release.assets]
+enabled = true
+
 [packages."github.com/SuperQuail/QuailEgg"]
 path = "."
 resolver = "go"

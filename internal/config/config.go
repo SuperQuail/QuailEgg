@@ -8,6 +8,8 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 	"github.com/pelletier/go-toml/v2"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -68,6 +70,17 @@ type Release struct {
 	Branch        string `toml:"branch"`
 	GitHubRelease bool   `toml:"github_release"`
 	CommitMessage string `toml:"commit_message"`
+	Assets        Assets `toml:"assets"`
+}
+
+// Assets configures the binaries attached to a GitHub release. Only Go modules
+// are supported for now; an empty section keeps the automatic defaults.
+type Assets struct {
+	Enabled *bool    `toml:"enabled"`
+	Name    string   `toml:"name"`
+	Main    string   `toml:"main"`
+	Targets []string `toml:"targets"`
+	Ldflags []string `toml:"ldflags"`
 }
 
 // Changes configures the change record directory and hook scope.
@@ -191,6 +204,9 @@ func (c *Config) Validate() error {
 	if _, err := time.ParseDuration(c.Verify.Timeout); err != nil {
 		return fmt.Errorf("verify.timeout %q is not a valid duration", c.Verify.Timeout)
 	}
+	if err := c.Release.Assets.validate(); err != nil {
+		return err
+	}
 	for name, pkg := range c.Packages {
 		if strings.TrimSpace(pkg.Path) == "" {
 			return fmt.Errorf("packages.%s.path must not be empty", name)
@@ -231,6 +247,23 @@ func (c *Config) PackageNames() []string {
 	}
 	sortStrings(names)
 	return names
+}
+
+// validate checks the release asset settings that do not need the filesystem.
+func (a Assets) validate() error {
+	if strings.TrimSpace(a.Main) != "" {
+		clean := path.Clean(filepath.ToSlash(strings.TrimSpace(a.Main)))
+		if path.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../") {
+			return fmt.Errorf("release.assets.main %q must stay inside the repository", a.Main)
+		}
+	}
+	for _, target := range a.Targets {
+		parts := strings.Split(strings.TrimSpace(target), "/")
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+			return fmt.Errorf("release.assets.targets contains invalid target %q", target)
+		}
+	}
+	return nil
 }
 
 func sortStrings(s []string) {

@@ -6,6 +6,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/github"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
+	"github.com/SuperQuail/QuailEgg/internal/release/assets"
 	"github.com/SuperQuail/QuailEgg/internal/release/state"
 	"net/http"
 	"time"
@@ -28,6 +29,7 @@ type Options struct {
 	NoPush          bool
 	NoGitHubRelease bool
 	NoPublish       bool
+	NoAssets        bool
 }
 
 // Deps bundles everything the executor needs.
@@ -108,6 +110,7 @@ type Plan struct {
 	Warnings      []string      `json:"warnings"`
 	Tag           string        `json:"tag"`
 	PreviousTag   string        `json:"previous_tag,omitempty"`
+	Assets        *assets.Plan  `json:"assets,omitempty"`
 	Marker        *state.Marker `json:"-"`
 	Repo          github.Repo   `json:"-"`
 }

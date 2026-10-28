@@ -9,6 +9,7 @@
 # QuailEgg local state (release.json stays tracked)
 /.quailegg/state/
 /.quailegg/lock
+/.quailegg/assets/
 
 # Python
 *.egg-info/

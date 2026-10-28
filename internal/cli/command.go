@@ -64,8 +64,15 @@ func (r *Runtime) App() (*app.App, error) {
 
 var releaseVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
+// BuildVersionOverride is injected through -ldflags -X at build time. Release
+// binaries are built from source, so their module version is (devel).
+var BuildVersionOverride string
+
 // BuildVersion returns the module version of the running binary.
 func (r *Runtime) BuildVersion() string {
+	if version := strings.TrimSpace(BuildVersionOverride); version != "" {
+		return strings.TrimPrefix(version, "v")
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
 		return "devel"

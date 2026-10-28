@@ -49,6 +49,7 @@ type RunRecord struct {
 	Fingerprint   string                  `json:"fingerprint"`
 	Steps         map[string]StepState    `json:"steps"`
 	Publish       map[string]PackageState `json:"publish,omitempty"`
+	Assets        []string                `json:"assets,omitempty"`
 }
 
 // NewRunRecord creates a run record.
@@ -107,6 +108,7 @@ func RuntimePaths() []string {
 	return []string{
 		filepath.ToSlash(filepath.Join(metadataDirName, runsDirName)),
 		filepath.ToSlash(filepath.Join(metadataDirName, "lock")),
+		filepath.ToSlash(filepath.Join(metadataDirName, "assets")),
 	}
 }
 

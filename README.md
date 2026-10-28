@@ -9,6 +9,7 @@ QuailEgg 是一个自动发版工具。代码合并到主分支后，QuailEgg �
 - 根据模板汇总 `.changes/`，生成 `CHANGELOG.md`
 - 按 SemVer 规则计算版本号，发布方式可配置为「发布 PR」或「直接提交」
 - 自动识别项目类型，支持 npm、PyPI、crates.io 与 Go module（Go 的版本就是 git tag）
+- Go CLI 可配置在发布时交叉编译、打包并上传二进制归档与 checksums 到 GitHub Release
 - 发布步骤记录状态，失败后可从中断处恢复，不会重复发布
 - `qegg init` 同时生成 GitHub Actions 工作流，合并到主分支即自动发版
 
@@ -151,6 +152,27 @@ publish = true
 ```
 
 未填写的配置项使用自动检测结果或默认值。发布凭证通过环境变量或 CI Secrets 提供，不要写入配置文件。`qegg init` 生成的 release 工作流只注入项目实际使用的生态对应的凭证：npm 用 `NPM_TOKEN`（注入为 `NODE_AUTH_TOKEN`），Python 用 `UV_PUBLISH_TOKEN`，Rust 用 `CARGO_REGISTRY_TOKEN`。
+
+## 发布资产
+
+发布资产默认关闭。在 `.quailegg.toml` 里写 `[release.assets]`（任意字段或 `enabled = true`）后，Go CLI 会在发布时交叉编译并上传二进制，前提是仓库里 `cmd/` 下只有唯一的 main 包（或根目录本身就是 main 包）：
+
+- 默认目标：linux/amd64、linux/arm64、darwin/amd64、darwin/arm64、windows/amd64
+- 产物：`<name>_<version>_<os>_<arch>.tar.gz`（Windows 为 `.zip`）和 `checksums.txt`，写入 `.quailegg/assets/<tag>/`，不进版本库
+- 版本通过 `-ldflags -X main.version=<version>` 注入，程序里的 `var version` 会得到发布版本
+- `qegg release --no-assets` 跳过构建；`--no-github-release` 只构建不上传
+
+配置可覆盖默认值：
+
+```toml
+[release.assets]
+enabled = true
+targets = ["linux/amd64", "windows/amd64"]
+# name = "qegg"
+# main = "./cmd/qegg"
+# ldflags = ["-X main.version={{version}}"]
+# enabled = false
+```
 
 ## 项目规范
 

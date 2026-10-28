@@ -7,7 +7,7 @@
 | Node.js | `package.json` | npm | `version` 字段 | `npm publish` |
 | Python | `pyproject.toml` | PyPI | `[project].version`、`[tool.poetry].version`、hatch/setuptools 动态版本文件 | `uv publish` / `twine upload` |
 | Rust | `Cargo.toml` | crates.io | `[package].version` | `cargo publish` |
-| Go | `go.mod` | proxy.golang.org | 无（版本来自 git tag） | 无（push tag 即发布） |
+| Go | `go.mod` | proxy.golang.org | 无（版本来自 git tag） | 无（push tag 即发布），默认附带交叉编译的二进制资产 |
 
 ## 工作流里注入什么，由项目决定
 
@@ -62,6 +62,25 @@
 - v2 及以上的 tag 要求 module 路径带 `/vN` 后缀。qegg 在 `plan` 阶段直接报错并给出期望路径，不会自动改写 `go.mod` 与 import。
 - 发布步骤为空操作：push tag 之后 Go 模块代理会按需抓取。预检查询 proxy.golang.org 只反映“是否已被缓存”，私有模块或尚未被抓取的版本返回 404，属正常现象。
 - 首次发布没有历史 tag 时以 `0.0.0` 为基线：`feat` 记录得到 0.1.0，`patch` 记录得到 0.0.1。
+
+## 发布资产（Go）
+
+Go 适配器还负责发布资产：release 层新增 `internal/release/assets`，在 publish 之前交叉编译 main 包、打包并上传到 GitHub Release。发布资产默认关闭，需要在 `[release.assets]` 里写任意字段或 `enabled = true` 才会启用。
+
+- 默认目标：linux/amd64、linux/arm64、darwin/amd64、darwin/arm64、windows/amd64；`CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false`
+- 产物：`<name>_<version>_<os>_<arch>.tar.gz`（Windows 为 `.zip`）与 `checksums.txt`，输出到 `.quailegg/assets/<tag>/`，不进版本库
+- 版本默认通过 `-ldflags -X main.version={{version}}` 注入；占位符只支持 `{{version}}` 与 `{{tag}}`
+- 多个 main 包时自动模式告警并禁用，需要 `[release.assets].main` 指定；库项目不构建
+- `--no-assets` 跳过；GitHub Release 关闭时只构建不上传
+- 上传依赖 `gh`，`--clobber` 保证重跑幂等
+
+| 配置 | 默认 |
+| --- | --- |
+| `enabled` | 关闭（写配置项或 `enabled = true` 开启） |
+| `name` | main 包目录名 |
+| `main` | 自动探测 `cmd/*` 或根目录 |
+| `targets` | 上面的五个平台 |
+| `ldflags` | `-X main.version={{version}}` |
 
 ## 后续计划
 

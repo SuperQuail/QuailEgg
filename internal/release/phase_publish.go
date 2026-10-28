@@ -18,6 +18,9 @@ func (e *executor) runPublish(ctx context.Context) error {
 	if err := e.step(ctx, "preflight", e.preflightPublish); err != nil {
 		return err
 	}
+	if err := e.step(ctx, "assets", e.buildAssets); err != nil {
+		return err
+	}
 	if err := e.step(ctx, "publish", e.publishPackages); err != nil {
 		return err
 	}
@@ -127,10 +130,12 @@ func (e *executor) push(ctx context.Context) error {
 func (e *executor) githubRelease(ctx context.Context) error {
 	if !e.d.Cfg.Release.GitHubRelease {
 		e.skip("github-release", i18n.T("release.skip.github_disabled"))
+		e.warnAssetsNotUploaded()
 		return nil
 	}
 	if e.d.Options.NoGitHubRelease {
 		e.skip("github-release", i18n.T("release.skip.no_release"))
+		e.warnAssetsNotUploaded()
 		return nil
 	}
 	notes, ok := e.releaseNotes()
@@ -141,13 +146,26 @@ func (e *executor) githubRelease(ctx context.Context) error {
 	err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, e.plan.Tag, title, notes)
 	if errors.Is(err, github.ErrExists) {
 		e.d.UI.Info("%s", i18n.Tf("release.msg.release_exists", title))
+	} else if err != nil {
+		return err
+	} else {
+		e.d.UI.Success("%s", i18n.Tf("release.msg.release_created", title))
+	}
+	if len(e.run.Assets) == 0 {
 		return nil
 	}
-	if err != nil {
+	if err := github.UploadReleaseAssets(ctx, e.d.Run, e.plan.Tag, e.run.Assets); err != nil {
 		return err
 	}
-	e.d.UI.Success("%s", i18n.Tf("release.msg.release_created", title))
+	e.d.UI.Success("%s", i18n.Tf("release.msg.assets_uploaded", len(e.run.Assets), e.plan.Tag))
 	return nil
+}
+
+// warnAssetsNotUploaded surfaces built assets that never reached a release.
+func (e *executor) warnAssetsNotUploaded() {
+	if len(e.run.Assets) > 0 {
+		e.d.UI.Warn("%s", i18n.T("release.warn.assets_not_uploaded"))
+	}
 }
 
 func (e *executor) releaseNotes() (string, bool) {

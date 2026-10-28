@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 )
 
@@ -203,6 +204,24 @@ func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes stri
 		return ErrExists
 	}
 	return fmt.Errorf("github release failed: %s: %s", resp.Status, strings.TrimSpace(string(responseBody)))
+}
+
+// UploadReleaseAssets attaches files to an existing GitHub release. It is
+// idempotent: existing assets with the same names are replaced.
+func UploadReleaseAssets(ctx context.Context, run execx.Runner, tag string, files []string) error {
+	if len(files) == 0 {
+		return nil
+	}
+	if !execx.LookPath("gh") {
+		return errors.New(i18n.T("release.err.assets_gh"))
+	}
+	_, err := run.Run(ctx, "", "gh", uploadArgs(tag, files)...)
+	return err
+}
+
+func uploadArgs(tag string, files []string) []string {
+	args := []string{"release", "upload", tag, "--clobber"}
+	return append(args, files...)
 }
 
 // EnsurePR creates or updates a pull request from head into base.

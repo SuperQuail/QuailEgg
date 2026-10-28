@@ -6,6 +6,10 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/cli"
 )
 
+// version is set through -ldflags -X by the release build.
+var version = ""
+
 func main() {
+	cli.BuildVersionOverride = version
 	os.Exit(cli.Execute(os.Args[1:]))
 }

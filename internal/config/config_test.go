@@ -68,17 +68,31 @@ func TestPackagePublishable(t *testing.T) {
 	}
 }
 
-func TestGoResolverAndRegistry(t *testing.T) {
-	path := writeConfig(t, "schema_version = 1\n[packages.main]\npath = \".\"\nresolver = \"go\"\n\n[publish]\nregistries = [\"go\"]\n")
+func TestReleaseAssetsConfig(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n[release.assets]\ntargets = [\"linux/amd64\", \"windows/amd64\"]\nldflags = [\"-X main.version={{version}}\"]\n")
 	cfg, err := LoadFile(path)
 	if err != nil {
 		t.Fatalf("LoadFile: %v", err)
 	}
-	if pkg, ok := cfg.Packages["main"]; !ok || pkg.Resolver != ResolverGo {
-		t.Fatalf("unexpected packages: %+v", cfg.Packages)
+	if len(cfg.Release.Assets.Targets) != 2 || cfg.Release.Assets.Targets[1] != "windows/amd64" {
+		t.Fatalf("unexpected targets: %v", cfg.Release.Assets.Targets)
 	}
-	if len(cfg.Publish.Registries) != 1 || cfg.Publish.Registries[0] != ResolverGo {
-		t.Fatalf("unexpected registries: %v", cfg.Publish.Registries)
+	if len(cfg.Release.Assets.Ldflags) != 1 {
+		t.Fatalf("unexpected ldflags: %v", cfg.Release.Assets.Ldflags)
+	}
+}
+
+func TestReleaseAssetsRejectBadTarget(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n[release.assets]\ntargets = [\"linux\"]\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a malformed asset target")
+	}
+}
+
+func TestReleaseAssetsMainCannotEscape(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n[release.assets]\nmain = \"../outside\"\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a main package outside the repository")
 	}
 }
 
