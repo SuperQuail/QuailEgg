@@ -1,5 +1,22 @@
 # Changelog
 
+<!-- qegg:release 0.4.0 -->
+## v0.4.0 - 2026-10-29
+
+### Features
+
+- [`b2176b9`](https://github.com/SuperQuail/QuailEgg/commit/b2176b9a12879e18c2897976fe312b579e3ed293): Keep qegg runtime state out of version control when scaffolding a repository.
+- [`ed5b4a1`](https://github.com/SuperQuail/QuailEgg/commit/ed5b4a1b81d7c478898afa92374ce53bef93ed48): Run the release workflow only when release paths change.
+
+### Bug Fixes
+
+- [`7625841`](https://github.com/SuperQuail/QuailEgg/commit/7625841f31cf1312e23bfdac36f1d0f3a347f30d): Skip the pull request check on the generated release branch.
+- [`82f5858`](https://github.com/SuperQuail/QuailEgg/commit/82f58586980f4247dcce4832734d1fe33ed0a667): Link each changelog entry to the pull request that introduced it.
+- [`b1959cd`](https://github.com/SuperQuail/QuailEgg/commit/b1959cd8d71121320d6104b58e89ec9fd8526a56): Report the real slug word limit when a change record name is rejected.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.3.0...v0.4.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.3.0 -->
 ## v0.3.0 - 2026-10-29
 

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.3.0",
-  "created_at": "2026-10-29T04:22:49.341503499Z",
+  "version": "0.4.0",
+  "created_at": "2026-10-29T06:21:05.3532551Z",
   "mode": "commit",
-  "fingerprint": "sha256:2e05ad2e6808fe99a88856dc8e88f625cab03e2b81c5a528b992eb2843060eda",
+  "fingerprint": "sha256:bc5ef7977c8584161d149a4bc8c15195e679adc481057ac4234164e514fe3f63",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,46 +15,69 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-29T04:22:49.341504561Z"
+    "at": "2026-10-29T06:21:05.35325571Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.2.0",
-      "next": "0.3.0",
+      "current": "0.3.0",
+      "next": "0.4.0",
       "bump": "minor",
       "publish": true
     }
   ],
   "changes": [
     {
-      "file": ".changes/changelog-pull-links.md",
+      "file": ".changes/gitignore-state.md",
       "type": "feat",
-      "scope": "changelog",
+      "scope": "scaffold",
       "bump": "minor",
-      "body": "Link each changelog entry to the pull request that introduced it.",
-      "commit": "cd080d583a8139210e91c0a7465732c34175eb2f",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/cd080d583a8139210e91c0a7465732c34175eb2f"
+      "body": "Keep qegg runtime state out of version control when scaffolding a repository.",
+      "commit": "b2176b9a12879e18c2897976fe312b579e3ed293",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/b2176b9a12879e18c2897976fe312b579e3ed293",
+      "author": "wsrsq"
     },
     {
-      "file": ".changes/hook-env.md",
+      "file": ".changes/pr-check-release.md",
       "type": "fix",
-      "scope": "app",
+      "scope": "scaffold",
       "bump": "patch",
-      "body": "Clear inherited git hook variables before verification and in git tests, so nested commands cannot touch the repository running the hook.",
-      "commit": "7ddf284c5a6b7b0e024e296057648f326e450721",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/7ddf284c5a6b7b0e024e296057648f326e450721"
+      "body": "Skip the pull request check on the generated release branch.",
+      "commit": "7625841f31cf1312e23bfdac36f1d0f3a347f30d",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/7625841f31cf1312e23bfdac36f1d0f3a347f30d",
+      "author": "wsrsq"
     },
     {
-      "file": ".changes/release-pr-refresh.md",
-      "type": "feat",
+      "file": ".changes/pull-number-link.md",
+      "type": "fix",
       "scope": "release",
+      "bump": "patch",
+      "body": "Link each changelog entry to the pull request that introduced it.",
+      "commit": "82f58586980f4247dcce4832734d1fe33ed0a667",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/82f58586980f4247dcce4832734d1fe33ed0a667",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/release-paths.md",
+      "type": "feat",
+      "scope": "scaffold",
       "bump": "minor",
-      "body": "Rebuild the release pull request on every push so merged changes share one version.",
-      "commit": "c9511034d816fbee738ddbabc905e4bb59eb8b0c",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/c9511034d816fbee738ddbabc905e4bb59eb8b0c"
+      "body": "Run the release workflow only when release paths change.",
+      "commit": "ed5b4a1b81d7c478898afa92374ce53bef93ed48",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/ed5b4a1b81d7c478898afa92374ce53bef93ed48",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/slug-message.md",
+      "type": "fix",
+      "scope": "changes",
+      "bump": "patch",
+      "body": "Report the real slug word limit when a change record name is rejected.",
+      "commit": "b1959cd8d71121320d6104b58e89ec9fd8526a56",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/b1959cd8d71121320d6104b58e89ec9fd8526a56",
+      "author": "wsrsq"
     }
   ]
 }
