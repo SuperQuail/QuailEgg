@@ -71,6 +71,9 @@ A Go file stays under 1000 lines. User-visible strings live only in
 4. The pre-commit hook does two things: it rejects a commit that touches
    `[changes].scope` without a valid record, then runs `[verify].commands`
    (`go test ./...`, 15 minute timeout). Let it run; do not bypass it.
+   The record rule only applies on the project clone's default branch: the
+   hook compares the `origin` remote with `[project] repo` from the config, so
+   feature branches and fork clones are left to the pull request check.
 5. Open a PR. CI runs `qegg check --ci` on it and posts the plan as a comment.
 
 A record is required for changes under the directories in `[changes].scope` of
@@ -96,7 +99,8 @@ follow the commit rules below.
 - The body is copied verbatim into `CHANGELOG.md`. It is release-note prose, not
   a commit subject.
 - `.changes/README.md` and `.quailegg.toml` are generated: `qegg init --force`
-  owns them, do not edit by hand. The same command appends a managed block to
+  owns them, do not edit by hand. The config records the project repository as
+  `[project] repo`, which is how the hook tells a fork clone apart. The same command appends a managed block to
   `.gitignore` that keeps `.quailegg/state/`, `.quailegg/lock` and
   `.quailegg/assets/` out of git; leave that block in place.
 - The release commit deletes consumed records. Never delete a record yourself.

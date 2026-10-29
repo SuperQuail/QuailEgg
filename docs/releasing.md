@@ -38,6 +38,10 @@ qegg commit -m "feat: add Go module support" \
   --packages "github.com/SuperQuail/QuailEgg:minor"
 ```
 
+`qegg init` 要求仓库已经配置好远程（默认 `origin`）：仓库身份会写进 `[project] repo`，本地钩子靠它区分“项目仓库”和“fork 克隆”。没有远程时 init 直接失败，并提示 `git remote add`。
+
+钩子的变更记录规则只在**项目仓库的默认分支**上生效：fork 克隆、普通分支上的提交都不会被拦，合并前的 PR 检查会要求一条记录。
+
 如果 `qegg` 不在 PATH，hook 会拒绝提交：先 `qegg commit --no-commit` 写记录，再 `git commit --no-verify`。
 
 ## 阶段 C：第一个真实版本
