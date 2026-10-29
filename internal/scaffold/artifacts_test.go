@@ -121,6 +121,7 @@ func TestArtifactMatrix(t *testing.T) {
 						if gate.workflows && gate.status {
 							want = append(want, statusWorkflowPlanPath)
 						}
+						want = append(want, gitignoreName)
 						if len(plan.Files) != len(want) {
 							t.Fatalf("plan has %d files, want %d", len(plan.Files), len(want))
 						}

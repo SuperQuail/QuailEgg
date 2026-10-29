@@ -68,6 +68,7 @@ func ManagedPaths(changesDir string) []string {
 	for _, item := range artifacts {
 		paths = append(paths, filepath.ToSlash(item.Dest))
 	}
+	paths = append(paths, gitignoreName)
 	return paths
 }
 

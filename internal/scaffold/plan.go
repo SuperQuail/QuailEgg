@@ -136,6 +136,12 @@ func Build(opts Options) (*Plan, error) {
 		}
 	}
 
+	gitignore, err := planGitignore(opts)
+	if err != nil {
+		return nil, err
+	}
+	plan.Files = append(plan.Files, gitignore)
+
 	if opts.Existing == nil {
 		plan.Warnings = append(plan.Warnings, i18n.T("init.warn_new_config"))
 	}
