@@ -31,6 +31,7 @@ func newRepo(t *testing.T) string {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+	execx.SanitizeGitHookEnv()
 	dir := t.TempDir()
 	gitRun(t, dir, "init", "-q")
 	gitRun(t, dir, "config", "user.email", "release@example.com")

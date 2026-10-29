@@ -8,6 +8,7 @@ import (
 
 	"github.com/SuperQuail/QuailEgg/internal/changes"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
+	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/scaffold"
 	"github.com/SuperQuail/QuailEgg/internal/verify"
 )
@@ -29,6 +30,7 @@ func (a *App) HookPreCommit(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	execx.SanitizeGitHookEnv()
 	return a.verifyBeforeCommit(ctx)
 }
 

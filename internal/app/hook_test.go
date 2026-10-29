@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
+	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
 )
 
@@ -29,6 +30,7 @@ func hookRepo(t *testing.T, verifyCommand string) string {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+	execx.SanitizeGitHookEnv()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
@@ -74,5 +76,17 @@ func TestHookPreCommitPassesWithPassingVerification(t *testing.T) {
 	}
 	if err := a.HookPreCommit(context.Background()); err != nil {
 		t.Fatalf("HookPreCommit: %v", err)
+	}
+}
+
+func TestSanitizeHookEnv(t *testing.T) {
+	for _, name := range execx.GitHookEnvVars() {
+		t.Setenv(name, "leaked")
+	}
+	execx.SanitizeGitHookEnv()
+	for _, name := range execx.GitHookEnvVars() {
+		if value := os.Getenv(name); value != "" {
+			t.Fatalf("%s was not cleared: %q", name, value)
+		}
 	}
 }

@@ -8,7 +8,13 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 )
+
+// sanitizeGitEnv keeps repositories created by tests isolated from a git hook
+// that is running the suite.
+func sanitizeGitEnv() { execx.SanitizeGitHookEnv() }
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
@@ -63,6 +69,7 @@ func newRepo(t *testing.T) string {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+	sanitizeGitEnv()
 	dir := t.TempDir()
 	git(t, dir, "init", "-q")
 	git(t, dir, "config", "user.email", "e2e@example.com")

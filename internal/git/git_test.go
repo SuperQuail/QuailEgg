@@ -20,6 +20,7 @@ func requireGit(t *testing.T) {
 
 func initRepo(t *testing.T) string {
 	t.Helper()
+	execx.SanitizeGitHookEnv()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		cmd := exec.Command("git", args...)
