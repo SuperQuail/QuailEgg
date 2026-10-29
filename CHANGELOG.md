@@ -1,5 +1,27 @@
 # Changelog
 
+<!-- qegg:release 0.5.0 -->
+## v0.5.0 - 2026-10-29
+
+### Features
+
+- [`5dde5c8`](https://github.com/SuperQuail/QuailEgg/commit/5dde5c868bc2074e777a738dafc9fc327c1f0eb9): Require a configured remote before scaffolding a repository.
+- [`67a7582`](https://github.com/SuperQuail/QuailEgg/commit/67a7582ddaf06c1111d25bea13ec4e977799dc04): Switch prerelease channels with qegg pre alpha, beta, rc or exit.
+- [`2e153c7`](https://github.com/SuperQuail/QuailEgg/commit/2e153c7f208d3f9d0bd95e7e4d4f51ea87fe53df): Record the prerelease channel in a committed lock file.
+- [`0ede957`](https://github.com/SuperQuail/QuailEgg/commit/0ede957ce7a1d9bd007ce23d721a68db27a83346): Trigger releases when the prerelease lock changes.
+- [`6d8ffd5`](https://github.com/SuperQuail/QuailEgg/commit/6d8ffd5ddbd6c20a4c295d63f979ed44c12e0dc1): Plan prerelease versions from the committed channel lock.
+- [`9bc39c5`](https://github.com/SuperQuail/QuailEgg/commit/9bc39c58ded2c9daef56464ad86715a7c25f210f): Publish prerelease versions without replacing the latest release.
+- [`f94a4da`](https://github.com/SuperQuail/QuailEgg/commit/f94a4da82cbf8fcb58458ab73d84b898537a0d01): Number prerelease versions in the alpha, beta and rc channels.
+- [`14fdac5`](https://github.com/SuperQuail/QuailEgg/commit/14fdac50591802ae5576826458b7ef07d348374b): Record the project repository in the configuration.
+
+### Bug Fixes
+
+- [`6ba4d31`](https://github.com/SuperQuail/QuailEgg/commit/6ba4d31848a896a5dd65bb658bc0a42c9ce1b4a6): Skip the change record rule outside the project repository.
+- [`184817b`](https://github.com/SuperQuail/QuailEgg/commit/184817bdb91619ef83c518962b22178c5be4048d): Ignore unknown fields so older binaries keep reading newer qegg files.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.4.0...v0.5.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.4.0 -->
 ## v0.4.0 - 2026-10-29
 

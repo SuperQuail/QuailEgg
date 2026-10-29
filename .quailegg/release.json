@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.4.0",
-  "created_at": "2026-10-29T06:21:05.3532551Z",
+  "version": "0.5.0",
+  "created_at": "2026-10-29T11:12:05.809075824Z",
   "mode": "commit",
-  "fingerprint": "sha256:bc5ef7977c8584161d149a4bc8c15195e679adc481057ac4234164e514fe3f63",
+  "fingerprint": "sha256:a2b3fe6a0328f9ed6d3ae05b0bd677856c6ccf5f68d907788db6196be237e92d",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,68 +15,118 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-29T06:21:05.35325571Z"
+    "at": "2026-10-29T11:12:05.809076505Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.3.0",
-      "next": "0.4.0",
+      "current": "0.4.0",
+      "next": "0.5.0",
       "bump": "minor",
       "publish": true
     }
   ],
   "changes": [
     {
-      "file": ".changes/gitignore-state.md",
-      "type": "feat",
-      "scope": "scaffold",
-      "bump": "minor",
-      "body": "Keep qegg runtime state out of version control when scaffolding a repository.",
-      "commit": "b2176b9a12879e18c2897976fe312b579e3ed293",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/b2176b9a12879e18c2897976fe312b579e3ed293",
-      "author": "wsrsq"
-    },
-    {
-      "file": ".changes/pr-check-release.md",
+      "file": ".changes/hook-clone-rule.md",
       "type": "fix",
-      "scope": "scaffold",
+      "scope": "app",
       "bump": "patch",
-      "body": "Skip the pull request check on the generated release branch.",
-      "commit": "7625841f31cf1312e23bfdac36f1d0f3a347f30d",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/7625841f31cf1312e23bfdac36f1d0f3a347f30d",
+      "body": "Skip the change record rule outside the project repository.",
+      "commit": "6ba4d31848a896a5dd65bb658bc0a42c9ce1b4a6",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/6ba4d31848a896a5dd65bb658bc0a42c9ce1b4a6",
       "author": "wsrsq"
     },
     {
-      "file": ".changes/pull-number-link.md",
-      "type": "fix",
+      "file": ".changes/init-remote.md",
+      "type": "feat",
+      "scope": "app",
+      "bump": "minor",
+      "body": "Require a configured remote before scaffolding a repository.",
+      "commit": "5dde5c868bc2074e777a738dafc9fc327c1f0eb9",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/5dde5c868bc2074e777a738dafc9fc327c1f0eb9",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/pre-command.md",
+      "type": "feat",
+      "scope": "cli",
+      "bump": "minor",
+      "body": "Switch prerelease channels with qegg pre alpha, beta, rc or exit.",
+      "commit": "67a7582ddaf06c1111d25bea13ec4e977799dc04",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/67a7582ddaf06c1111d25bea13ec4e977799dc04",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/pre-lock.md",
+      "type": "feat",
       "scope": "release",
-      "bump": "patch",
-      "body": "Link each changelog entry to the pull request that introduced it.",
-      "commit": "82f58586980f4247dcce4832734d1fe33ed0a667",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/82f58586980f4247dcce4832734d1fe33ed0a667",
+      "bump": "minor",
+      "body": "Record the prerelease channel in a committed lock file.",
+      "commit": "2e153c7f208d3f9d0bd95e7e4d4f51ea87fe53df",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/2e153c7f208d3f9d0bd95e7e4d4f51ea87fe53df",
       "author": "wsrsq"
     },
     {
-      "file": ".changes/release-paths.md",
+      "file": ".changes/pre-paths.md",
       "type": "feat",
       "scope": "scaffold",
       "bump": "minor",
-      "body": "Run the release workflow only when release paths change.",
-      "commit": "ed5b4a1b81d7c478898afa92374ce53bef93ed48",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/ed5b4a1b81d7c478898afa92374ce53bef93ed48",
+      "body": "Trigger releases when the prerelease lock changes.",
+      "commit": "0ede957ce7a1d9bd007ce23d721a68db27a83346",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/0ede957ce7a1d9bd007ce23d721a68db27a83346",
       "author": "wsrsq"
     },
     {
-      "file": ".changes/slug-message.md",
+      "file": ".changes/pre-plan.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "body": "Plan prerelease versions from the committed channel lock.",
+      "commit": "6d8ffd5ddbd6c20a4c295d63f979ed44c12e0dc1",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/6d8ffd5ddbd6c20a4c295d63f979ed44c12e0dc1",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/pre-publish.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "body": "Publish prerelease versions without replacing the latest release.",
+      "commit": "9bc39c58ded2c9daef56464ad86715a7c25f210f",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/9bc39c58ded2c9daef56464ad86715a7c25f210f",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/pre-semver.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "body": "Number prerelease versions in the alpha, beta and rc channels.",
+      "commit": "f94a4da82cbf8fcb58458ab73d84b898537a0d01",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/f94a4da82cbf8fcb58458ab73d84b898537a0d01",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/project-repo.md",
+      "type": "feat",
+      "scope": "config",
+      "bump": "minor",
+      "body": "Record the project repository in the configuration.",
+      "commit": "14fdac50591802ae5576826458b7ef07d348374b",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/14fdac50591802ae5576826458b7ef07d348374b",
+      "author": "wsrsq"
+    },
+    {
+      "file": ".changes/unknown-fields.md",
       "type": "fix",
-      "scope": "changes",
+      "scope": "config",
       "bump": "patch",
-      "body": "Report the real slug word limit when a change record name is rejected.",
-      "commit": "b1959cd8d71121320d6104b58e89ec9fd8526a56",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/b1959cd8d71121320d6104b58e89ec9fd8526a56",
+      "body": "Ignore unknown fields so older binaries keep reading newer qegg files.",
+      "commit": "184817bdb91619ef83c518962b22178c5be4048d",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/184817bdb91619ef83c518962b22178c5be4048d",
       "author": "wsrsq"
     }
   ]
