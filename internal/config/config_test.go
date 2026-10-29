@@ -110,3 +110,14 @@ func TestValidateRejectsReleaseBranchEqualToDefault(t *testing.T) {
 		t.Fatal("expected a validation error")
 	}
 }
+
+func TestProjectRepoValidation(t *testing.T) {
+	good := writeConfig(t, "schema_version = 1\n[project]\ndefault_branch = \"main\"\nrepo = \"github.com/SuperQuail/QuailEgg\"\n")
+	if _, err := LoadFile(good); err != nil {
+		t.Fatalf("a canonical repo identity must load: %v", err)
+	}
+	bad := writeConfig(t, "schema_version = 1\n[project]\nrepo = \"not-a-repo\"\n")
+	if _, err := LoadFile(bad); err == nil {
+		t.Fatal("expected an error for a repo without host/owner/name")
+	}
+}

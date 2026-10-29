@@ -30,6 +30,18 @@ type Repo struct {
 // Valid reports whether the repository is complete.
 func (r Repo) Valid() bool { return r.Owner != "" && r.Name != "" }
 
+// ID returns the canonical host/owner/name identity of the repository.
+func (r Repo) ID() string {
+	if !r.Valid() {
+		return ""
+	}
+	host := r.Host
+	if host == "" {
+		host = "github.com"
+	}
+	return host + "/" + r.Owner + "/" + r.Name
+}
+
 // URL returns the repository web URL.
 func (r Repo) URL() string {
 	if !r.Valid() {

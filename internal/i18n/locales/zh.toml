@@ -64,6 +64,9 @@
 "error.no_packages" = "没有检测到任何包；支持的清单：%s。请先在仓库根目录创建其一，再运行 qegg init"
 "error.unsupported_resolver" = "不支持的生态：%s"
 "error.qegg_version" = "无效的 qegg 版本 %q（应为 latest 或 vX.Y.Z）"
+"init.err.no_remote" = "未配置远程仓库 %q；请先执行 git remote add %s <url>"
+"init.warn.repo_unknown" = "无法从 %s 远程解析仓库身份，fork 识别将保持关闭"
+"init.warn.repo_differs" = "%s 远程指向 %s，而项目仓库是 %s；变更记录规则只在项目仓库中生效"
 
 # --- init -------------------------------------------------------------------
 "init.write" = "[写入] %s"
@@ -91,6 +94,8 @@
 "check.fix.missing_record" = "运行 qegg commit 生成 .changes 记录"
 "hook.missing_record" = "%s 下没有暂存的变更记录；请用 qegg commit 创建"
 "hook.verify_failed" = "提交前校验失败：%s。请修复，或使用 git commit --no-verify 跳过"
+"hook.branch_skip" = "非默认分支的提交不需要变更记录；合并前的 PR 检查会要求一条"
+"hook.fork_skip" = "当前克隆指向 %s，而不是项目仓库 %s；此处跳过变更记录规则"
 
 # --- plan -------------------------------------------------------------------
 "plan.phase_version" = "阶段: 提升版本 v%s → v%s（%s）"

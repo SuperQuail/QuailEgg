@@ -15,6 +15,7 @@ import (
 type Options struct {
 	Root            string
 	BaseBranch      string
+	Repo            string
 	ReleaseBranch   string
 	Mode            string
 	TagPrefix       string
@@ -93,7 +94,7 @@ func Build(opts Options) (*Plan, error) {
 	action := ActionCreate
 	reason := "new configuration"
 	if len(opts.ExistingContent) > 0 {
-		merged := MergePackages(opts.ExistingContent, opts, packages)
+		merged := MergeProjectRepo(MergePackages(opts.ExistingContent, opts, packages), opts.Repo)
 		configContent = merged
 		if bytes.Equal(opts.ExistingContent, merged) {
 			action = ActionSkip

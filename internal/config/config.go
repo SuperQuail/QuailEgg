@@ -56,6 +56,9 @@ type Config struct {
 // Project holds project level settings.
 type Project struct {
 	DefaultBranch string `toml:"default_branch"`
+	// Repo is the canonical host/owner/name identity of the project repository.
+	// It is written by qegg init and lets the hook tell a fork clone apart.
+	Repo string `toml:"repo,omitempty"`
 }
 
 // Git holds git integration settings.
@@ -203,6 +206,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Release.Mode == ModePR && c.Release.Branch == c.Project.DefaultBranch {
 		return fmt.Errorf("release.branch must differ from project.default_branch %q in pr mode", c.Project.DefaultBranch)
+	}
+	if c.Project.Repo != "" && strings.Count(c.Project.Repo, "/") < 2 {
+		return fmt.Errorf("project.repo %q must look like host/owner/name", c.Project.Repo)
 	}
 	if _, err := time.ParseDuration(c.Verify.Timeout); err != nil {
 		return fmt.Errorf("verify.timeout %q is not a valid duration", c.Verify.Timeout)

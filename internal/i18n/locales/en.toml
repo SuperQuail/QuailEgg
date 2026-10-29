@@ -64,6 +64,9 @@
 "error.no_packages" = "no package detected; supported manifests: %s. Create one in the repository root and run qegg init"
 "error.unsupported_resolver" = "unsupported ecosystem: %s"
 "error.qegg_version" = "invalid qegg version %q (want latest or vX.Y.Z)"
+"init.err.no_remote" = "no git remote %q is configured; add one first: git remote add %s <url>"
+"init.warn.repo_unknown" = "cannot derive a repository identity from the %s remote; fork detection stays off"
+"init.warn.repo_differs" = "the %s remote points at %s, but the project repository is %s; the change record rule only applies in the project repository"
 
 # --- init -------------------------------------------------------------------
 "init.write" = "[write] %s"
@@ -91,6 +94,8 @@
 "check.fix.missing_record" = "run qegg commit to create a .changes record"
 "hook.missing_record" = "no change record staged under %s; create one with qegg commit"
 "hook.verify_failed" = "pre-commit verification failed: %s. Fix it, or skip the hook with git commit --no-verify"
+"hook.branch_skip" = "commits outside the default branch do not need a change record; the pull request check enforces one before merge"
+"hook.fork_skip" = "this clone points at %s, not the project repository %s; the change record rule is skipped here"
 
 # --- plan -------------------------------------------------------------------
 "plan.phase_version" = "phase: bump v%s -> v%s (%s)"
