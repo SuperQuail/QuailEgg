@@ -268,3 +268,20 @@ func TestSyncReleaseBranch(t *testing.T) {
 		t.Fatalf("deleted branch must stay deleted, got %q", remote)
 	}
 }
+
+func TestPullRequestNumber(t *testing.T) {
+	tests := []struct {
+		subject string
+		want    int
+	}{
+		{subject: "feat(cmd): greet twice (#2)", want: 2},
+		{subject: "fix: keep the marker (#12)", want: 12},
+		{subject: "feat: add greeting", want: 0},
+		{subject: "docs: mention (parentheses) only", want: 0},
+	}
+	for _, tc := range tests {
+		if got := pullRequestNumber(tc.subject); got != tc.want {
+			t.Errorf("pullRequestNumber(%q) = %d, want %d", tc.subject, got, tc.want)
+		}
+	}
+}

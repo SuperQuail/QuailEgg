@@ -281,7 +281,7 @@ func packageWarnings(registered map[string]config.Package, detected []ecosystem.
 	return warnings
 }
 
-var pullRequestNumberRE = regexp.MustCompile(`\\(#(\\d+)\\)`)
+var pullRequestNumberRE = regexp.MustCompile(`\(#(\d+)\)`)
 
 // pullRequestNumber extracts the pull request number a squash commit carries.
 func pullRequestNumber(message string) int {
