@@ -5,9 +5,8 @@ qegg 自己用 qegg 发布。这个仓库的版本号来自 git tag（Go 生态�
 ## 版本号规则
 
 - Go module 没有版本字段，版本就是 **可达 HEAD 的最高 `v*` tag**；没有 tag 时视为 `0.0.0`，因此首个 `feat` 记录得到 `v0.1.0`，首个 `patch` 记录得到 `v0.0.1`。
-- 生成的 workflow 固定安装"生成它的 qegg 版本"（`go install ...@vX.Y.Z`）。发布流程只依赖这个已发布版本，**不会、也不能引用正在发布的版本**，所以不存在版本号自指或循环。
-- pin 落后是安全的（只是工具链滞后）；升级 pin 是一次普通改动：用新版本执行 `qegg init --force --qegg-version vX.Y.Z`，随 changelog 一起发布。
-- 还没有任何 tag 时，`qegg init` 只能写 `@latest`，并打印警告。这是唯一的引导期例外。
+- 生成的 workflow 安装 `@latest`（`go install ...@latest`），每次 CI 都用最新的已发布版本。发布流程只依赖已发布版本，**不会、也不能引用正在发布的版本**，所以不存在版本号自指或循环。
+- `@latest` 表示不可复现：新版本发布后 CI 自动用上它，新版本有缺陷时 CI 也会跟着坏；需要固定时执行 `qegg init --force --qegg-version vX.Y.Z`，把三个 workflow 的 pin 写死。
 
 ## 阶段 A：本地全流程演练（无远端）
 
@@ -51,17 +50,17 @@ go install github.com/SuperQuail/QuailEgg/cmd/qegg@v0.1.0
 
 第一次本地发布前不要先单独 push 主分支：如果 workflow 已存在，它可能抢先发版。发布命令把分支和 tag 一起推送，workflow 看到 marker 与 tag 后会空跑。
 
-## 阶段 D：固定版本并切换到 PR 模式
+## 阶段 D：切换到 PR 模式
 
 ```bash
-qegg init --no-input --force --mode pr --registries go --qegg-version v0.1.0
+qegg init --no-input --force --mode pr --registries go
 git add -A
-qegg commit -m "ci: pin qegg v0.1.0 and switch to release PRs" \
+qegg commit -m "ci: switch releases to pull requests" \
   --packages "github.com/SuperQuail/QuailEgg:patch"
 git push origin main
 ```
 
-CI 用 v0.1.0 生成发布 PR；合并后由 publish 阶段打 tag、推送并创建 Release。
+CI 用最新的已发布 qegg 创建发布 PR；合并后由 publish 阶段打 tag、推送并创建 Release。
 
 ## 常见失败
 
@@ -84,4 +83,4 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 - release PR 用 squash 合并，标题固定为 `chore(release): bump versions`。
 - 建议主分支开启 Require branches to be up to date before merging，避免过期的 release PR 被合入。
 - GITHUB_TOKEN 创建的 release PR 不会触发 qegg-pr 工作流，不要给它配置必需检查。
-- 升级 workflow 里固定的 qegg 版本要等新版本发布后再做，否则 CI 仍在用旧版本。
+- workflow 安装 `@latest`，新版本发布后 CI 自动升级；要固定版本时用 `qegg init --force --qegg-version vX.Y.Z`。
