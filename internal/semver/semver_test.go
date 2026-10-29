@@ -51,3 +51,67 @@ func TestTag(t *testing.T) {
 		t.Errorf("Tag(v, 1.2.3) = %q", got)
 	}
 }
+
+func TestSplitPrerelease(t *testing.T) {
+	tests := []struct {
+		version string
+		base    string
+		channel string
+		counter int
+		ok      bool
+	}{
+		{version: "0.5.0-alpha.2", base: "0.5.0", channel: "alpha", counter: 2, ok: true},
+		{version: "1.0.0-beta.11", base: "1.0.0", channel: "beta", counter: 11, ok: true},
+		{version: "2.0.0-rc.1", base: "2.0.0", channel: "rc", counter: 1, ok: true},
+		{version: "0.5.0", ok: false},
+		{version: "0.5.0-alpha", ok: false},
+		{version: "0.5.0-alpha.0", ok: false},
+		{version: "0.5.0-next.1", ok: false},
+		{version: "not-a-version", ok: false},
+	}
+	for _, tc := range tests {
+		base, channel, counter, ok := SplitPrerelease(tc.version)
+		if ok != tc.ok {
+			t.Errorf("SplitPrerelease(%q) ok = %v, want %v", tc.version, ok, tc.ok)
+			continue
+		}
+		if !ok {
+			continue
+		}
+		if base != tc.base || channel != tc.channel || counter != tc.counter {
+			t.Errorf("SplitPrerelease(%q) = (%q, %q, %d), want (%q, %q, %d)",
+				tc.version, base, channel, counter, tc.base, tc.channel, tc.counter)
+		}
+	}
+}
+
+func TestPrerelease(t *testing.T) {
+	got, err := Prerelease("0.5.0", "alpha", 3)
+	if err != nil {
+		t.Fatalf("Prerelease: %v", err)
+	}
+	if want := "0.5.0-alpha.3"; got != want {
+		t.Errorf("Prerelease = %q, want %q", got, want)
+	}
+	if _, err := Prerelease("0.5.0", "nightly", 1); err == nil {
+		t.Error("expected an error for an unknown channel")
+	}
+	if _, err := Prerelease("0.5.0", "alpha", 0); err == nil {
+		t.Error("expected an error for a zero counter")
+	}
+	if _, err := Prerelease("0.5.0-beta.1", "alpha", 1); err == nil {
+		t.Error("expected an error for a prerelease base")
+	}
+}
+
+func TestStableAndIsPrerelease(t *testing.T) {
+	if got, had := Stable("1.2.3"); had || got != "1.2.3" {
+		t.Errorf("Stable(1.2.3) = (%q, %v)", got, had)
+	}
+	if got, had := Stable("1.2.3-rc.4"); !had || got != "1.2.3" {
+		t.Errorf("Stable(1.2.3-rc.4) = (%q, %v), want (1.2.3, true)", got, had)
+	}
+	if !IsPrerelease("1.2.3-rc.4") || IsPrerelease("1.2.3") {
+		t.Error("IsPrerelease misclassified a version")
+	}
+}
