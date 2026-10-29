@@ -34,6 +34,22 @@ func MatchesScope(file string, scope []string) bool {
 	return false
 }
 
+// TouchesScope reports whether any of files is covered by the record rule.
+// Managed files and the change record directory itself never count.
+func TouchesScope(files []string, dir string, scope []string, ignore []string) bool {
+	recordsDir := path.Clean(filepath.ToSlash(dir))
+	for _, file := range files {
+		clean := path.Clean(filepath.ToSlash(file))
+		if isIgnored(clean, ignore) || IsWithin(clean, recordsDir) {
+			continue
+		}
+		if MatchesScope(clean, scope) {
+			return true
+		}
+	}
+	return false
+}
+
 // Staged is the input of the pre-commit rule.
 type Staged struct {
 	Root   string   // repository root used to read the staged files

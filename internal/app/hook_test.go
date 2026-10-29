@@ -90,3 +90,91 @@ func TestSanitizeHookEnv(t *testing.T) {
 		}
 	}
 }
+
+func hookGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// hookProjectRepo builds a committed repository whose config records the given
+// project identity and whose origin points at remoteURL.
+func hookProjectRepo(t *testing.T, remoteURL, configRepo string) string {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+	execx.SanitizeGitHookEnv()
+	dir := t.TempDir()
+	hookGit(t, dir, "init", "-q", "-b", "main")
+	hookGit(t, dir, "config", "user.email", "hook@example.com")
+	hookGit(t, dir, "config", "user.name", "hook")
+	cfg := "schema_version = 1\n[project]\ndefault_branch = \"main\"\n"
+	if configRepo != "" {
+		cfg += "repo = \"" + configRepo + "\"\n"
+	}
+	cfg += "\n[changes]\ndir = \".changes\"\nscope = [\"cmd\"]\n\n[verify]\ncommands = []\ntimeout = \"1m\"\n\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
+	writeHookFile(t, filepath.Join(dir, ".quailegg.toml"), cfg)
+	writeHookFile(t, filepath.Join(dir, "package.json"), "{\n  \"name\": \"demo\",\n  \"version\": \"1.0.0\"\n}\n")
+	hookGit(t, dir, "add", "-A")
+	hookGit(t, dir, "commit", "-qm", "init")
+	if remoteURL != "" {
+		hookGit(t, dir, "remote", "add", "origin", remoteURL)
+	}
+	return dir
+}
+
+func stageHookScope(t *testing.T, dir string) {
+	t.Helper()
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	hookGit(t, dir, "add", "-A")
+}
+
+func TestHookPreCommitRequiresRecordInProjectClone(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookProjectRepo(t, "https://github.com/example/demo", "github.com/example/demo")
+	stageHookScope(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err == nil {
+		t.Fatal("expected a missing-record error in the project clone")
+	}
+}
+
+func TestHookPreCommitSkipsRecordRuleInForkClone(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookProjectRepo(t, "https://github.com/someone/demo", "github.com/example/demo")
+	stageHookScope(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err != nil {
+		t.Fatalf("a fork clone must be allowed to commit: %v", err)
+	}
+}
+
+func TestHookPreCommitSkipsRecordRuleOutsideDefaultBranch(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookProjectRepo(t, "https://github.com/example/demo", "github.com/example/demo")
+	hookGit(t, dir, "checkout", "-q", "-b", "feat")
+	stageHookScope(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err != nil {
+		t.Fatalf("a feature branch must be allowed to commit: %v", err)
+	}
+}

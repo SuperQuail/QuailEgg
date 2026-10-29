@@ -34,3 +34,13 @@ func TestEnforceIgnoresManagedPaths(t *testing.T) {
 		t.Fatal("a source change without a record should be rejected")
 	}
 }
+
+func TestTouchesScope(t *testing.T) {
+	ignore := []string{".quailegg.toml", ".changes/README.md"}
+	if !TouchesScope([]string{"cmd/main.go"}, ".changes", []string{"cmd"}, ignore) {
+		t.Fatal("a scoped file must count as a scope change")
+	}
+	if TouchesScope([]string{".changes/x.md", ".quailegg.toml"}, ".changes", []string{"cmd"}, ignore) {
+		t.Fatal("records and managed files must not count as scope changes")
+	}
+}

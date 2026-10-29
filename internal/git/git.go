@@ -43,9 +43,14 @@ func (r *Repo) output(ctx context.Context, args ...string) (string, error) {
 	return strings.TrimSpace(res.Stdout), nil
 }
 
-// Branch returns the current branch name.
+// Branch returns the current branch name. A repository without commits has no
+// HEAD yet, so the symbolic ref is used as a fallback.
 func (r *Repo) Branch(ctx context.Context) (string, error) {
-	return r.output(ctx, "rev-parse", "--abbrev-ref", "HEAD")
+	name, err := r.output(ctx, "rev-parse", "--abbrev-ref", "HEAD")
+	if err == nil {
+		return name, nil
+	}
+	return r.output(ctx, "symbolic-ref", "--short", "HEAD")
 }
 
 // HeadSHA returns the current commit hash.
