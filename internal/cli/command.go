@@ -120,6 +120,7 @@ func register(root *cobra.Command, rt *Runtime) {
 		newResumeCommand(rt),
 		newStatusCommand(rt),
 		newHookCommand(rt),
+		newPreCommand(rt),
 		newLangCommand(rt),
 		newVersionCommand(rt),
 	)

@@ -46,6 +46,12 @@ func newPlanCommand(rt *Runtime) *cobra.Command {
 }
 
 func printPlan(p *ui.Printer, plan *release.Plan) {
+	if plan.Channel != "" {
+		p.Info("%s", i18n.Tf("plan.channel", plan.Channel))
+	}
+	if plan.Graduating {
+		p.Info("%s", i18n.T("plan.graduating"))
+	}
 	switch plan.Phase {
 	case release.PhaseVersion:
 		p.Info("%s", i18n.Tf("plan.phase_version", plan.Version.Current, plan.Version.Next, plan.Version.Bump))

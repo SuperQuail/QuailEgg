@@ -14,6 +14,7 @@
 "cmd.hook.short" = "git hook entry points"
 "cmd.hook.pre_commit.short" = "Validate that staged changes include a change record"
 "cmd.lang.short" = "Show or set the CLI language"
+"cmd.pre.short" = "Enter, leave or show the prerelease channel"
 "cmd.version.short" = "Print the qegg version"
 
 # --- shared flags -----------------------------------------------------------
@@ -99,6 +100,8 @@
 "plan.change_line" = "  - [%s] %s"
 "plan.step_line" = "  %s %s"
 "plan.assets_line" = "assets: %s (%d targets)"
+"plan.channel" = "channel: %s"
+"plan.graduating" = "graduation: the prerelease line becomes a stable release"
 
 # --- commit -----------------------------------------------------------------
 "commit.missing_packages" = "missing --packages (non-interactive mode needs name:level, for example my-pkg:minor)"
@@ -125,6 +128,18 @@
 "status.tag" = "tag: %s  exists: %v  published: %s"
 "status.pending" = "pending change records: %d"
 "status.last_run" = "last run: %s (%s, %s)"
+
+# --- prerelease ------------------------------------------------------------
+"pre.none" = "no prerelease channel; the next release is stable"
+"pre.active" = "prerelease channel: %s"
+"pre.next" = "next version: v%s"
+"pre.enter" = "prerelease channel %s enabled"
+"pre.exit" = "prerelease channel left; the next release is v%s"
+"pre.commit_hint" = "commit .quailegg/pre-release.lock, then push to start the prerelease"
+"pre.err.not_active" = "no prerelease channel is active"
+"pre.err.channel" = "invalid prerelease channel %q (want alpha, beta, rc or exit)"
+"pre.err.busy" = "prerelease channel %s is active; run qegg pre exit first"
+"status.channel" = "prerelease channel: %s"
 
 # --- release ----------------------------------------------------------------
 "release.nothing" = "no change records to release"

@@ -14,6 +14,7 @@
 "cmd.hook.short" = "git hook 入口"
 "cmd.hook.pre_commit.short" = "校验暂存区是否包含变更记录"
 "cmd.lang.short" = "查看或设置界面语言"
+"cmd.pre.short" = "进入、退出或查看预发布渠道"
 "cmd.version.short" = "打印 qegg 版本"
 
 # --- 通用参数 ---------------------------------------------------------------
@@ -99,6 +100,8 @@
 "plan.change_line" = "  - [%s] %s"
 "plan.step_line" = "  %s %s"
 "plan.assets_line" = "资产: %s（%d 个平台）"
+"plan.channel" = "渠道: %s"
+"plan.graduating" = "毕业: 预发布线将转为稳定版"
 
 # --- commit -----------------------------------------------------------------
 "commit.missing_packages" = "缺少 --packages（非交互模式需要 name:level，例如 my-pkg:minor）"
@@ -125,6 +128,18 @@
 "status.tag" = "Tag: %s  存在: %v  已发布: %s"
 "status.pending" = "待处理变更记录: %d 条"
 "status.last_run" = "最近一次运行: %s（%s，%s）"
+
+# --- 预发布 ----------------------------------------------------------------
+"pre.none" = "当前没有预发布渠道，下一次发布是稳定版"
+"pre.active" = "预发布渠道: %s"
+"pre.next" = "下一个版本: v%s"
+"pre.enter" = "已启用预发布渠道 %s"
+"pre.exit" = "已退出预发布渠道，下一次发布为 v%s"
+"pre.commit_hint" = "提交 .quailegg/pre-release.lock 后推送，即可开始预发布"
+"pre.err.not_active" = "当前没有预发布渠道"
+"pre.err.channel" = "无效的预发布渠道 %q（可选 alpha、beta、rc、exit）"
+"pre.err.busy" = "预发布渠道 %s 已启用，请先运行 qegg pre exit"
+"status.channel" = "预发布渠道: %s"
 
 # --- release ----------------------------------------------------------------
 "release.nothing" = "没有需要发布的变更记录"

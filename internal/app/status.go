@@ -20,11 +20,19 @@ type StatusReport struct {
 	Published     string           `json:"published"`
 	Pending       []string         `json:"pending_changes"`
 	LastRun       *state.RunRecord `json:"last_run,omitempty"`
+	Channel       string           `json:"channel,omitempty"`
 }
 
 // Status reports the current release state.
 func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
 	report := &StatusReport{SchemaVersion: 1, Published: "unknown"}
+	pre, err := state.LoadPreRelease(a.Root)
+	if err != nil {
+		return nil, err
+	}
+	if pre != nil {
+		report.Channel = pre.Channel
+	}
 	rel, err := state.LoadMarker(a.Root)
 	if err != nil {
 		return nil, err
