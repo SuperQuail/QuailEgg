@@ -71,7 +71,7 @@ CI 用最新的已发布 qegg 创建发布 PR；合并后由 publish 阶段打 t
 | 现象 | 处理 |
 | --- | --- |
 | workflow 里 `go install ...@vX` 401/404 | 仓库需公开；私有模块要配置 `GOPRIVATE` 与凭据（当前不支持） |
-| `qegg status` 显示 published: no | proxy 尚未缓存该版本，push tag 后首次 `go get` 才会填充，与 tag 是否存在无关 |
+| `qegg status` 显示 published: no | 预检请求本身会触发 proxy 抓取；刚 push 的 tag 第一次可能仍是 no，重试一次即可。持续为 no 时检查模块路径大小写与 proxy 可达性 |
 | 发布卡在 push | 分支保护不允许 GITHUB_TOKEN 推送；改用本地 `qegg release --yes` 或调整保护规则 |
 | CI 无法创建发布 PR | 仓库设置里允许 GitHub Actions 创建 PR，或本地以 pr 模式发版 |
 | 大版本升级报错 | v2+ 需要 `/vN` module 路径，先改 `go.mod` 与 import 再发版 |
