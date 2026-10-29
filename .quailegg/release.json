@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.2.0",
-  "created_at": "2026-10-28T21:17:16.7384414+08:00",
+  "version": "0.3.0",
+  "created_at": "2026-10-29T04:22:49.341503499Z",
   "mode": "commit",
-  "fingerprint": "sha256:a75b090043381def076045a1d2d106ab96b7d171268aff8c820e6967ce86f300",
+  "fingerprint": "sha256:2e05ad2e6808fe99a88856dc8e88f625cab03e2b81c5a528b992eb2843060eda",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,28 +15,46 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-28T21:17:16.7384414+08:00"
+    "at": "2026-10-29T04:22:49.341504561Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.1.0",
-      "next": "0.2.0",
+      "current": "0.2.0",
+      "next": "0.3.0",
       "bump": "minor",
       "publish": true
     }
   ],
   "changes": [
     {
-      "file": ".changes/build-assets.md",
+      "file": ".changes/changelog-pull-links.md",
       "type": "feat",
-      "scope": "assets",
+      "scope": "changelog",
       "bump": "minor",
-      "body": "Cross compile Go binaries for five platforms, package them with checksums and upload them to the GitHub Release.",
-      "commit": "771a4ea1d651082fd3573ef3300631fd04679b33",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/771a4ea1d651082fd3573ef3300631fd04679b33"
+      "body": "Link each changelog entry to the pull request that introduced it.",
+      "commit": "cd080d583a8139210e91c0a7465732c34175eb2f",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/cd080d583a8139210e91c0a7465732c34175eb2f"
+    },
+    {
+      "file": ".changes/hook-env.md",
+      "type": "fix",
+      "scope": "app",
+      "bump": "patch",
+      "body": "Clear inherited git hook variables before verification and in git tests, so nested commands cannot touch the repository running the hook.",
+      "commit": "7ddf284c5a6b7b0e024e296057648f326e450721",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/7ddf284c5a6b7b0e024e296057648f326e450721"
+    },
+    {
+      "file": ".changes/release-pr-refresh.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "body": "Rebuild the release pull request on every push so merged changes share one version.",
+      "commit": "c9511034d816fbee738ddbabc905e4bb59eb8b0c",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/c9511034d816fbee738ddbabc905e4bb59eb8b0c"
     }
   ]
 }
