@@ -50,6 +50,14 @@ func (r Repo) CommitURL(sha string) string {
 	return r.URL() + "/commit/" + sha
 }
 
+// PullURL returns the web URL of a pull request.
+func (r Repo) PullURL(number int) string {
+	if !r.Valid() || number <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s/pull/%d", r.URL(), number)
+}
+
 // CompareURL returns the compare URL between two tags.
 func (r Repo) CompareURL(previous, next string) string {
 	if !r.Valid() || previous == "" || next == "" {

@@ -20,4 +20,6 @@ type GitOps interface {
 	IntroducingCommit(ctx context.Context, path string) (string, error)
 	CheckoutBranch(ctx context.Context, name string) error
 	RemoteBranchExists(ctx context.Context, remote, branch string) (bool, error)
+	CommitSubject(ctx context.Context, sha string) (string, error)
+	CommitAuthor(ctx context.Context, sha string) (string, error)
 }

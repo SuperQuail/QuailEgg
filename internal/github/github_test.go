@@ -52,4 +52,10 @@ func TestRepoURLs(t *testing.T) {
 	if got := repo.CompareURL("v1.0.0", "v1.1.0"); got != "https://github.com/owner/repo/compare/v1.0.0...v1.1.0" {
 		t.Errorf("CompareURL = %q", got)
 	}
+	if got := repo.PullURL(58); got != "https://github.com/owner/repo/pull/58" {
+		t.Errorf("PullURL = %q", got)
+	}
+	if got := repo.PullURL(0); got != "" {
+		t.Errorf("PullURL(0) = %q", got)
+	}
 }

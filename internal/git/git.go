@@ -118,6 +118,16 @@ func (r *Repo) RemoteBranchExists(ctx context.Context, remote, branch string) (b
 	return out != "", nil
 }
 
+// CommitSubject returns the subject line of a commit.
+func (r *Repo) CommitSubject(ctx context.Context, sha string) (string, error) {
+	return r.output(ctx, "log", "-1", "--format=%s", sha)
+}
+
+// CommitAuthor returns the author name of a commit.
+func (r *Repo) CommitAuthor(ctx context.Context, sha string) (string, error) {
+	return r.output(ctx, "log", "-1", "--format=%an", sha)
+}
+
 // StagedNames lists added or modified files in the index.
 func (r *Repo) StagedNames(ctx context.Context) ([]string, error) {
 	out, err := r.output(ctx, "diff", "--cached", "--name-only", "--diff-filter=AM")

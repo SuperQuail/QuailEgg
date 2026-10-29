@@ -13,11 +13,14 @@ import (
 
 // Entry is one change line in a release section.
 type Entry struct {
-	Type      string
-	Body      string
-	CommitSHA string
-	CommitURL string
-	SortKey   string
+	Type       string
+	Body       string
+	CommitSHA  string
+	CommitURL  string
+	PullNumber int
+	PullURL    string
+	PullAuthor string
+	SortKey    string
 }
 
 // Section is one version section.
@@ -75,6 +78,7 @@ func renderBody(b *strings.Builder, sec Section) {
 
 func renderEntry(e Entry) string {
 	body := strings.TrimSpace(e.Body)
+	ref := pullReference(e)
 	if e.CommitSHA != "" {
 		short := e.CommitSHA
 		if len(short) > 7 {
@@ -82,16 +86,28 @@ func renderEntry(e Entry) string {
 		}
 		if e.CommitURL != "" {
 			if body == "" {
-				return fmt.Sprintf("- [`%s`](%s)", short, e.CommitURL)
+				return fmt.Sprintf("- [`%s`](%s)%s", short, e.CommitURL, ref)
 			}
-			return fmt.Sprintf("- [`%s`](%s): %s", short, e.CommitURL, body)
+			return fmt.Sprintf("- [`%s`](%s): %s%s", short, e.CommitURL, body, ref)
 		}
 		if body == "" {
-			return fmt.Sprintf("- `%s`", short)
+			return fmt.Sprintf("- `%s`%s", short, ref)
 		}
-		return fmt.Sprintf("- `%s`: %s", short, body)
+		return fmt.Sprintf("- `%s`: %s%s", short, body, ref)
 	}
-	return "- " + body
+	return "- " + body + ref
+}
+
+// pullReference renders the review anchor of an entry. Many entries can share
+// one squash commit, so the pull request is the useful identity.
+func pullReference(e Entry) string {
+	if e.PullNumber <= 0 || e.PullURL == "" {
+		return ""
+	}
+	if e.PullAuthor == "" {
+		return fmt.Sprintf(" ([#%d](%s))", e.PullNumber, e.PullURL)
+	}
+	return fmt.Sprintf(" ([#%d](%s) by @%s)", e.PullNumber, e.PullURL, e.PullAuthor)
 }
 
 func groupEntries(entries []Entry) map[string][]Entry {

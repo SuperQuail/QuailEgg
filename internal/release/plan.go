@@ -14,7 +14,9 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/release/assets"
 	"github.com/SuperQuail/QuailEgg/internal/release/state"
 	"github.com/SuperQuail/QuailEgg/internal/semver"
+	"regexp"
 	"sort"
+	"strconv"
 )
 
 // Build computes the plan for the current repository state.
@@ -217,14 +219,29 @@ func buildChanges(ctx context.Context, d *Deps, records []*changes.Record, repo 
 		if err != nil {
 			commit = ""
 		}
+		author := ""
+		pullNumber := 0
+		if commit != "" {
+			author, _ = d.Git.CommitAuthor(ctx, commit)
+			if subject, err := d.Git.CommitSubject(ctx, commit); err == nil {
+				pullNumber = pullRequestNumber(subject)
+			}
+		}
+		pullURL := ""
+		if pullNumber > 0 {
+			pullURL = repo.PullURL(pullNumber)
+		}
 		out = append(out, ChangePlan{
-			File:      rel,
-			Type:      record.Type,
-			Scope:     record.Scope,
-			Bump:      bump,
-			Body:      record.Body,
-			Commit:    commit,
-			CommitURL: repo.CommitURL(commit),
+			File:       rel,
+			Type:       record.Type,
+			Scope:      record.Scope,
+			Bump:       bump,
+			Body:       record.Body,
+			Commit:     commit,
+			CommitURL:  repo.CommitURL(commit),
+			PullNumber: pullNumber,
+			PullURL:    pullURL,
+			Author:     author,
 		})
 	}
 	return out, nil
@@ -247,6 +264,7 @@ func markerChanges(changes []state.MarkerChange) []ChangePlan {
 		out = append(out, ChangePlan{
 			File: change.File, Type: change.Type, Scope: change.Scope,
 			Bump: change.Bump, Body: change.Body, Commit: change.Commit, CommitURL: change.CommitURL,
+			PullNumber: change.PullNumber, PullURL: change.PullURL, Author: change.Author,
 		})
 	}
 	return out
@@ -261,6 +279,21 @@ func packageWarnings(registered map[string]config.Package, detected []ecosystem.
 	}
 	sort.Strings(warnings)
 	return warnings
+}
+
+var pullRequestNumberRE = regexp.MustCompile(`\\(#(\\d+)\\)`)
+
+// pullRequestNumber extracts the pull request number a squash commit carries.
+func pullRequestNumber(message string) int {
+	match := pullRequestNumberRE.FindStringSubmatch(message)
+	if len(match) != 2 {
+		return 0
+	}
+	number, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0
+	}
+	return number
 }
 
 // markerApplies reports whether the pending version from the release marker

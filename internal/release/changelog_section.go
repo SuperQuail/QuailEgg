@@ -11,11 +11,14 @@ func ChangelogSection(plan *Plan, now time.Time) changelog.Section {
 	entries := make([]changelog.Entry, 0, len(plan.Changes))
 	for _, change := range plan.Changes {
 		entries = append(entries, changelog.Entry{
-			Type:      change.Type,
-			Body:      change.Body,
-			CommitSHA: change.Commit,
-			CommitURL: change.CommitURL,
-			SortKey:   change.File,
+			Type:       change.Type,
+			Body:       change.Body,
+			CommitSHA:  change.Commit,
+			CommitURL:  change.CommitURL,
+			PullNumber: change.PullNumber,
+			PullURL:    change.PullURL,
+			PullAuthor: change.Author,
+			SortKey:    change.File,
 		})
 	}
 	compareURL := ""

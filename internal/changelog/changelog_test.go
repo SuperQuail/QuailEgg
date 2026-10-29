@@ -118,6 +118,35 @@ func TestExtract(t *testing.T) {
 	}
 }
 
+func TestRenderEntryWithPullRequest(t *testing.T) {
+	out := Render(Section{
+		Version: "1.2.0",
+		Date:    time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		Entries: []Entry{{
+			Type: "feat", Body: "add cache", CommitSHA: "abcdef1234567",
+			CommitURL:  "https://example.com/commit/abcdef1234567",
+			PullNumber: 58, PullURL: "https://example.com/pull/58", PullAuthor: "alice",
+		}},
+	})
+	if !strings.Contains(out, "([#58](https://example.com/pull/58) by @alice)") {
+		t.Errorf("missing pull request reference:\n%s", out)
+	}
+}
+
+func TestRenderEntryWithPullRequestWithoutAuthor(t *testing.T) {
+	out := Render(Section{
+		Version: "1.2.0",
+		Date:    time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		Entries: []Entry{{
+			Type: "fix", Body: "fix timeout", CommitSHA: "1234567890abc",
+			PullNumber: 7, PullURL: "https://example.com/pull/7",
+		}},
+	})
+	if !strings.Contains(out, "([#7](https://example.com/pull/7))") {
+		t.Errorf("missing pull request reference:\n%s", out)
+	}
+}
+
 func TestRenderBodyOmitsMarkers(t *testing.T) {
 	out := RenderBody(section("1.1.0"))
 	if strings.Contains(out, "qegg:release") {

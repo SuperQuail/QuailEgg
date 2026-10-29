@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
@@ -165,6 +166,33 @@ func runGit(t *testing.T, dir string, args ...string) {
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func TestCommitSubjectAndAuthor(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "feat: add a file")
+	sha, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	repo, err := Open(ctx, dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	subject, err := repo.CommitSubject(ctx, strings.TrimSpace(string(sha)))
+	if err != nil || subject != "feat: add a file" {
+		t.Fatalf("CommitSubject = %q, %v", subject, err)
+	}
+	author, err := repo.CommitAuthor(ctx, strings.TrimSpace(string(sha)))
+	if err != nil || author != "test" {
+		t.Fatalf("CommitAuthor = %q, %v", author, err)
 	}
 }
 

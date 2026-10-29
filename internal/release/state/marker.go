@@ -47,13 +47,16 @@ type MarkerPackage struct {
 
 // MarkerChange is one consumed change record.
 type MarkerChange struct {
-	File      string `json:"file"`
-	Type      string `json:"type"`
-	Scope     string `json:"scope,omitempty"`
-	Bump      string `json:"bump"`
-	Body      string `json:"body"`
-	Commit    string `json:"commit,omitempty"`
-	CommitURL string `json:"commit_url,omitempty"`
+	File       string `json:"file"`
+	Type       string `json:"type"`
+	Scope      string `json:"scope,omitempty"`
+	Bump       string `json:"bump"`
+	Body       string `json:"body"`
+	Commit     string `json:"commit,omitempty"`
+	CommitURL  string `json:"commit_url,omitempty"`
+	PullNumber int    `json:"pull_number,omitempty"`
+	PullURL    string `json:"pull_url,omitempty"`
+	Author     string `json:"author,omitempty"`
 }
 
 // Marker is the committed release plan.

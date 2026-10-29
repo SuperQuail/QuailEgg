@@ -34,6 +34,7 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 		marker.Changes = append(marker.Changes, state.MarkerChange{
 			File: change.File, Type: change.Type, Scope: change.Scope,
 			Bump: change.Bump, Body: change.Body, Commit: change.Commit, CommitURL: change.CommitURL,
+			PullNumber: change.PullNumber, PullURL: change.PullURL, Author: change.Author,
 		})
 	}
 	return marker
