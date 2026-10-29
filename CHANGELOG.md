@@ -5,7 +5,7 @@
 
 ### Bug Fixes
 
-- [`6f9bcf6`](https://github.com/SuperQuail/QuailEgg/commit/6f9bcf63c3e86b596b05e3a5a66bb1a06dc4e6a8): Show contributor logins in the changelog instead of profile display names. ([#2](https://github.com/SuperQuail/QuailEgg/pull/2) by @SuperCCC)
+- [`6f9bcf6`](https://github.com/SuperQuail/QuailEgg/commit/6f9bcf63c3e86b596b05e3a5a66bb1a06dc4e6a8): Show contributor logins in the changelog instead of profile display names. ([#2](https://github.com/SuperQuail/QuailEgg/pull/2) by @Wsrsq)
 
 **Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.5.1...v0.5.2
 <!-- qegg:release:end -->
