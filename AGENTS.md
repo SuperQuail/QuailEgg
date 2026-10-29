@@ -188,6 +188,10 @@ Good and bad examples:
   workflow opens a release PR). This repository currently uses `mode = "commit"`,
   so any push to main carrying a record can trigger a release: push records only
   when the change is ready to ship.
+- Prereleases are switched with `qegg pre alpha|beta|rc|exit`; the channel lives
+  in the committed `.quailegg/pre-release.lock`. A prerelease never writes
+  `CHANGELOG.md` and never consumes change records; the stable release that
+  follows `qegg pre exit` does both.
 - Let CI release. In an emergency `qegg release --yes` works locally, but never
   while the release workflow is running.
 - If a release is interrupted, run `qegg resume`; do not re-tag or re-push by

@@ -82,6 +82,26 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 
 - release PR 用 squash 合并，标题固定为 `chore(release): bump versions`。
 - 建议主分支开启 Require branches to be up to date before merging，避免过期的 release PR 被合入。
-- release 工作流只在发布相关路径变化时运行（`.changes/**`、`.quailegg.toml`、`.quailegg/release.json`、`CHANGELOG.md` 与各生态清单），只改文档的推送不会重建 release 分支。
+- release 工作流只在发布相关路径变化时运行（`.changes/**`、`.quailegg.toml`、`.quailegg/pre-release.lock`、`.quailegg/release.json`、`CHANGELOG.md` 与各生态清单），只改文档的推送不会重建 release 分支。
 - release PR 由 `github-actions[bot]` 用 GITHUB_TOKEN 创建，GitHub 不会为它正常启动检查：PR 上可能出现 `action_required`，或一个 0 job 的启动失败 run（合并/强推后尤其明显）。`qegg-pr` 对 release 分支加了 `if: github.head_ref != 'release'`，run 一旦真正启动就跳过；不要把这条检查设为必需，验证由 publish 那次 run 负责。需要真实检查只能换成 PAT/GitHub App 身份。
 - workflow 安装 `@latest`，新版本发布后 CI 自动升级；要固定版本时用 `qegg init --force --qegg-version vX.Y.Z`。
+
+## 预发布（alpha / beta / rc）
+
+预发布通过 `qegg pre` 和提交进仓库的锁文件表达，不需要改配置或给 CI 传参数：
+
+```bash
+qegg pre alpha      # 进入 alpha 渠道，写 .quailegg/pre-release.lock
+git add .quailegg/pre-release.lock
+git commit -m "chore: start alpha releases"
+git push            # CI 发布下一个 alpha 版本
+qegg pre            # 查看当前渠道和下一个版本
+qegg pre exit       # 退出渠道，下一次发布回到稳定版
+```
+
+- 锁文件里的 `channel` 是唯一权威；`version` 只是最近一次计划的快照，每次运行会按 tag 重算并回写。
+- 版本 = 最后一个稳定版本按记录算出目标版本，再加 `-<channel>.<n>`；同一渠道连续发布时 n 递增，目标基线变大时从 1 重新开始。
+- 预发布**不消费变更记录、也不写 `CHANGELOG.md`**，记录留到稳定版一起发布；只有新增记录才会产生下一个预发布号，避免空转发。
+- `qegg pre exit` 之后的下一次发布是同一基线的稳定版（`0.5.0-alpha.2` → `0.5.0`），会一次性写 CHANGELOG 并消费记录。
+- GitHub Release 标成 Pre-release 且不会成为 Latest；npm 发布到同名的 dist-tag（`alpha` / `beta` / `rc`），不会覆盖 `latest`。
+- Python 包暂不支持预发布，计划阶段会直接报错；Go 与 crates 不需要额外处理。
