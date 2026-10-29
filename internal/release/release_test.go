@@ -14,6 +14,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/git"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
+	"github.com/SuperQuail/QuailEgg/internal/release/state"
 )
 
 func gitRun(t *testing.T, dir string, args ...string) {
@@ -173,5 +174,96 @@ func TestFingerprintIsStable(t *testing.T) {
 	}
 	if first.Fingerprint == "" || first.Fingerprint != second.Fingerprint {
 		t.Fatalf("fingerprint changed: %q vs %q", first.Fingerprint, second.Fingerprint)
+	}
+}
+
+func gitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestPRModePlanStepsAndBody(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	d.Cfg.Release.Mode = config.ModePR
+	ctx := context.Background()
+
+	plan, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseVersion {
+		t.Fatalf("phase = %q, want version", plan.Phase)
+	}
+	var ids []string
+	for _, step := range plan.Steps {
+		ids = append(ids, step.ID)
+	}
+	if got := strings.Join(ids, ","); got != "preflight,verify,branch,bump,changelog,commit" {
+		t.Fatalf("steps = %s", got)
+	}
+
+	body := plan.pullRequestBody(d)
+	if !strings.Contains(body, "## v1.1.0 - ") {
+		t.Fatalf("body is missing the changelog section:\n%s", body)
+	}
+	if !strings.Contains(body, "Add a feature.") {
+		t.Fatalf("body is missing the change text:\n%s", body)
+	}
+	if strings.Contains(body, "qegg:release") {
+		t.Fatalf("body must not contain release markers:\n%s", body)
+	}
+}
+
+func TestReleaseRefspecIsForced(t *testing.T) {
+	if got := releaseRefspec("release"); got != "+HEAD:refs/heads/release" {
+		t.Fatalf("refspec = %q", got)
+	}
+}
+
+func TestSyncReleaseBranch(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	d.Options.NoPush = false
+	origin := filepath.Join(t.TempDir(), "origin.git")
+	gitRun(t, dir, "init", "--bare", "-q", origin)
+	gitRun(t, dir, "remote", "add", "origin", origin)
+	gitRun(t, dir, "push", "-q", "origin", "HEAD:refs/heads/main")
+	gitRun(t, dir, "push", "-q", "origin", "HEAD:refs/heads/release")
+
+	if err := os.WriteFile(filepath.Join(dir, "CHANGELOG.md"), []byte("# Changelog\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "docs: add changelog")
+	head := gitOutput(t, dir, "rev-parse", "HEAD")
+
+	e := &executor{d: d, plan: &Plan{}, run: state.NewRunRecord("test", d.Cfg.Release.Mode, PhasePublish, "")}
+	ctx := context.Background()
+	if err := e.syncReleaseBranch(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	remote := gitOutput(t, dir, "ls-remote", "--heads", "origin", "refs/heads/release")
+	if !strings.HasPrefix(remote, head) {
+		t.Fatalf("release branch was not synced to %s: %q", head, remote)
+	}
+
+	gitRun(t, dir, "push", "-q", "origin", "--delete", "release")
+	if err := os.WriteFile(filepath.Join(dir, "CHANGELOG.md"), []byte("# Changelog\n\nsecond\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "docs: update changelog")
+	if err := e.syncReleaseBranch(ctx); err != nil {
+		t.Fatalf("sync after delete: %v", err)
+	}
+	if remote := gitOutput(t, dir, "ls-remote", "--heads", "origin", "refs/heads/release"); remote != "" {
+		t.Fatalf("deleted branch must stay deleted, got %q", remote)
 	}
 }

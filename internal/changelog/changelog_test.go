@@ -117,3 +117,16 @@ func TestExtract(t *testing.T) {
 		t.Fatalf("unexpected notes:\n%s", notes)
 	}
 }
+
+func TestRenderBodyOmitsMarkers(t *testing.T) {
+	out := RenderBody(section("1.1.0"))
+	if strings.Contains(out, "qegg:release") {
+		t.Errorf("body must not contain release markers:\n%s", out)
+	}
+	if !strings.Contains(out, "## v1.1.0 - 2026-10-28") {
+		t.Errorf("missing section heading:\n%s", out)
+	}
+	if !strings.Contains(out, "**Full Changelog**") {
+		t.Errorf("missing compare link:\n%s", out)
+	}
+}

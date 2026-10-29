@@ -73,3 +73,15 @@ CI 用 v0.1.0 生成发布 PR；合并后由 publish 阶段打 tag、推送并�
 | CI 无法创建发布 PR | 仓库设置里允许 GitHub Actions 创建 PR，或本地以 pr 模式发版 |
 | 大版本升级报错 | v2+ 需要 `/vN` module 路径，先改 `go.mod` 与 import 再发版 |
 | 无 tag 时版本是 0.0.0 | 正常；首个版本用 `feat` 记录即可得到 0.1.0 |
+
+## PR 模式
+
+PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从主分支最新提交重建它，
+提交版本号和 CHANGELOG 后 force push，并刷新同一个 release PR。功能 PR 合并只会让它变长，
+主分支上的版本要等你合并 release PR 才更新；合并后新一轮 CI 打 tag、发布，
+并把 release 分支拉平到主分支。
+
+- release PR 用 squash 合并，标题固定为 `chore(release): bump versions`。
+- 建议主分支开启 Require branches to be up to date before merging，避免过期的 release PR 被合入。
+- GITHUB_TOKEN 创建的 release PR 不会触发 qegg-pr 工作流，不要给它配置必需检查。
+- 升级 workflow 里固定的 qegg 版本要等新版本发布后再做，否则 CI 仍在用旧版本。

@@ -201,6 +201,9 @@ func (c *Config) Validate() error {
 	if c.Release.Mode != ModePR && c.Release.Mode != ModeCommit {
 		return fmt.Errorf("release.mode must be %q or %q, got %q", ModePR, ModeCommit, c.Release.Mode)
 	}
+	if c.Release.Mode == ModePR && c.Release.Branch == c.Project.DefaultBranch {
+		return fmt.Errorf("release.branch must differ from project.default_branch %q in pr mode", c.Project.DefaultBranch)
+	}
 	if _, err := time.ParseDuration(c.Verify.Timeout); err != nil {
 		return fmt.Errorf("verify.timeout %q is not a valid duration", c.Verify.Timeout)
 	}

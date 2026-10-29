@@ -103,6 +103,21 @@ func (r *Repo) TagPointsAt(ctx context.Context, name, sha string) (bool, error) 
 	return out == head, nil
 }
 
+// CheckoutBranch creates or resets a local branch at the current commit.
+func (r *Repo) CheckoutBranch(ctx context.Context, name string) error {
+	_, err := r.runIn(ctx, "checkout", "-B", name)
+	return err
+}
+
+// RemoteBranchExists reports whether the remote has the named branch.
+func (r *Repo) RemoteBranchExists(ctx context.Context, remote, branch string) (bool, error) {
+	out, err := r.output(ctx, "ls-remote", "--heads", remote, "refs/heads/"+branch)
+	if err != nil {
+		return false, err
+	}
+	return out != "", nil
+}
+
 // StagedNames lists added or modified files in the index.
 func (r *Repo) StagedNames(ctx context.Context) ([]string, error) {
 	out, err := r.output(ctx, "diff", "--cached", "--name-only", "--diff-filter=AM")

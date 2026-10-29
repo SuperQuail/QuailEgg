@@ -132,6 +132,7 @@
 "release.skip" = "跳过 %s: %s"
 "release.err.dirty" = "工作区不干净，请先提交或暂存改动（或使用 --allow-dirty）"
 "release.err.branch" = "只能在 %q 分支发版（当前 %q）"
+"release.err.release_branch_is_base" = "release.branch %q 不能与默认分支相同"
 "release.err.package_missing" = "包 %q 不再存在"
 "release.err.version_changed" = "包 %q 的清单版本已从 %s 变为 %s，请重新运行 qegg plan"
 "release.err.no_marker" = "没有待发布的版本（缺少 .quailegg/release.json）"
@@ -151,6 +152,7 @@
 "release.warn.tag_version_prefix" = "Go 模块版本来自带 v 前缀的 tag，但 git.tag_prefix 为 %q"
 "release.warn.assets_ambiguous" = "cmd/ 下有多个 Go main 包，已禁用发布资产；请设置 release.assets.main"
 "release.warn.assets_not_uploaded" = "发布资产已构建，但 GitHub Release 被禁用，因此没有上传"
+"release.warn.sync_failed" = "同步发布分支失败：%v"
 "release.msg.committed" = "已提交 %s (%s)"
 "release.msg.pr" = "已创建/更新发布 PR: %s"
 "release.msg.registry_exists" = "%s@%s 已存在于 registry，跳过发布"
@@ -173,6 +175,7 @@
 "release.pr.package" = "- %s: %s -> %s (%s)"
 "release.pr.line" = "- %s"
 "release.pr.command" = "- %s"
+"release.pr.changelog" = "### 变更日志"
 "release.warn.unregistered_package" = "检测到未登记的包 %q；运行 qegg init 补充登记"
 "resume.previous" = "续跑最近一次运行 %s（阶段 %s，状态 %s）"
 
@@ -181,11 +184,13 @@
 "step.verify" = "发版前校验"
 "step.bump" = "更新版本"
 "step.changelog" = "生成 CHANGELOG"
+"step.branch" = "准备发布分支"
 "step.commit" = "提交发版"
 "step.publish" = "发布"
 "step.tag" = "打 Tag"
 "step.push" = "推送"
 "step.github_release" = "创建 Release"
+"step.sync" = "同步发布分支"
 "step.assets" = "构建发布资产"
 
 # --- changelog 分组 ---------------------------------------------------------

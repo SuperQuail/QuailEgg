@@ -39,7 +39,22 @@ var releaseStartRE = regexp.MustCompile(`^<!-- qegg:release v?([^\s]+) -->$`)
 func Render(sec Section) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "<!-- qegg:release %s -->\n", sec.Version)
-	fmt.Fprintf(&b, "## v%s - %s\n", sec.Version, sec.Date.Format("2006-01-02"))
+	renderBody(&b, sec)
+	b.WriteString(ReleaseEnd)
+	b.WriteString("\n")
+	return b.String()
+}
+
+// RenderBody renders a section without the HTML markers qegg uses to locate a
+// release block, so pull request bodies carry only the release notes.
+func RenderBody(sec Section) string {
+	var b strings.Builder
+	renderBody(&b, sec)
+	return b.String()
+}
+
+func renderBody(b *strings.Builder, sec Section) {
+	fmt.Fprintf(b, "## v%s - %s\n", sec.Version, sec.Date.Format("2006-01-02"))
 	grouped := groupEntries(sec.Entries)
 	for _, typ := range typeOrder {
 		entries := grouped[typ]
@@ -47,18 +62,15 @@ func Render(sec Section) string {
 			continue
 		}
 		title := i18n.T("changelog.group." + typ)
-		fmt.Fprintf(&b, "\n### %s\n\n", title)
+		fmt.Fprintf(b, "\n### %s\n\n", title)
 		for _, entry := range entries {
 			b.WriteString(renderEntry(entry))
 			b.WriteString("\n")
 		}
 	}
 	if sec.CompareURL != "" {
-		fmt.Fprintf(&b, "\n**Full Changelog**: %s\n", sec.CompareURL)
+		fmt.Fprintf(b, "\n**Full Changelog**: %s\n", sec.CompareURL)
 	}
-	b.WriteString(ReleaseEnd)
-	b.WriteString("\n")
-	return b.String()
 }
 
 func renderEntry(e Entry) string {

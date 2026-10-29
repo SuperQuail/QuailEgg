@@ -132,6 +132,7 @@
 "release.skip" = "skip %s: %s"
 "release.err.dirty" = "the working tree is dirty; commit or stash your changes first (or pass --allow-dirty)"
 "release.err.branch" = "releases must run on %q (current: %q)"
+"release.err.release_branch_is_base" = "release.branch %q must differ from the default branch"
 "release.err.package_missing" = "package %q no longer exists"
 "release.err.version_changed" = "package %q changed from %s to %s; run qegg plan again"
 "release.err.no_marker" = "no pending release (missing .quailegg/release.json)"
@@ -151,6 +152,7 @@
 "release.warn.tag_version_prefix" = "Go module versions come from v-prefixed tags, but git.tag_prefix is %q"
 "release.warn.assets_ambiguous" = "several Go main packages found under cmd/, release assets are disabled; set release.assets.main"
 "release.warn.assets_not_uploaded" = "release assets were built but not uploaded because the GitHub Release is disabled"
+"release.warn.sync_failed" = "syncing the release branch failed: %v"
 "release.msg.committed" = "committed %s (%s)"
 "release.msg.pr" = "created or updated the release PR: %s"
 "release.msg.registry_exists" = "%s@%s already exists in the registry; skipping publish"
@@ -173,6 +175,7 @@
 "release.pr.package" = "- %s: %s -> %s (%s)"
 "release.pr.line" = "- %s"
 "release.pr.command" = "- %s"
+"release.pr.changelog" = "### Changelog"
 "release.warn.unregistered_package" = "detected package %q is not registered; run qegg init to add it"
 "resume.previous" = "resuming run %s (phase %s, status %s)"
 
@@ -181,11 +184,13 @@
 "step.verify" = "verify"
 "step.bump" = "bump version"
 "step.changelog" = "update changelog"
+"step.branch" = "prepare release branch"
 "step.commit" = "release commit"
 "step.publish" = "publish"
 "step.tag" = "tag"
 "step.push" = "push"
 "step.github_release" = "GitHub Release"
+"step.sync" = "sync release branch"
 "step.assets" = "build release assets"
 
 # --- changelog groups -------------------------------------------------------

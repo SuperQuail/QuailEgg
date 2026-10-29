@@ -167,3 +167,38 @@ func runGit(t *testing.T, dir string, args ...string) {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
 }
+
+func TestCheckoutBranchAndRemoteBranchExists(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "init")
+	bare := filepath.Join(t.TempDir(), "origin.git")
+	runGit(t, dir, "init", "--bare", "-q", bare)
+	runGit(t, dir, "remote", "add", "origin", bare)
+	runGit(t, dir, "push", "-q", "origin", "HEAD:refs/heads/main")
+
+	ctx := context.Background()
+	repo, err := Open(ctx, dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CheckoutBranch(ctx, "release"); err != nil {
+		t.Fatalf("CheckoutBranch: %v", err)
+	}
+	branch, err := repo.Branch(ctx)
+	if err != nil || branch != "release" {
+		t.Fatalf("Branch = %q, %v", branch, err)
+	}
+	exists, err := repo.RemoteBranchExists(ctx, "origin", "main")
+	if err != nil || !exists {
+		t.Fatalf("main should exist: %v %v", exists, err)
+	}
+	exists, err = repo.RemoteBranchExists(ctx, "origin", "release")
+	if err != nil || exists {
+		t.Fatalf("release should not exist: %v %v", exists, err)
+	}
+}

@@ -102,3 +102,11 @@ func TestLegacyLanguageKeyAccepted(t *testing.T) {
 		t.Fatalf("legacy language key must keep loading: %v", err)
 	}
 }
+
+func TestValidateRejectsReleaseBranchEqualToDefault(t *testing.T) {
+	cfg := Default()
+	cfg.Release.Branch = cfg.Project.DefaultBranch
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected a validation error")
+	}
+}

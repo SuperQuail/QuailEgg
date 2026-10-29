@@ -2,6 +2,7 @@ package release
 
 import (
 	"fmt"
+	"github.com/SuperQuail/QuailEgg/internal/changelog"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/release/state"
 	"strings"
@@ -57,5 +58,7 @@ func (p *Plan) pullRequestBody(d *Deps) string {
 			fmt.Fprintf(&b, i18n.T("release.pr.command")+"\n", command)
 		}
 	}
+	b.WriteString("\n" + i18n.T("release.pr.changelog") + "\n\n")
+	b.WriteString(changelog.RenderBody(ChangelogSection(p, d.Now())))
 	return b.String()
 }

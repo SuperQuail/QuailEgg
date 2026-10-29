@@ -30,7 +30,36 @@ func (e *executor) runPublish(ctx context.Context) error {
 	if err := e.step(ctx, "push", e.push); err != nil {
 		return err
 	}
-	return e.step(ctx, "github-release", e.githubRelease)
+	if err := e.step(ctx, "github-release", e.githubRelease); err != nil {
+		return err
+	}
+	if e.d.Cfg.Release.Mode == config.ModePR {
+		return e.step(ctx, "sync", e.syncReleaseBranch)
+	}
+	return nil
+}
+
+// syncReleaseBranch flattens the release branch onto the published commit once
+// the release is out, so an idle branch never lags behind main. A branch that
+// GitHub already deleted stays deleted and is recreated by the next release.
+func (e *executor) syncReleaseBranch(ctx context.Context) error {
+	if e.d.Options.NoPush {
+		e.skip("sync", i18n.T("release.skip.no_push"))
+		return nil
+	}
+	branch := e.releaseBranch()
+	exists, err := e.d.Git.RemoteBranchExists(ctx, e.d.Cfg.Git.Remote, branch)
+	if err != nil {
+		e.d.UI.Warn("%s", i18n.Tf("release.warn.sync_failed", err))
+		return nil
+	}
+	if !exists {
+		return nil
+	}
+	if err := e.d.Git.Push(ctx, e.d.Cfg.Git.Remote, releaseRefspec(branch)); err != nil {
+		e.d.UI.Warn("%s", i18n.Tf("release.warn.sync_failed", err))
+	}
+	return nil
 }
 
 func (e *executor) preflightPublish(ctx context.Context) error {

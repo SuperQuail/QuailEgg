@@ -16,15 +16,17 @@ func stepsFor(phase, mode string, hasAssets bool) []StepInfo {
 		return nil
 	}
 	if phase == PhasePublish {
-		return append([]StepInfo{step("preflight")}, publishSteps(hasAssets)...)
+		steps := append([]StepInfo{step("preflight")}, publishSteps(hasAssets)...)
+		if mode == config.ModePR {
+			steps = append(steps, step("sync"))
+		}
+		return steps
 	}
-	steps := []StepInfo{
-		step("preflight"),
-		step("verify"),
-		step("bump"),
-		step("changelog"),
-		step("commit"),
+	steps := []StepInfo{step("preflight"), step("verify")}
+	if mode == config.ModePR {
+		steps = append(steps, step("branch"))
 	}
+	steps = append(steps, step("bump"), step("changelog"), step("commit"))
 	if mode == config.ModeCommit {
 		steps = append(steps, publishSteps(hasAssets)...)
 	}
