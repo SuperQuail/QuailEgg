@@ -3,9 +3,13 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
+
 	"github.com/SuperQuail/QuailEgg/internal/config"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
+	"github.com/SuperQuail/QuailEgg/internal/github"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
+	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
 	"github.com/SuperQuail/QuailEgg/internal/scaffold"
@@ -107,6 +111,10 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if remote == "" {
 		remote = "origin"
 	}
+	repoID, repoWarn, err := detectRemoteRepo(ctx, root, remote, existing)
+	if err != nil {
+		return nil, err
+	}
 	changesDir := opts.ChangesDir
 	if changesDir == "" && existing != nil {
 		changesDir = existing.Changes.Dir
@@ -159,6 +167,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		Mode:            mode,
 		TagPrefix:       tagPrefix,
 		Remote:          remote,
+		Repo:            repoID,
 		Registries:      registries,
 		ChangesDir:      changesDir,
 		Scope:           scope,
@@ -177,10 +186,33 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if err != nil {
 		return nil, err
 	}
+	if repoWarn != "" {
+		plan.Warnings = append(plan.Warnings, repoWarn)
+	}
 	if !opts.DryRun {
 		if _, err := scaffold.Apply(plan); err != nil {
 			return nil, err
 		}
 	}
 	return plan, nil
+}
+
+// detectRemoteRepo resolves the configured git remote into the canonical
+// host/owner/name identity of the project repository. A missing remote is an
+// error because the identity is what lets a fork clone be recognised.
+func detectRemoteRepo(ctx context.Context, root, remote string, existing *config.Config) (string, string, error) {
+	run := execx.OSRunner{}
+	res, err := run.Run(ctx, root, "git", "remote", "get-url", remote)
+	if err != nil {
+		return "", "", errors.New(i18n.Tf("init.err.no_remote", remote, remote))
+	}
+	repo, ok := github.ParseRemote(res.Stdout)
+	if !ok {
+		return "", i18n.Tf("init.warn.repo_unknown", remote), nil
+	}
+	id := repo.ID()
+	if existing != nil && strings.TrimSpace(existing.Project.Repo) != "" && !strings.EqualFold(existing.Project.Repo, id) {
+		return id, i18n.Tf("init.warn.repo_differs", remote, id, existing.Project.Repo), nil
+	}
+	return id, "", nil
 }

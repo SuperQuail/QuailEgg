@@ -222,6 +222,7 @@ func TestGoPreCommitHookBlocksFailingTests(t *testing.T) {
 	bin := buildBinary(t)
 	dir := newGoRepo(t)
 	t.Setenv("PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	addOrigin(t, dir)
 
 	runStrict(t, bin, dir, "init", "--no-input", "--mode", "commit", "--registries", "go", "--no-workflows")
 

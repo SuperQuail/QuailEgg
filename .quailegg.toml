@@ -3,6 +3,7 @@ schema_version = 1
 
 [project]
 default_branch = "main"
+repo = "github.com/SuperQuail/QuailEgg"
 
 [git]
 tag_prefix = "v"

@@ -83,9 +83,45 @@ func newRepo(t *testing.T) string {
 	return dir
 }
 
+// addOrigin points the test repository at a hosted remote. qegg init refuses to
+// scaffold a repository without one because the remote identity is what makes
+// a fork clone recognisable later.
+func addOrigin(t *testing.T, dir string) {
+	t.Helper()
+	git(t, dir, "remote", "add", "origin", "https://github.com/example/demo")
+}
+
+func TestInitRequiresRemote(t *testing.T) {
+	bin := buildBinary(t)
+	dir := newRepo(t)
+
+	_, stderr := run(t, bin, dir, "init", "--no-input", "--mode", "commit", "--registries", "npm")
+	if !strings.Contains(stderr, "git remote add") {
+		t.Fatalf("init should explain how to add a remote, got %q", stderr)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".quailegg.toml")); err == nil {
+		t.Fatal("init must not scaffold anything without a remote")
+	}
+}
+
+func TestInitRecordsProjectRepository(t *testing.T) {
+	bin := buildBinary(t)
+	dir := newRepo(t)
+	addOrigin(t, dir)
+	runStrict(t, bin, dir, "init", "--no-input", "--mode", "commit", "--registries", "npm")
+	data, err := os.ReadFile(filepath.Join(dir, ".quailegg.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `repo = "github.com/example/demo"`) {
+		t.Fatalf("config is missing the project repository:\n%s", data)
+	}
+}
+
 func TestInitCheckCommitPlan(t *testing.T) {
 	bin := buildBinary(t)
 	dir := newRepo(t)
+	addOrigin(t, dir)
 
 	if _, stderr := run(t, bin, dir, "init", "--no-input", "--mode", "commit", "--registries", "npm"); stderr != "" && strings.Contains(stderr, "error:") {
 		t.Fatalf("init failed: %s", stderr)
@@ -158,6 +194,7 @@ func TestInitCheckCommitPlan(t *testing.T) {
 func TestHookScriptIsInstalled(t *testing.T) {
 	bin := buildBinary(t)
 	dir := newRepo(t)
+	addOrigin(t, dir)
 	run(t, bin, dir, "init", "--no-input", "--mode", "pr", "--registries", "npm")
 	data, err := os.ReadFile(filepath.Join(dir, ".git", "hooks", "pre-commit"))
 	if err != nil {
@@ -192,6 +229,7 @@ func isolateUserConfig(t *testing.T) string {
 func TestUserLanguageBeatsLegacyProjectConfig(t *testing.T) {
 	bin := buildBinary(t)
 	dir := newRepo(t)
+	addOrigin(t, dir)
 	run(t, bin, dir, "init", "--no-input", "--mode", "pr", "--registries", "npm")
 
 	cfgPath := filepath.Join(dir, ".quailegg.toml")
