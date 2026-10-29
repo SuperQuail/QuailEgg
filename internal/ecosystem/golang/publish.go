@@ -28,7 +28,13 @@ func (publisher) Publish(context.Context, execx.Runner, string, ecosystem.Packag
 	return nil
 }
 
+// endpoint renders the version query for a Go module. The ecosystem API passes
+// bare semantic versions (0.4.0), while the module proxy protocol requires the
+// canonical v-prefixed form (v0.4.0).
 func endpoint(modulePath, version string) string {
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
+	}
 	return "https://proxy.golang.org/" + escapePath(modulePath) + "/@v/" + escapePath(version) + ".info"
 }
 
