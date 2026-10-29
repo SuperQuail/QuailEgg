@@ -65,6 +65,7 @@ type Marker struct {
 	Version       string          `json:"version"`
 	CreatedAt     time.Time       `json:"created_at"`
 	Mode          string          `json:"mode"`
+	Channel       string          `json:"channel,omitempty"`
 	Fingerprint   string          `json:"fingerprint"`
 	Repo          MarkerRepo      `json:"repo"`
 	Verified      MarkerVerified  `json:"verified"`

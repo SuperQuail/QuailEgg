@@ -137,6 +137,19 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 			return nil, err
 		}
 	}
+	tags, err := d.Git.ListTags(ctx, d.Cfg.Git.TagPrefix)
+	if err != nil {
+		return nil, err
+	}
+	pre, err := state.LoadPreRelease(d.Root)
+	if err != nil {
+		return nil, err
+	}
+	previousTag := func() {
+		if tagExists {
+			plan.PreviousTag = tag
+		}
+	}
 
 	switch {
 	case relMarker != nil && !markerTagExists && markerApplies(relMarker.Version, target.Version, tagVersioned):
@@ -146,8 +159,76 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		plan.Changes = markerChanges(relMarker.Changes)
 		plan.Tag = markerTag
 		plan.HasChanges = false
+		plan.Channel = relMarker.Channel
+		if plan.Channel == "" {
+			if _, channel, _, ok := semver.SplitPrerelease(relMarker.Version); ok {
+				plan.Channel = channel
+			}
+		}
+	case pre != nil:
+		if target.Resolver == config.ResolverPython {
+			return nil, errors.New(i18n.T("release.err.prerelease_unsupported"))
+		}
+		plan.Channel = pre.Channel
+		switch {
+		case len(consumed) == 0:
+			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.prerelease_idle", pre.Channel))
+		case relMarker != nil && markerTagExists && sameChangeSet(d.Root, relMarker, consumed):
+			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.prerelease_unchanged", relMarker.Version))
+		default:
+			bump := changes.NextBump(consumed)
+			if !bump.Valid() {
+				return nil, errors.New("no releasing packages found in the staged change records")
+			}
+			base, counter, found := channelRelease(tags, d.Cfg.Git.TagPrefix, pre.Channel)
+			if !found && pre.Version != "" {
+				if lockBase, _, lockCounter, ok := semver.SplitPrerelease(pre.Version); ok {
+					base, counter, found = lockBase, lockCounter, true
+				}
+			}
+			next, err := semver.Next(stableBaseVersion(tags, d.Cfg.Git.TagPrefix, target.Version), bump)
+			if err != nil {
+				return nil, err
+			}
+			baseVersion := next.String()
+			counterNext := 1
+			if found {
+				if cmp, err := semver.Compare(base, baseVersion); err == nil && cmp >= 0 {
+					baseVersion = base
+					counterNext = counter + 1
+				}
+			}
+			nextVersion, err := semver.Prerelease(baseVersion, pre.Channel, counterNext)
+			if err != nil {
+				return nil, err
+			}
+			if err := versionPlan(ctx, d, plan, pkgName, target, publishable, nextVersion, string(bump), records, repo); err != nil {
+				return nil, err
+			}
+			previousTag()
+		}
+	case relMarker != nil && markerTagExists && semver.IsPrerelease(relMarker.Version):
+		plan.Graduating = true
+		preBase, _ := semver.Stable(relMarker.Version)
+		nextVersion := preBase
+		bump := ""
+		if len(consumed) > 0 {
+			if recordBump := changes.NextBump(consumed); recordBump.Valid() {
+				bump = string(recordBump)
+				next, err := semver.Next(stableBaseVersion(tags, d.Cfg.Git.TagPrefix, target.Version), recordBump)
+				if err != nil {
+					return nil, err
+				}
+				if cmp, err := semver.Compare(next.String(), preBase); err == nil && cmp > 0 {
+					nextVersion = next.String()
+				}
+			}
+		}
+		if err := versionPlan(ctx, d, plan, pkgName, target, publishable, nextVersion, bump, records, repo); err != nil {
+			return nil, err
+		}
+		previousTag()
 	case len(consumed) > 0:
-		plan.Phase = PhaseVersion
 		bump := changes.NextBump(consumed)
 		if !bump.Valid() {
 			return nil, errors.New("no releasing packages found in the staged change records")
@@ -156,29 +237,10 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		if err != nil {
 			return nil, err
 		}
-		nextVersion := next.String()
-		if err := registry.CheckVersion(target, nextVersion); err != nil {
+		if err := versionPlan(ctx, d, plan, pkgName, target, publishable, next.String(), string(bump), records, repo); err != nil {
 			return nil, err
 		}
-		plan.Version = VersionInfo{Current: target.Version, Next: nextVersion, Bump: string(bump)}
-		plan.Packages = []PackagePlan{{
-			Name:     pkgName,
-			Path:     target.Path,
-			Resolver: target.Resolver,
-			Publish:  publishable,
-			Current:  target.Version,
-			Next:     nextVersion,
-			Bump:     string(bump),
-			Manifest: target.Manifest,
-		}}
-		plan.Changes, err = buildChanges(ctx, d, records, repo)
-		if err != nil {
-			return nil, err
-		}
-		plan.Tag = semver.Tag(d.Cfg.Git.TagPrefix, nextVersion)
-		if tagExists {
-			plan.PreviousTag = tag
-		}
+		previousTag()
 	default:
 		plan.Phase = PhaseNone
 		if relMarker != nil && relMarker.Version != target.Version {

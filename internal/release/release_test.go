@@ -285,3 +285,109 @@ func TestPullRequestNumber(t *testing.T) {
 		}
 	}
 }
+
+func writeLock(t *testing.T, dir, channel, version string) {
+	t.Helper()
+	if err := state.SavePreRelease(dir, &state.PreRelease{Channel: channel, Version: version}); err != nil {
+		t.Fatalf("SavePreRelease: %v", err)
+	}
+}
+
+func writeMarker(t *testing.T, dir, version, channel string, recordBodies map[string]string) {
+	t.Helper()
+	marker := &state.Marker{Version: version, Mode: config.ModePR, Channel: channel}
+	for file, body := range recordBodies {
+		marker.Changes = append(marker.Changes, state.MarkerChange{File: file, Body: body})
+	}
+	if err := state.SaveMarker(dir, marker); err != nil {
+		t.Fatalf("SaveMarker: %v", err)
+	}
+}
+
+func TestPlanPreReleaseFirstCut(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	writeLock(t, dir, "alpha", "")
+	plan, err := Build(context.Background(), d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseVersion {
+		t.Fatalf("phase = %q, want version", plan.Phase)
+	}
+	if plan.Version.Next != "1.1.0-alpha.1" || plan.Tag != "v1.1.0-alpha.1" {
+		t.Fatalf("unexpected version: %+v tag %q", plan.Version, plan.Tag)
+	}
+	if plan.Channel != "alpha" || plan.Graduating {
+		t.Fatalf("unexpected channel state: %q graduating=%v", plan.Channel, plan.Graduating)
+	}
+}
+
+func TestPlanPreReleaseGuardAndIncrement(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	writeLock(t, dir, "alpha", "1.1.0-alpha.1")
+	writeMarker(t, dir, "1.1.0-alpha.1", "alpha", map[string]string{".changes/add-feature.md": "Add a feature."})
+	gitRun(t, dir, "tag", "v1.1.0-alpha.1")
+
+	guard, err := Build(context.Background(), d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if guard.Phase != PhaseNone {
+		t.Fatalf("phase = %q, want none before a new record", guard.Phase)
+	}
+
+	record := "---\ntype: feat\npackages:\n  rel-demo: minor\n---\n\nAdd a bigger feature.\n"
+	if err := os.WriteFile(filepath.Join(dir, ".changes", "add-feature.md"), []byte(record), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Build(context.Background(), d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseVersion || plan.Version.Next != "1.1.0-alpha.2" {
+		t.Fatalf("phase = %q next = %q, want version 1.1.0-alpha.2", plan.Phase, plan.Version.Next)
+	}
+}
+
+func TestPlanGraduatesPreRelease(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	gitRun(t, dir, "tag", "v1.0.0")
+	writeMarker(t, dir, "1.1.0-alpha.2", "alpha", map[string]string{".changes/add-feature.md": "Add a feature."})
+	gitRun(t, dir, "tag", "v1.1.0-alpha.2")
+
+	plan, err := Build(context.Background(), d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseVersion {
+		t.Fatalf("phase = %q, want version", plan.Phase)
+	}
+	if plan.Version.Next != "1.1.0" || !plan.Graduating {
+		t.Fatalf("expected graduation to 1.1.0, got %+v graduating=%v", plan.Version, plan.Graduating)
+	}
+	if plan.Channel != "" {
+		t.Fatalf("graduated plan must not carry a channel, got %q", plan.Channel)
+	}
+}
+
+func TestPlanPreReleaseIdleWithoutRecords(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	if err := os.Remove(filepath.Join(dir, ".changes", "add-feature.md")); err != nil {
+		t.Fatal(err)
+	}
+	writeLock(t, dir, "beta", "")
+	plan, err := Build(context.Background(), d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseNone {
+		t.Fatalf("phase = %q, want none", plan.Phase)
+	}
+	if plan.Channel != "beta" {
+		t.Fatalf("channel = %q, want beta", plan.Channel)
+	}
+}

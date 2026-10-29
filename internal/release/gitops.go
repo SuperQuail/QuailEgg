@@ -10,6 +10,7 @@ type GitOps interface {
 	Branch(ctx context.Context) (string, error)
 	HeadSHA(ctx context.Context) (string, error)
 	TagExists(ctx context.Context, name string) (bool, error)
+	ListTags(ctx context.Context, prefix string) ([]string, error)
 	TagPointsAt(ctx context.Context, name, sha string) (bool, error)
 	CreateTag(ctx context.Context, name, message string) error
 	Push(ctx context.Context, remote string, refs ...string) error

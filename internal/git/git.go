@@ -240,3 +240,21 @@ func splitLines(s string) []string {
 	}
 	return out
 }
+
+// ListTags returns the tags reachable from HEAD that start with prefix.
+func (r *Repo) ListTags(ctx context.Context, prefix string) ([]string, error) {
+	out, err := r.output(ctx, "tag", "--merged", "HEAD", "--list", prefix+"*")
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	var tags []string
+	for _, line := range strings.Split(out, "\n") {
+		if tag := strings.TrimSpace(line); tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags, nil
+}

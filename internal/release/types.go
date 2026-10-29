@@ -103,6 +103,8 @@ type Plan struct {
 	SchemaVersion int           `json:"schema_version"`
 	Phase         string        `json:"phase"`
 	HasChanges    bool          `json:"has_changes"`
+	Channel       string        `json:"channel,omitempty"`
+	Graduating    bool          `json:"graduating,omitempty"`
 	Fingerprint   string        `json:"fingerprint"`
 	Project       ProjectInfo   `json:"project"`
 	Version       VersionInfo   `json:"version"`
