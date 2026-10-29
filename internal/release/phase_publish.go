@@ -172,7 +172,7 @@ func (e *executor) githubRelease(ctx context.Context) error {
 		notes = "Release v" + e.plan.Version.Next
 	}
 	title := "v" + e.plan.Version.Next
-	err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, e.plan.Tag, title, notes)
+	err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, e.plan.Tag, title, notes, e.plan.Channel != "")
 	if errors.Is(err, github.ErrExists) {
 		e.d.UI.Info("%s", i18n.Tf("release.msg.release_exists", title))
 	} else if err != nil {
@@ -198,6 +198,9 @@ func (e *executor) warnAssetsNotUploaded() {
 }
 
 func (e *executor) releaseNotes() (string, bool) {
+	if e.plan.Channel != "" {
+		return changelog.RenderBody(ChangelogSection(e.plan, e.d.Now())), true
+	}
 	path := filepath.Join(e.d.Root, "CHANGELOG.md")
 	data, err := os.ReadFile(path)
 	if err != nil {

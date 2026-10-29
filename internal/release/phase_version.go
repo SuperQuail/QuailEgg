@@ -138,6 +138,10 @@ func (e *executor) bump(ctx context.Context) error {
 }
 
 func (e *executor) writeChangelog(ctx context.Context) error {
+	if e.plan.Channel != "" {
+		e.skip("changelog", i18n.T("release.skip.prerelease_changelog"))
+		return nil
+	}
 	section := ChangelogSection(e.plan, e.d.Now())
 	path := filepath.Join(e.d.Root, "CHANGELOG.md")
 	existing, err := fsx.ReadOrEmpty(path)
@@ -155,7 +159,17 @@ func (e *executor) commit(ctx context.Context) error {
 	if err := state.SaveMarker(e.d.Root, e.plan.markerFile(e.d)); err != nil {
 		return err
 	}
-	paths := []string{filepath.Join(e.d.Root, "CHANGELOG.md"), state.MarkerPath(e.d.Root)}
+	prerelease := e.plan.Channel != ""
+	paths := []string{state.MarkerPath(e.d.Root)}
+	if prerelease {
+		lock := &state.PreRelease{Channel: e.plan.Channel, Version: e.plan.Version.Next}
+		if err := state.SavePreRelease(e.d.Root, lock); err != nil {
+			return err
+		}
+		paths = append(paths, state.PreReleasePath(e.d.Root))
+	} else {
+		paths = append(paths, filepath.Join(e.d.Root, "CHANGELOG.md"))
+	}
 	detected, err := registry.DetectAll(e.d.Root)
 	if err != nil {
 		return err
@@ -168,12 +182,14 @@ func (e *executor) commit(ctx context.Context) error {
 	if err := e.d.Git.Add(ctx, paths...); err != nil {
 		return err
 	}
-	var records []string
-	for _, change := range e.plan.Changes {
-		records = append(records, change.File)
-	}
-	if err := e.d.Git.Remove(ctx, records...); err != nil {
-		return err
+	if !prerelease {
+		var records []string
+		for _, change := range e.plan.Changes {
+			records = append(records, change.File)
+		}
+		if err := e.d.Git.Remove(ctx, records...); err != nil {
+			return err
+		}
 	}
 	message := strings.ReplaceAll(e.d.Cfg.Release.CommitMessage, "{{version}}", e.plan.Version.Next)
 	sha, err := e.d.Git.CommitNoVerify(ctx, message)

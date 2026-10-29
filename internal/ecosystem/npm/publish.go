@@ -5,6 +5,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
+	"github.com/SuperQuail/QuailEgg/internal/semver"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,9 +23,15 @@ func (publisher) Build(context.Context, execx.Runner, string, ecosystem.Package)
 	return nil
 }
 
-func (publisher) Publish(ctx context.Context, run execx.Runner, root string, pkg ecosystem.Package, _ string) error {
+// Publish uploads the package. Prerelease versions go to a dist-tag named
+// after their channel so they never replace the latest release.
+func (publisher) Publish(ctx context.Context, run execx.Runner, root string, pkg ecosystem.Package, version string) error {
 	dir := fsx.Join(root, pkg.Path)
-	_, err := run.Run(ctx, dir, "npm", "publish")
+	args := []string{"publish"}
+	if _, channel, _, ok := semver.SplitPrerelease(version); ok {
+		args = append(args, "--tag", channel)
+	}
+	_, err := run.Run(ctx, dir, "npm", args...)
 	return err
 }
 

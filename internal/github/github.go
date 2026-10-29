@@ -141,15 +141,16 @@ func RepoFromEnv() (Repo, bool) {
 	return Repo{Host: "github.com", Owner: parts[0], Name: parts[1]}, true
 }
 
-// CreateRelease publishes a GitHub release or reports ErrExists.
-func CreateRelease(ctx context.Context, run execx.Runner, repo Repo, tag, title, notes string) error {
+// CreateRelease publishes a GitHub release or reports ErrExists. A prerelease
+// is marked as such and never becomes the repository latest release.
+func CreateRelease(ctx context.Context, run execx.Runner, repo Repo, tag, title, notes string, prerelease bool) error {
 	if execx.LookPath("gh") {
-		return createReleaseWithGH(ctx, run, tag, title, notes)
+		return createReleaseWithGH(ctx, run, tag, title, notes, prerelease)
 	}
-	return createReleaseWithAPI(ctx, repo, tag, title, notes)
+	return createReleaseWithAPI(ctx, repo, tag, title, notes, prerelease)
 }
 
-func createReleaseWithGH(ctx context.Context, run execx.Runner, tag, title, notes string) error {
+func createReleaseWithGH(ctx context.Context, run execx.Runner, tag, title, notes string, prerelease bool) error {
 	file, err := os.CreateTemp("", "qegg-release-*.md")
 	if err != nil {
 		return err
@@ -160,7 +161,13 @@ func createReleaseWithGH(ctx context.Context, run execx.Runner, tag, title, note
 		return err
 	}
 	file.Close()
-	res, err := run.Run(ctx, "", "gh", "release", "create", tag, "--title", title, "--notes-file", file.Name(), "--latest")
+	args := []string{"release", "create", tag, "--title", title, "--notes-file", file.Name()}
+	if prerelease {
+		args = append(args, "--prerelease", "--latest=false")
+	} else {
+		args = append(args, "--latest")
+	}
+	res, err := run.Run(ctx, "", "gh", args...)
 	if err == nil {
 		return nil
 	}
@@ -170,7 +177,15 @@ func createReleaseWithGH(ctx context.Context, run execx.Runner, tag, title, note
 	return err
 }
 
-func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes string) error {
+// makeLatest maps the prerelease flag to the API make_latest value.
+func makeLatest(prerelease bool) string {
+	if prerelease {
+		return "false"
+	}
+	return "true"
+}
+
+func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes string, prerelease bool) error {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		return errors.New("neither gh nor GITHUB_TOKEN is available")
@@ -183,7 +198,8 @@ func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes stri
 		"name":                   title,
 		"body":                   notes,
 		"draft":                  false,
-		"prerelease":             false,
+		"prerelease":             prerelease,
+		"make_latest":            makeLatest(prerelease),
 		"generate_release_notes": false,
 	}
 	body, err := json.Marshal(payload)

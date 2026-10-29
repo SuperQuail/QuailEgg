@@ -14,6 +14,7 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 		Version:       p.Version.Next,
 		CreatedAt:     d.Now(),
 		Mode:          d.Cfg.Release.Mode,
+		Channel:       p.Channel,
 		Fingerprint:   p.Fingerprint,
 		Verified: state.MarkerVerified{
 			Commands: append([]string(nil), d.Cfg.Verify.Commands...),
@@ -43,6 +44,9 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 func (p *Plan) pullRequestBody(d *Deps) string {
 	var b strings.Builder
 	b.WriteString(i18n.Tf("release.pr.header", p.Version.Next) + "\n\n")
+	if p.Channel != "" {
+		b.WriteString(i18n.Tf("release.pr.prerelease", p.Channel) + "\n\n")
+	}
 	b.WriteString(i18n.T("release.pr.version") + "\n\n")
 	for _, pkg := range p.Packages {
 		fmt.Fprintf(&b, i18n.T("release.pr.package")+"\n", pkg.Name, pkg.Current, pkg.Next, pkg.Bump)

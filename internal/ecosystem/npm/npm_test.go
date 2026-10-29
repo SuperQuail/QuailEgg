@@ -1,10 +1,14 @@
 package npm_test
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/ecosystemtest"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/npm"
+	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 )
 
 func TestSpec(t *testing.T) {
@@ -62,5 +66,33 @@ func TestSetVersion(t *testing.T) {
 	}
 	if updated[0].Version != "1.3.0" {
 		t.Fatalf("version not updated: %+v", updated[0])
+	}
+}
+
+type recordingRunner struct {
+	calls []string
+}
+
+func (r *recordingRunner) Run(_ context.Context, _ string, name string, args ...string) (execx.Result, error) {
+	r.calls = append(r.calls, name+" "+strings.Join(args, " "))
+	return execx.Result{}, nil
+}
+
+func TestPublishUsesChannelDistTag(t *testing.T) {
+	run := &recordingRunner{}
+	publisher := npm.New().Publisher()
+	pkg := ecosystem.Package{Name: "demo", Path: "."}
+	if err := publisher.Publish(context.Background(), run, t.TempDir(), pkg, "0.5.0-alpha.2"); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if len(run.calls) != 1 || run.calls[0] != "npm publish --tag alpha" {
+		t.Fatalf("calls = %v, want the alpha dist-tag", run.calls)
+	}
+	run.calls = nil
+	if err := publisher.Publish(context.Background(), run, t.TempDir(), pkg, "0.5.0"); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if len(run.calls) != 1 || run.calls[0] != "npm publish" {
+		t.Fatalf("calls = %v, want a plain publish", run.calls)
 	}
 }

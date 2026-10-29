@@ -168,6 +168,7 @@
 "release.warn.assets_ambiguous" = "cmd/ 下有多个 Go main 包，已禁用发布资产；请设置 release.assets.main"
 "release.warn.assets_not_uploaded" = "发布资产已构建，但 GitHub Release 被禁用，因此没有上传"
 "release.warn.sync_failed" = "同步发布分支失败：%v"
+"release.skip.prerelease_changelog" = "CHANGELOG 由稳定版发布写入"
 "release.err.prerelease_unsupported" = "暂不支持 Python 包的预发布"
 "release.warn.prerelease_idle" = "预发布渠道 %s 已启用，但没有待发布的记录"
 "release.warn.prerelease_unchanged" = "自 %s 之后没有新记录，新增记录后才会发布下一个预发布版本"
@@ -194,6 +195,7 @@
 "release.pr.line" = "- %s"
 "release.pr.command" = "- %s"
 "release.pr.changelog" = "### 变更日志"
+"release.pr.prerelease" = "预发布渠道: %s"
 "release.warn.unregistered_package" = "检测到未登记的包 %q；运行 qegg init 补充登记"
 "resume.previous" = "续跑最近一次运行 %s（阶段 %s，状态 %s）"
 

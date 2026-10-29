@@ -391,3 +391,63 @@ func TestPlanPreReleaseIdleWithoutRecords(t *testing.T) {
 		t.Fatalf("channel = %q, want beta", plan.Channel)
 	}
 }
+
+func TestPrereleaseVersionPhaseKeepsRecords(t *testing.T) {
+	dir := newRepo(t)
+	d := deps(t, dir)
+	writeLock(t, dir, "alpha", "")
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "chore: enter alpha")
+	ctx := context.Background()
+
+	plan, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Version.Next != "1.1.0-alpha.1" {
+		t.Fatalf("next = %q", plan.Version.Next)
+	}
+	if err := Run(ctx, d, plan); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	manifest, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manifest), "1.1.0-alpha.1") {
+		t.Fatalf("manifest not bumped:\n%s", manifest)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "CHANGELOG.md")); !os.IsNotExist(err) {
+		t.Fatalf("a prerelease must not write CHANGELOG.md (err=%v)", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".changes", "add-feature.md")); err != nil {
+		t.Fatalf("a prerelease must keep the change records: %v", err)
+	}
+	lock, err := state.LoadPreRelease(dir)
+	if err != nil || lock == nil {
+		t.Fatalf("lock: %v %v", lock, err)
+	}
+	if lock.Channel != "alpha" || lock.Version != "1.1.0-alpha.1" {
+		t.Fatalf("unexpected lock: %+v", lock)
+	}
+	marker, err := state.LoadMarker(dir)
+	if err != nil || marker == nil {
+		t.Fatalf("marker: %v %v", marker, err)
+	}
+	if marker.Channel != "alpha" || marker.Version != "1.1.0-alpha.1" {
+		t.Fatalf("unexpected marker: %+v", marker)
+	}
+	exists, err := d.Git.TagExists(ctx, "v1.1.0-alpha.1")
+	if err != nil || !exists {
+		t.Fatalf("tag v1.1.0-alpha.1 missing: %v", err)
+	}
+
+	again, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if again.Phase != PhaseNone {
+		t.Fatalf("phase = %q, want none before a new record", again.Phase)
+	}
+}
