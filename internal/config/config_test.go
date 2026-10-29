@@ -33,10 +33,16 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
-func TestUnknownField(t *testing.T) {
-	path := writeConfig(t, "schema_version = 1\n[project]\ndefault_branch = \"main\"\nunknown_key = true\n")
-	if _, err := LoadFile(path); err == nil {
-		t.Fatal("expected an error for an unknown key")
+// A newer qegg may write keys this binary does not know yet; the old binary
+// has to keep working, so unknown keys are ignored instead of rejected.
+func TestUnknownFieldsAreIgnored(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n[project]\ndefault_branch = \"main\"\nrepo = \"github.com/a/b\"\nfuture_key = true\n")
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("unknown keys must not fail the load: %v", err)
+	}
+	if cfg.Project.DefaultBranch != "main" {
+		t.Fatalf("known keys must still be read: %+v", cfg.Project)
 	}
 }
 

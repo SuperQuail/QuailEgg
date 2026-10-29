@@ -40,7 +40,7 @@ func TestPreReleaseValidation(t *testing.T) {
 	}{
 		{name: "channel only", body: `{"schema_version":1,"channel":"beta"}`, ok: true},
 		{name: "with version", body: `{"schema_version":1,"channel":"rc","version":"1.2.3-rc.4"}`, ok: true},
-		{name: "unknown field", body: `{"schema_version":1,"channel":"alpha","extra":true}`},
+		{name: "unknown field", body: `{"schema_version":1,"channel":"alpha","extra":true}`, ok: true},
 		{name: "bad channel", body: `{"schema_version":1,"channel":"nightly"}`},
 		{name: "channel mismatch", body: `{"schema_version":1,"channel":"alpha","version":"1.2.3-beta.1"}`},
 		{name: "bad schema", body: `{"schema_version":2,"channel":"alpha"}`},

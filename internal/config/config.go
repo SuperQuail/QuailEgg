@@ -2,7 +2,6 @@
 package config
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
@@ -137,9 +136,9 @@ func LoadFile(path string) (*Config, error) {
 		return nil, err
 	}
 	var cfg Config
-	dec := toml.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&cfg); err != nil {
+	// Unknown keys are ignored on purpose: a configuration written by a newer
+	// qegg must stay readable by an older binary that is still installed locally.
+	if err := toml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	cfg.applyDefaults()

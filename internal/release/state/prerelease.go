@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -42,12 +41,11 @@ func LoadPreRelease(root string) (*PreRelease, error) {
 	return ParsePreRelease(data, PreReleasePath(root))
 }
 
-// ParsePreRelease decodes and validates a lock file.
+// ParsePreRelease decodes and validates a lock file. Unknown fields are ignored
+// so a lock written by a newer qegg stays readable by an older binary.
 func ParsePreRelease(data []byte, path string) (*PreRelease, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
 	var pre PreRelease
-	if err := dec.Decode(&pre); err != nil {
+	if err := json.Unmarshal(data, &pre); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if pre.SchemaVersion == 0 {
