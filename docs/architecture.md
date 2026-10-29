@@ -23,7 +23,7 @@ internal/
   changes/                 # .changes 记录解析与写入，以及 hook/CI 规则（MatchesScope/IsWithin/Enforce）
   changelog/               # CHANGELOG.md 渲染与更新
   git/                     # git CLI 封装
-  github/                  # GitHub Release / PR API
+  github/                  # GitHub Release / PR API、贡献者 login 解析
   platform/
     execx/                 # 可注入的命令执行器
     fsx/                   # 原子写、带预期校验的编辑

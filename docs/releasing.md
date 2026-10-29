@@ -89,6 +89,7 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 - release 工作流只在发布相关路径变化时运行（`.changes/**`、`.quailegg.toml`、`.quailegg/pre-release.lock`、`.quailegg/release.json`、`CHANGELOG.md` 与各生态清单），只改文档的推送不会重建 release 分支。
 - release PR 由 `github-actions[bot]` 用 GITHUB_TOKEN 创建，GitHub 不会为它正常启动检查：PR 上可能出现 `action_required`，或一个 0 job 的启动失败 run（合并/强推后尤其明显）。`qegg-pr` 对 release 分支加了 `if: github.head_ref != 'release'`，run 一旦真正启动就跳过；不要把这条检查设为必需，验证由 publish 那次 run 负责。需要真实检查只能换成 PAT/GitHub App 身份。
 - workflow 安装 `@latest`，新版本发布后 CI 自动升级；要固定版本时用 `qegg init --force --qegg-version vX.Y.Z`。
+- CHANGELOG 的贡献者句柄取自 PR（没有 PR 时取 commit）作者的 GitHub login；私有仓库本地需要 `GITHUB_TOKEN`/`GH_TOKEN` 或登录过的 `gh`，都不可用时省略作者，不写显示名，也不影响发版。
 
 ## 预发布（alpha / beta / rc）
 
