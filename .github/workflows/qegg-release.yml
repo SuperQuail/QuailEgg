@@ -2,6 +2,12 @@ name: QuailEgg Release
 on:
   push:
     branches: ["main"]
+    paths:
+      - ".changes/**"
+      - ".quailegg.toml"
+      - ".quailegg/release.json"
+      - "CHANGELOG.md"
+      - "go.mod"
   workflow_dispatch:
 
 permissions:

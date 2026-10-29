@@ -78,12 +78,17 @@ type view struct {
 	Options
 	EcosystemSetups []string
 	EcosystemEnvs   []string
+	ReleasePaths    []string
 	HookNote        string
 }
 
 // newView collects the template data for one plan.
 func newView(opts Options) view {
-	data := view{Options: opts, HookNote: i18n.T("scaffold.hook_note")}
+	data := view{
+		Options:      opts,
+		ReleasePaths: releasePaths(opts),
+		HookNote:     i18n.T("scaffold.hook_note"),
+	}
 	for _, id := range workflowEcosystems(opts) {
 		spec, ok := registry.SpecFor(id)
 		if !ok {

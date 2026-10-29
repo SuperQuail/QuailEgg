@@ -1,10 +1,13 @@
 package scaffold
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func plannedFile(t *testing.T, opts Options, name string) *File {
@@ -102,5 +105,38 @@ func TestPullRequestWorkflowSkipsReleaseBranch(t *testing.T) {
 	file := plannedFile(t, opts, "qegg-pr.yml")
 	if want := "github.head_ref != 'release-1.x'"; !strings.Contains(string(file.Content), want) {
 		t.Fatalf("check job should skip the release branch, want %q:\n%s", want, file.Content)
+	}
+}
+
+func TestReleaseWorkflowTriggersOnlyOnReleasePaths(t *testing.T) {
+	opts := withEcosystem(testOptions(t), "go")
+	file := plannedFile(t, opts, "qegg-release.yml")
+	var doc map[string]any
+	if err := yaml.Unmarshal(file.Content, &doc); err != nil {
+		t.Fatalf("invalid YAML: %v\n%s", err, file.Content)
+	}
+	trigger, ok := doc["on"].(map[string]any)
+	if !ok {
+		t.Fatalf("workflow has no on: block:\n%s", file.Content)
+	}
+	push, ok := trigger["push"].(map[string]any)
+	if !ok {
+		t.Fatalf("workflow has no push trigger:\n%s", file.Content)
+	}
+	raw, ok := push["paths"].([]any)
+	if !ok {
+		t.Fatalf("push trigger has no paths filter:\n%s", file.Content)
+	}
+	got := map[string]bool{}
+	for _, item := range raw {
+		got[fmt.Sprint(item)] = true
+	}
+	for _, want := range []string{".changes/**", ".quailegg.toml", markerPath, "CHANGELOG.md", "go.mod"} {
+		if !got[want] {
+			t.Errorf("paths filter is missing %q: %v", want, got)
+		}
+	}
+	if _, ok := trigger["workflow_dispatch"]; !ok {
+		t.Error("workflow_dispatch must stay available")
 	}
 }

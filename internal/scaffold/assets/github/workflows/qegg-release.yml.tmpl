@@ -2,6 +2,10 @@ name: QuailEgg Release
 on:
   push:
     branches: ["[[ .BaseBranch ]]"]
+    paths:
+[[- range .ReleasePaths ]]
+      - "[[ . ]]"
+[[- end ]]
   workflow_dispatch:
 
 permissions:
