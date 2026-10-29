@@ -268,6 +268,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 }
 
 func buildChanges(ctx context.Context, d *Deps, records []*changes.Record, repo github.Repo) ([]ChangePlan, error) {
+	lookup := newAuthorLookup(ctx, d, repo)
 	out := make([]ChangePlan, 0, len(records))
 	for _, record := range records {
 		bump := ""
@@ -281,14 +282,13 @@ func buildChanges(ctx context.Context, d *Deps, records []*changes.Record, repo 
 		if err != nil {
 			commit = ""
 		}
-		author := ""
 		pullNumber := 0
 		if commit != "" {
-			author, _ = d.Git.CommitAuthor(ctx, commit)
 			if subject, err := d.Git.CommitSubject(ctx, commit); err == nil {
 				pullNumber = pullRequestNumber(subject)
 			}
 		}
+		author := lookup.resolve(ctx, pullNumber, commit)
 		pullURL := ""
 		if pullNumber > 0 {
 			pullURL = repo.PullURL(pullNumber)
