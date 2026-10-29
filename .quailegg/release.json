@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.5.1",
-  "created_at": "2026-10-29T12:42:11.872343668Z",
+  "version": "0.5.2",
+  "created_at": "2026-10-29T13:30:00.963068654Z",
   "mode": "commit",
-  "fingerprint": "sha256:9425eda78313cec9e5349fae71cfd89865c2a3092272eea88f35b4403b5f4850",
+  "fingerprint": "sha256:6a958686d0e0f526ab1171f799062748aa81b0cd1627f8be55da253557298d72",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,30 +15,30 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-29T12:42:11.872344399Z"
+    "at": "2026-10-29T13:30:00.963069185Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.5.0",
-      "next": "0.5.1",
+      "current": "0.5.1",
+      "next": "0.5.2",
       "bump": "patch",
       "publish": true
     }
   ],
   "changes": [
     {
-      "file": ".changes/prefix-proxy-versions.md",
+      "file": ".changes/resolve-contributor-logins.md",
       "type": "fix",
-      "scope": "ecosystem",
+      "scope": "release",
       "bump": "patch",
-      "body": "Show the real published state of a Go module in the status report.",
-      "commit": "a15194aeb514d6bfc3f333448c2cf9db93357056",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a15194aeb514d6bfc3f333448c2cf9db93357056",
-      "pull_number": 1,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/1",
+      "body": "Show contributor logins in the changelog instead of profile display names.",
+      "commit": "6f9bcf63c3e86b596b05e3a5a66bb1a06dc4e6a8",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/6f9bcf63c3e86b596b05e3a5a66bb1a06dc4e6a8",
+      "pull_number": 2,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/2",
       "author": "SuperCCC"
     }
   ]
