@@ -96,7 +96,9 @@ follow the commit rules below.
 - The body is copied verbatim into `CHANGELOG.md`. It is release-note prose, not
   a commit subject.
 - `.changes/README.md` and `.quailegg.toml` are generated: `qegg init --force`
-  owns them, do not edit by hand.
+  owns them, do not edit by hand. The same command appends a managed block to
+  `.gitignore` that keeps `.quailegg/state/`, `.quailegg/lock` and
+  `.quailegg/assets/` out of git; leave that block in place.
 - The release commit deletes consumed records. Never delete a record yourself.
 
 Example:
@@ -173,6 +175,9 @@ Good and bad examples:
 - The hook and the three workflows are generated from `internal/scaffold/assets/`.
   Change the template, not the generated file. Templates use `[[ ]]` actions and
   must stay LF.
+- The generated release workflow runs only on release paths; the generated pull
+  request workflow skips the release branch, whose verification is the publish
+  run.
 - `CHANGELOG.md` headings follow the user's language setting, not the repository:
   run `qegg --lang en release` or set `QEGG_LANG=en` so released headings stay
   English.
