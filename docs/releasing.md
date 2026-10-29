@@ -83,5 +83,5 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 - release PR 用 squash 合并，标题固定为 `chore(release): bump versions`。
 - 建议主分支开启 Require branches to be up to date before merging，避免过期的 release PR 被合入。
 - release 工作流只在发布相关路径变化时运行（`.changes/**`、`.quailegg.toml`、`.quailegg/release.json`、`CHANGELOG.md` 与各生态清单），只改文档的推送不会重建 release 分支。
-- release PR 由 `github-actions[bot]` 用 GITHUB_TOKEN 创建，`qegg-pr` 工作流会跳过 release 分支（`if: github.head_ref != 'release'`）；不要给它配置必需检查，验证由 publish 那次 run 负责。
+- release PR 由 `github-actions[bot]` 用 GITHUB_TOKEN 创建，GitHub 不会为它正常启动检查：PR 上可能出现 `action_required`，或一个 0 job 的启动失败 run（合并/强推后尤其明显）。`qegg-pr` 对 release 分支加了 `if: github.head_ref != 'release'`，run 一旦真正启动就跳过；不要把这条检查设为必需，验证由 publish 那次 run 负责。需要真实检查只能换成 PAT/GitHub App 身份。
 - workflow 安装 `@latest`，新版本发布后 CI 自动升级；要固定版本时用 `qegg init --force --qegg-version vX.Y.Z`。
