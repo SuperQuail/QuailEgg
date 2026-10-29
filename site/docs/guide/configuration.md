@@ -21,6 +21,7 @@ schema_version = 1
 
 [project]
 default_branch = "main"       # 只允许在这个分支发版
+repo = "github.com/you/project"  # 项目仓库身份，qegg init 写入，用于识别 fork 克隆
 
 [git]
 tag_prefix = "v"

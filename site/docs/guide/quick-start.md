@@ -15,11 +15,14 @@ qegg version
 
 ## 初始化项目
 
-在仓库根目录运行：
+`qegg init` 要求仓库已经配置好远程（默认 `origin`）：仓库身份会写进 `[project] repo`，本地 hook 靠它区分“项目仓库”和 fork 克隆。没有远程时会直接失败：
 
 ```bash
+git remote add origin https://github.com/you/project
 qegg init
 ```
+
+生成的 hook 只在项目仓库的默认分支上强制变更记录；fork 克隆和普通分支上的提交只提示不拦，合并前的 PR 检查会要求一条记录。
 
 交互向导会检测项目里的包，并询问发布方式、主分支、发布目标等。它会生成：
 

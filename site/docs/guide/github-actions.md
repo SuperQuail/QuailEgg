@@ -4,9 +4,18 @@
 
 | 工作流 | 触发 | 作用 |
 | --- | --- | --- |
-| `qegg-pr.yml` | 向主分支发起 PR | `qegg check --ci` 检查记录是否缺失，并把发布计划评论到 PR |
-| `qegg-release.yml` | 推送到主分支、手动触发 | `qegg release --yes` |
+| `qegg-pr.yml` | 向主分支发起 PR（release 分支除外） | `qegg check --ci` 检查记录是否缺失，并把发布计划评论到 PR |
+| `qegg-release.yml` | 推送到主分支（仅发布相关路径变化时）、手动触发 | `qegg release --yes` |
 | `qegg-status.yml` | 手动触发 | `qegg status --json` |
+
+## 触发路径
+
+release 工作流只在下列路径变化时运行：`.changes/**`、`.quailegg.toml`、`.quailegg/pre-release.lock`、`.quailegg/release.json`、`CHANGELOG.md`，以及各生态清单（`package.json`、`pyproject.toml`、`Cargo.toml`、`go.mod`）。只改文档的推送不会重建发布 PR。
+
+## 发布 PR
+
+- pr 模式每次推送主分支都会重建 `release` 分支并强推，同一个发布 PR 被原地刷新，多个功能合并共用一个版本；
+- 发布 PR 由 `github-actions[bot]` 用 `GITHUB_TOKEN` 创建，GitHub 不会为它正常启动检查：PR 上可能出现 `action_required`，或一个 0 job 的启动失败 run。`qegg-pr` 会跳过 release 分支（`if: github.head_ref != 'release'`），不要把这条检查设为必需；验证由发布阶段那次 run 负责。
 
 不需要 status 工作流时用 `--no-status-workflow`，完全不生成工作流用 `--no-workflows`。
 

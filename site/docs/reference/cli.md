@@ -16,7 +16,7 @@ qegg <command> [flags]
 
 ## qegg init
 
-生成配置、变更记录目录、git hook 与 GitHub Actions 工作流。
+生成配置、变更记录目录、git hook 与 GitHub Actions 工作流。仓库必须已经配置好远程（默认 `origin`），身份会写入 `[project] repo`；缺少远程时直接报错并提示 `git remote add`。
 
 | 参数 | 说明 |
 | --- | --- |
@@ -83,6 +83,18 @@ qegg <command> [flags]
 | 参数 | 说明 |
 | --- | --- |
 | `--dry-run` | 只打印结果，不写文件 |
+
+## qegg pre
+
+进入、退出或查看预发布渠道（`alpha`、`beta`、`rc`）。
+
+| 用法 | 说明 |
+| --- | --- |
+| `qegg pre` | 查看当前渠道与下一个版本 |
+| `qegg pre alpha` | 进入 alpha 渠道，写入 `.quailegg/pre-release.lock` |
+| `qegg pre exit` | 退出渠道，下一次发布回到稳定版 |
+
+锁文件需要提交。渠道启用后，版本变成 `<目标版本>-<渠道>.<n>`，同渠道连续发布时 `n` 递增；预发布不写 `CHANGELOG.md`、不消费变更记录，毕业（`exit`）后的稳定版才一次性写入。
 
 ## qegg release
 

@@ -20,6 +20,7 @@ QuailEgg 把"这次改了什么、该升哪一级"前移到写代码的时候：
 - 发布计划：qegg 从待发记录推导出的版本变化与步骤清单，可以用 `qegg plan` 随时预览。
 - 发布标记：`.quailegg/release.json`，记录"已经提升版本、等待发布"的版本，用来衔接 pr 模式的两个阶段。
 - 发布方式：`pr`（默认）先开发布 PR，合并后再发布；`commit` 直接提交版本并发布。详见 [发布流程](./release-flow)。
+- 预发布：`qegg pre alpha|beta|rc|exit` 在稳定版之前发 alpha/beta/rc，渠道状态写在提交进仓库的 `.quailegg/pre-release.lock`。
 
 ## 下一步
 

@@ -1,5 +1,36 @@
 # 常见问题
 
+## init 提示没有远程仓库
+
+`qegg init` 需要仓库已经配置远程，因为仓库身份（`[project] repo`）要写进配置，hook 靠它识别 fork 克隆：
+
+```bash
+git remote add origin https://github.com/you/project
+qegg init
+```
+
+## fork 里提交不会被 hook 拦
+
+设计如此。记录规则只在项目仓库的默认分支上强制；fork 克隆和普通分支的提交放行，合并前的 PR 检查会要求一条能正常解析的记录。
+
+## 发布 PR 上的检查是红的或一直等待批准
+
+发布 PR 由 `github-actions[bot]` 用 `GITHUB_TOKEN` 创建，GitHub 不会为这类 PR 正常启动检查，run 可能停在 `action_required` 或直接启动失败。`qegg-pr` 会跳过 release 分支；不要把这条检查设为必需。
+
+## 只改了文档，为什么没有触发发布
+
+release 工作流只在发布相关路径变化时运行（`.changes/**`、配置文件、marker、`CHANGELOG.md` 与生态清单）。只改文档的推送会被跳过，这是预期行为。
+
+## 怎么发 alpha / beta
+
+```bash
+qegg pre alpha     # 写入 .quailegg/pre-release.lock
+git add .quailegg/pre-release.lock
+git commit -m "chore: start alpha"
+git push
+qegg pre exit      # 毕业：下一次发布回到稳定版
+```
+
 ## 提交被 hook 拒绝
 
 暂存区改动了 `[changes].scope` 内的文件却没有变更记录。用 `qegg commit` 生成一条，或确认改动确实不需要发版后用 `git commit --no-verify`。

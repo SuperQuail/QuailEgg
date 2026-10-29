@@ -13,6 +13,7 @@
 | 字段 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | `default_branch` | string | `"main"` | 允许发版的分支 |
+| `repo` | string | 空 | 项目仓库身份（`host/owner/name`），由 `qegg init` 写入；hook 用它区分项目仓库与 fork 克隆 |
 
 ## [git]
 
