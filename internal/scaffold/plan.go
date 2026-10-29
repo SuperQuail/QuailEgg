@@ -15,6 +15,7 @@ import (
 type Options struct {
 	Root            string
 	BaseBranch      string
+	ReleaseBranch   string
 	Mode            string
 	TagPrefix       string
 	Remote          string

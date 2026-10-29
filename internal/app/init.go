@@ -142,6 +142,11 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		verifyCommands = defaultVerifyCommands(root, ecosystemID)
 	}
 
+	releaseBranch := config.Default().Release.Branch
+	if existing != nil && existing.Release.Branch != "" {
+		releaseBranch = existing.Release.Branch
+	}
+
 	version := opts.QeggVersion
 	if version == "" {
 		version = "latest"
@@ -150,6 +155,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	plan, err := scaffold.Build(scaffold.Options{
 		Root:            root,
 		BaseBranch:      baseBranch,
+		ReleaseBranch:   releaseBranch,
 		Mode:            mode,
 		TagPrefix:       tagPrefix,
 		Remote:          remote,

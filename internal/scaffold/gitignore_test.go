@@ -95,3 +95,12 @@ func TestGitignoreFollowsExistingLineEndings(t *testing.T) {
 		t.Fatalf("appended block should use CRLF:\n%q", content)
 	}
 }
+
+func TestPullRequestWorkflowSkipsReleaseBranch(t *testing.T) {
+	opts := testOptions(t)
+	opts.ReleaseBranch = "release-1.x"
+	file := plannedFile(t, opts, "qegg-pr.yml")
+	if want := "github.head_ref != 'release-1.x'"; !strings.Contains(string(file.Content), want) {
+		t.Fatalf("check job should skip the release branch, want %q:\n%s", want, file.Content)
+	}
+}

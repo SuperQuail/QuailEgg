@@ -31,6 +31,7 @@ func testOptions(t *testing.T) Options {
 	return Options{
 		Root:          t.TempDir(),
 		BaseBranch:    "main",
+		ReleaseBranch: "release",
 		Mode:          config.ModePR,
 		TagPrefix:     "v",
 		Remote:        "origin",

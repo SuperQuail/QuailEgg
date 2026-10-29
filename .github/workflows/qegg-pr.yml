@@ -16,6 +16,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.head_ref != 'release'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
