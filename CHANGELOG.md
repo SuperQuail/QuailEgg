@@ -1,5 +1,15 @@
 # Changelog
 
+<!-- qegg:release 0.5.1 -->
+## v0.5.1 - 2026-10-29
+
+### Bug Fixes
+
+- [`a15194a`](https://github.com/SuperQuail/QuailEgg/commit/a15194aeb514d6bfc3f333448c2cf9db93357056): Show the real published state of a Go module in the status report. ([#1](https://github.com/SuperQuail/QuailEgg/pull/1) by @SuperCCC)
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.5.0...v0.5.1
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.5.0 -->
 ## v0.5.0 - 2026-10-29
 
