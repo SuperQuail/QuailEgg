@@ -147,7 +147,7 @@ func (r *Record) Validate(known []string) error {
 		}
 		parts := strings.Split(strings.TrimSuffix(base, ".md"), "-")
 		if len(parts) > 3 {
-			return fmt.Errorf("file name %q should use at most two words", base)
+			return fmt.Errorf("file name %q should use at most three words", base)
 		}
 	}
 	return nil

@@ -117,3 +117,15 @@ func TestLoadDirSkipsReadme(t *testing.T) {
 		t.Fatalf("unexpected records: %+v", records)
 	}
 }
+
+func TestValidateSlugWordLimitMessage(t *testing.T) {
+	rec := parse(t, "---\ntype: feat\npackages:\n  pkg: minor\n---\nbody\n")
+	rec.Path = "/repo/.changes/add-a-greeting-command.md"
+	err := rec.Validate([]string{"pkg"})
+	if err == nil {
+		t.Fatal("expected an error for a four word slug")
+	}
+	if !strings.Contains(err.Error(), "three words") {
+		t.Fatalf("error %q should state the real word limit", err)
+	}
+}
