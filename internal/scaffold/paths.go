@@ -12,6 +12,9 @@ import (
 // markerPath is the committed release marker the publish phase reads.
 const markerPath = ".quailegg/release.json"
 
+// prereleaseLockPath switches the repository into a prerelease channel.
+const prereleaseLockPath = ".quailegg/pre-release.lock"
+
 // releasePaths lists the paths whose changes can alter the release plan. The
 // generated release workflow runs only when a push touches one of them, so a
 // documentation-only commit never starts a release.
@@ -34,6 +37,7 @@ func releasePaths(opts Options) []string {
 	add(path.Join(changesDir, "**"))
 	add(config.FileName)
 	add(markerPath)
+	add(prereleaseLockPath)
 	add("CHANGELOG.md")
 
 	names := make([]string, 0, len(opts.Packages))

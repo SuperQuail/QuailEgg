@@ -131,7 +131,7 @@ func TestReleaseWorkflowTriggersOnlyOnReleasePaths(t *testing.T) {
 	for _, item := range raw {
 		got[fmt.Sprint(item)] = true
 	}
-	for _, want := range []string{".changes/**", ".quailegg.toml", markerPath, "CHANGELOG.md", "go.mod"} {
+	for _, want := range []string{".changes/**", ".quailegg.toml", markerPath, prereleaseLockPath, "CHANGELOG.md", "go.mod"} {
 		if !got[want] {
 			t.Errorf("paths filter is missing %q: %v", want, got)
 		}

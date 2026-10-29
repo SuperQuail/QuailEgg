@@ -5,6 +5,7 @@ on:
     paths:
       - ".changes/**"
       - ".quailegg.toml"
+      - ".quailegg/pre-release.lock"
       - ".quailegg/release.json"
       - "CHANGELOG.md"
       - "go.mod"
