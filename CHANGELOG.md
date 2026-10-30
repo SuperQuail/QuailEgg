@@ -1,5 +1,16 @@
 # Changelog
 
+<!-- qegg:release 0.8.0 -->
+## v0.8.0 - 2026-10-30
+
+### Features
+
+- [`a5c7efa`](https://github.com/SuperQuail/QuailEgg/commit/a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9): Build release assets from configured commands and upload the collected files. ([#14](https://github.com/SuperQuail/QuailEgg/pull/14) by @Wsrsq)
+- [`a5c7efa`](https://github.com/SuperQuail/QuailEgg/commit/a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9): Run platform build jobs before the release and attach their output. ([#14](https://github.com/SuperQuail/QuailEgg/pull/14) by @Wsrsq)
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.7.0...v0.8.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.7.0 -->
 ## v0.7.0 - 2026-10-30
 
