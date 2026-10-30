@@ -562,6 +562,8 @@ func TestOrderTargetsHonoursConfiguredDependencies(t *testing.T) {
 
 func TestConfiguredPackageOutsideDetection(t *testing.T) {
 	execx.SanitizeGitHookEnv()
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_ACTIONS", "")
 	dir := t.TempDir()
 	gitRun(t, dir, "init", "-q")
 	gitRun(t, dir, "config", "user.email", "release@example.com")
