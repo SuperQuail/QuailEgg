@@ -76,6 +76,10 @@ qegg <command> [flags]
 
 执行 `[verify].commands`。
 
+## qegg hook
+
+git hook 的入口。`qegg hook pre-commit` 与安装的 hook 行为一致：检查变更记录，并且只在暂存区命中 `[changes].scope` 时运行 `[verify].commands`。
+
 ## qegg changelog
 
 根据待发变更生成 `CHANGELOG.md`。

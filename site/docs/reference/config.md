@@ -54,7 +54,7 @@
 
 | 字段 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `commands` | string[] | `[]` | 提交前与发版前执行的命令 |
+| `commands` | string[] | `[]` | 发版前执行；提交前只在 `[changes].scope` 内有改动时执行 |
 | `timeout` | string | `"15m"` | 总超时，Go duration 格式 |
 | `fail_fast` | bool | `true` | 第一个失败后停止 |
 
