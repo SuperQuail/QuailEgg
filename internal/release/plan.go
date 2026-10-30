@@ -165,6 +165,11 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	if err := validateCommitMessage(d.Cfg, plan); err != nil {
 		return nil, err
 	}
+	if scope != config.VersionScopeShared {
+		if inherited := inheritedCargoVersions(detected); len(inherited) > 1 {
+			plan.Warnings = append(plan.Warnings, i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
+		}
+	}
 
 	plan.Steps = stepsFor(plan.Phase, d.Cfg.Release.Mode, plan.Assets != nil)
 	plan.Warnings = append(plan.Warnings, packageWarnings(registered, detected)...)
@@ -496,7 +501,7 @@ func applyUnits(ctx context.Context, d *Deps, plan *Plan, targets []target, unit
 	}
 
 	plan.Packages = make([]PackagePlan, 0, len(targets))
-	for _, t := range targets {
+	for _, t := range orderTargets(targets, d.Cfg.Packages) {
 		pkg := PackagePlan{
 			Name: t.name, Path: t.pkg.Path, Resolver: t.pkg.Resolver,
 			Publish: t.publish, Current: t.pkg.Version,
@@ -547,6 +552,89 @@ func targetNames(targets []target) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// inheritedCargoVersions lists detected Rust packages that inherit their
+// version from the Cargo workspace root.
+func inheritedCargoVersions(detected []ecosystem.Package) []string {
+	var names []string
+	for _, pkg := range detected {
+		if pkg.Resolver == config.ResolverRust && pkg.Inherited {
+			names = append(names, pkg.Name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// orderTargets sorts targets so a package precedes everything that depends on
+// it, keeping the alphabetical order for independent packages. Dependencies
+// come from the manifests and from the configured depends-on list. A cycle
+// (impossible in Cargo, defensively handled) leaves the rest untouched.
+func orderTargets(targets []target, registered map[string]config.Package) []target {
+	if len(targets) < 2 {
+		return targets
+	}
+	index := make(map[string]int, len(targets))
+	for i, t := range targets {
+		index[t.name] = i
+	}
+	dependents := make([][]int, len(targets))
+	indegree := make([]int, len(targets))
+	for j, t := range targets {
+		deps := append([]string(nil), t.pkg.Deps...)
+		if cfg, ok := registered[t.name]; ok {
+			deps = append(deps, cfg.DependsOn...)
+		}
+		for _, dep := range deps {
+			i, ok := dependencyTarget(index, dep)
+			if !ok || i == j {
+				continue
+			}
+			dependents[i] = append(dependents[i], j)
+			indegree[j]++
+		}
+	}
+	ordered := make([]target, 0, len(targets))
+	used := make([]bool, len(targets))
+	for len(ordered) < len(targets) {
+		next := -1
+		for i := range targets {
+			if !used[i] && indegree[i] == 0 {
+				next = i
+				break
+			}
+		}
+		if next < 0 {
+			for i := range targets {
+				if !used[i] {
+					ordered = append(ordered, targets[i])
+					used[i] = true
+				}
+			}
+			break
+		}
+		used[next] = true
+		ordered = append(ordered, targets[next])
+		for _, j := range dependents[next] {
+			indegree[j]--
+		}
+	}
+	return ordered
+}
+
+// dependencyTarget resolves a dependency name to a target, tolerating the
+// dash/underscore spelling difference between crate names and code identifiers.
+func dependencyTarget(index map[string]int, name string) (int, bool) {
+	if i, ok := index[name]; ok {
+		return i, true
+	}
+	for _, candidate := range []string{strings.ReplaceAll(name, "_", "-"), strings.ReplaceAll(name, "-", "_")} {
+		if i, ok := index[candidate]; ok {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 func findTarget(targets []target, name string) *target {

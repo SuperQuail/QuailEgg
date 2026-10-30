@@ -14,6 +14,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/verify"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -117,6 +118,11 @@ func (e *executor) bump(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if e.plan.VersionScope != config.VersionScopeShared {
+		if inherited := inheritedCargoVersions(detected); len(inherited) > 1 {
+			return errors.New(i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
+		}
+	}
 	next := map[string]string{}
 	for _, release := range e.plan.Releases {
 		for _, name := range release.Packages {
@@ -151,30 +157,58 @@ func (e *executor) bump(ctx context.Context) error {
 }
 
 // syncWorkspace keeps sibling references (dependency pins, lock files) in sync
-// when every package of the unit shares one version.
+// after the manifests were bumped. Ecosystems that version packages
+// independently receive every package with its next version; the shared
+// workspace syncer remains the fallback for Python.
 func (e *executor) syncWorkspace(ctx context.Context, detected []ecosystem.Package) error {
-	if e.plan.VersionScope != config.VersionScopeShared || len(e.plan.Releases) != 1 {
-		return nil
-	}
-	release := e.plan.Releases[0]
-	pkgs := make([]ecosystem.Package, 0, len(release.Packages))
-	for _, name := range release.Packages {
-		if target, ok := findDetected(detected, name, ""); ok {
-			pkgs = append(pkgs, target)
+	next := map[string]string{}
+	for _, release := range e.plan.Releases {
+		for _, name := range release.Packages {
+			next[name] = release.Version
 		}
 	}
-	if len(pkgs) == 0 {
-		return nil
+	groups := map[string][]ecosystem.Package{}
+	for _, planned := range e.plan.Packages {
+		target, ok := findDetected(detected, planned.Name, planned.Path)
+		if !ok {
+			continue
+		}
+		if version, ok := next[planned.Name]; ok {
+			target.Version = version
+		}
+		groups[planned.Resolver] = append(groups[planned.Resolver], target)
 	}
-	syncer, ok := registry.WorkspaceSyncerFor(pkgs[0].Resolver)
-	if !ok {
-		return nil
+	resolvers := make([]string, 0, len(groups))
+	for resolver := range groups {
+		resolvers = append(resolvers, resolver)
 	}
-	paths, err := syncer.SyncWorkspace(ctx, e.d.Run, e.d.Root, pkgs, release.Version)
-	if err != nil {
-		return err
+	sort.Strings(resolvers)
+	shared := e.plan.VersionScope == config.VersionScopeShared && len(e.plan.Releases) == 1
+	var synced []string
+	for _, resolver := range resolvers {
+		pkgs := groups[resolver]
+		if syncer, ok := registry.VersionSyncerFor(resolver); ok {
+			paths, err := syncer.SyncVersions(ctx, e.d.Run, e.d.Root, pkgs)
+			if err != nil {
+				return err
+			}
+			synced = append(synced, paths...)
+			continue
+		}
+		if !shared {
+			continue
+		}
+		syncer, ok := registry.WorkspaceSyncerFor(resolver)
+		if !ok {
+			continue
+		}
+		paths, err := syncer.SyncWorkspace(ctx, e.d.Run, e.d.Root, pkgs, e.plan.Releases[0].Version)
+		if err != nil {
+			return err
+		}
+		synced = append(synced, paths...)
 	}
-	e.syncPaths = paths
+	e.syncPaths = append(e.syncPaths, synced...)
 	return nil
 }
 
@@ -221,6 +255,13 @@ func (e *executor) commit(ctx context.Context) error {
 		}
 	}
 	for _, rel := range e.syncPaths {
+		ignored, err := e.d.Git.Ignored(ctx, rel)
+		if err != nil {
+			return err
+		}
+		if ignored {
+			continue
+		}
 		paths = append(paths, fsx.Join(e.d.Root, rel))
 	}
 	if err := e.d.Git.Add(ctx, paths...); err != nil {

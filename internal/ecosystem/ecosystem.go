@@ -15,9 +15,12 @@ type Package struct {
 	Path     string // slash separated, relative to the repository root
 	Resolver string // npm | python | rust | go
 	Version  string // manifest version; empty when the ecosystem derives it from tags
-	Publish  bool
-	Manifest string // slash separated, relative to the repository root
-	Deps     []string
+	// Inherited reports that Version comes from a workspace manifest rather than
+	// from this package's own manifest (Cargo's version.workspace = true).
+	Inherited bool
+	Publish   bool
+	Manifest  string // slash separated, relative to the repository root
+	Deps      []string
 }
 
 // Tool describes an external command required by an ecosystem. The purpose
@@ -108,4 +111,12 @@ type WorkspaceSyncer interface {
 	// SyncWorkspace updates references between packages that share a version.
 	// It returns the repository-relative paths it changed.
 	SyncWorkspace(ctx context.Context, run execx.Runner, root string, pkgs []Package, version string) ([]string, error)
+}
+
+// VersionSyncer is implemented by ecosystems whose manifests reference each
+// other and whose packages may carry different next versions (Cargo workspace
+// members, for example). pkgs carries every managed package with Version set
+// to the version to write; it returns the repository-relative paths it changed.
+type VersionSyncer interface {
+	SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []Package) ([]string, error)
 }

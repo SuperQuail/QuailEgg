@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/SuperQuail/QuailEgg/internal/config"
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/git"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
@@ -365,5 +366,173 @@ func workspacePythonDeps(t *testing.T, dir string) *Deps {
 		Options: Options{
 			SkipVerify: true, NoPublish: true, NoPush: true, NoGitHubRelease: true,
 		},
+	}
+}
+
+func newRustWorkspaceRepo(t *testing.T) string {
+	t.Helper()
+	execx.SanitizeGitHookEnv()
+	dir := t.TempDir()
+	gitRun(t, dir, "init", "-q")
+	gitRun(t, dir, "config", "user.email", "release@example.com")
+	gitRun(t, dir, "config", "user.name", "release")
+	files := map[string]string{
+		"Cargo.toml": `[workspace]
+members = ["crates/core", "crates/cli"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+
+[workspace.dependencies]
+rust-core = { path = "crates/core" }
+`,
+		"crates/core/Cargo.toml": `[package]
+name = "rust-core"
+version.workspace = true
+edition.workspace = true
+`,
+		"crates/cli/Cargo.toml": `[package]
+name = "rust-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rust-core = { path = "../core" }
+`,
+	}
+	for rel, body := range files {
+		path := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".changes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".changes", "README.md"), []byte("# Change records\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	record := "---\ntype: fix\npackages:\n  rust-core: patch\n---\n\nFix a core bug.\n"
+	if err := os.WriteFile(filepath.Join(dir, ".changes", "core-fix.md"), []byte(record), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "chore: initial workspace")
+	return dir
+}
+
+func rustWorkspaceDeps(t *testing.T, dir, scope string) *Deps {
+	t.Helper()
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_ACTIONS", "")
+	repo, err := git.Open(context.Background(), dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("git.Open: %v", err)
+	}
+	cfg := config.Default()
+	publish := false
+	cfg.Packages = map[string]config.Package{
+		"rust-core": {Path: "crates/core", Resolver: "rust", Publish: &publish},
+		"rust-cli":  {Path: "crates/cli", Resolver: "rust", Publish: &publish},
+	}
+	cfg.Release.VersionScope = scope
+	cfg.Release.Mode = config.ModeCommit
+	cfg.Release.GitHubRelease = false
+	cfg.Release.CommitMessage = "chore(release): bump versions"
+	cfg.Verify.Commands = nil
+	return &Deps{
+		Root: dir,
+		Cfg:  cfg,
+		Git:  repo,
+		Run:  execx.OSRunner{},
+		UI:   ui.Discard(),
+		Now:  time.Now,
+		Options: Options{
+			SkipVerify: true, NoPublish: true, NoPush: true, NoGitHubRelease: true,
+		},
+	}
+}
+
+func TestSharedRustWorkspaceSyncsWorkspaceVersion(t *testing.T) {
+	dir := newRustWorkspaceRepo(t)
+	d := rustWorkspaceDeps(t, dir, config.VersionScopeShared)
+	ctx := context.Background()
+
+	plan, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Version.Next != "1.0.1" || len(plan.Releases) != 1 {
+		t.Fatalf("plan = %+v", plan)
+	}
+	names := make([]string, 0, len(plan.Packages))
+	for _, pkg := range plan.Packages {
+		names = append(names, pkg.Name)
+	}
+	if len(names) != 2 || names[0] != "rust-core" || names[1] != "rust-cli" {
+		t.Fatalf("publish order = %v, want the dependency first", names)
+	}
+	if err := Run(ctx, d, plan); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	rootManifest := readWorkspaceFile(t, dir, "Cargo.toml")
+	for _, want := range []string{
+		"version = \"1.0.1\"",
+		`rust-core = { path = "crates/core", version = "1.0.1" }`,
+	} {
+		if !strings.Contains(rootManifest, want) {
+			t.Fatalf("root manifest is missing %q:\n%s", want, rootManifest)
+		}
+	}
+	cliManifest := readWorkspaceFile(t, dir, "crates/cli/Cargo.toml")
+	if !strings.Contains(cliManifest, `rust-core = { path = "../core", version = "1.0.1" }`) {
+		t.Fatalf("cli manifest does not pin the new version:\n%s", cliManifest)
+	}
+}
+
+func TestRustWorkspaceRejectsPerPackageInheritedVersions(t *testing.T) {
+	dir := newRustWorkspaceRepo(t)
+	d := rustWorkspaceDeps(t, dir, config.VersionScopePackage)
+	ctx := context.Background()
+
+	plan, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	warned := false
+	for _, warning := range plan.Warnings {
+		if strings.Contains(warning, "version_scope") {
+			warned = true
+		}
+	}
+	if !warned {
+		t.Fatalf("plan warnings = %v, want a version_scope warning", plan.Warnings)
+	}
+	if err := Run(ctx, d, plan); err == nil || !strings.Contains(err.Error(), "version_scope") {
+		t.Fatalf("err = %v, want a version_scope error", err)
+	}
+}
+
+func readWorkspaceFile(t *testing.T, dir, rel string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func TestOrderTargetsHonoursConfiguredDependencies(t *testing.T) {
+	targets := []target{
+		{name: "cli", pkg: ecosystem.Package{Name: "cli"}},
+		{name: "core", pkg: ecosystem.Package{Name: "core"}},
+	}
+	ordered := orderTargets(targets, map[string]config.Package{"cli": {DependsOn: []string{"core"}}})
+	if len(ordered) != 2 || ordered[0].name != "core" || ordered[1].name != "cli" {
+		t.Fatalf("ordered = %v, want the configured dependency first", ordered)
 	}
 }

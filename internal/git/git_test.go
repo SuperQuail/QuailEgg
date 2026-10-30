@@ -231,3 +231,38 @@ func TestCheckoutBranchAndRemoteBranchExists(t *testing.T) {
 		t.Fatalf("release should not exist: %v %v", exists, err)
 	}
 }
+
+func TestIgnored(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	repo, err := Open(context.Background(), dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("ignored.txt\ntracked.txt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"ignored.txt", "tracked.txt"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runGit(t, dir, "add", ".gitignore")
+	runGit(t, dir, "add", "-f", "tracked.txt")
+	runGit(t, dir, "commit", "-qm", "chore: init")
+	ctx := context.Background()
+	ignored, err := repo.Ignored(ctx, "ignored.txt")
+	if err != nil {
+		t.Fatalf("Ignored(ignored.txt): %v", err)
+	}
+	if !ignored {
+		t.Fatal("ignored.txt must be reported as ignored")
+	}
+	ignored, err = repo.Ignored(ctx, "tracked.txt")
+	if err != nil {
+		t.Fatalf("Ignored(tracked.txt): %v", err)
+	}
+	if ignored {
+		t.Fatal("tracked files are never ignored")
+	}
+}

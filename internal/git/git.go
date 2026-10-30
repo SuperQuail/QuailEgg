@@ -160,6 +160,19 @@ func (r *Repo) Add(ctx context.Context, paths ...string) error {
 	return err
 }
 
+// Ignored reports whether path is excluded by the repository ignore rules.
+// Tracked files are never ignored, so a committed manifest still stages.
+func (r *Repo) Ignored(ctx context.Context, path string) (bool, error) {
+	_, err := r.runIn(ctx, "check-ignore", "-q", "--", path)
+	if err != nil {
+		if exitErr, ok := err.(*execx.Error); ok && exitErr.Result.ExitCode == 1 {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // Remove stages deletions of paths.
 func (r *Repo) Remove(ctx context.Context, paths ...string) error {
 	if len(paths) == 0 {

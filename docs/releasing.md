@@ -118,3 +118,5 @@ qegg pre exit       # 退出渠道，下一次发布回到稳定版
 - `version_scope = "shared"` 让所有包共用一个版本与 tag，适合内部包必须同版本的仓库（例如 uv workspace 里 app 固定依赖兄弟包）；要求所有包生态一致且当前版本相同。
 - 只有命中本次发布包的记录才会被消费；`release: false` 记录留到对应包发布时再写入变更日志。
 - 共享版本的 Python 工作区会自动把 `[project].dependencies` 里兄弟包的 `==` pin 改成新版本；仓库根有 `uv.lock` 时还会执行 `uv lock`。
+- 共享版本的 Cargo workspace 写根 `[workspace.package].version`，同步兄弟 `path` 依赖的 `version`（缺的补上），并在有 `Cargo.lock` 时执行 `cargo update --workspace`。成员继承版本时只能用 shared：package scope 下多个继承成员会在发布时报错。
+- 发布顺序按清单依赖与 `depends-on` 排序，被依赖的包先发布（`cargo publish` 要求依赖已经在 crates.io 上）。

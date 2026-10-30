@@ -152,7 +152,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	}
 	ecosystemID := ""
 	if len(registries) > 0 {
-		ecosystemID = registries[0]
+		ecosystemID = config.EcosystemForRegistry(registries[0])
 	} else if len(detected) > 0 {
 		ecosystemID = detected[0].Resolver
 	}

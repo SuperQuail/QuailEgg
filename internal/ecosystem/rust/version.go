@@ -17,8 +17,13 @@ var (
 	quotedValue = regexp.MustCompile(`"[^"]*"`)
 )
 
-// SetVersion rewrites the version line of the [package] table.
+// SetVersion rewrites the version line of the [package] table. A package that
+// inherits its version (version.workspace = true) has nothing to write here:
+// the workspace manifest owns that value and SyncVersions updates it once.
 func (driver) SetVersion(root string, pkg ecosystem.Package, next string) error {
+	if pkg.Inherited {
+		return nil
+	}
 	path := filepath.Join(fsx.Join(root, pkg.Path), "Cargo.toml")
 	data, err := os.ReadFile(path)
 	if err != nil {
