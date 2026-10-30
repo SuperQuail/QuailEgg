@@ -52,7 +52,7 @@ func testPlan() *Plan {
 		Name:    "demo",
 		Main:    "cmd/demo",
 		Targets: []Target{{OS: "linux", Arch: "amd64"}, {OS: "windows", Arch: "amd64"}},
-		Ldflags: DefaultLdflags,
+		Ldflags: []string{"-X main.version={{version}}"},
 	}
 }
 

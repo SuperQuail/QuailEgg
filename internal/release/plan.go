@@ -16,7 +16,6 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/github"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
-	"github.com/SuperQuail/QuailEgg/internal/release/assets"
 	"github.com/SuperQuail/QuailEgg/internal/release/state"
 	"github.com/SuperQuail/QuailEgg/internal/semver"
 )
@@ -111,21 +110,6 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		},
 	}
 
-	if len(targets) == 1 && targets[0].pkg.Resolver == config.ResolverGo {
-		assetPlan, assetWarnings, err := assets.Detect(d.Root, assets.Options{
-			Enabled: d.Cfg.Release.Assets.Enabled,
-			Name:    d.Cfg.Release.Assets.Name,
-			Main:    d.Cfg.Release.Assets.Main,
-			Targets: d.Cfg.Release.Assets.Targets,
-			Ldflags: d.Cfg.Release.Assets.Ldflags,
-		})
-		if err != nil {
-			return nil, err
-		}
-		plan.Assets = assetPlan
-		plan.Warnings = append(plan.Warnings, assetWarnings...)
-	}
-
 	repo, _ := github.Detect(ctx, d.Run, d.Root, d.Cfg.Git.Remote)
 	plan.Repo = repo
 
@@ -169,6 +153,14 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	if err := buildReleases(ctx, d, plan, targets, records, consumed, bumps, relMarker, pre); err != nil {
 		return nil, err
 	}
+	if plan.Phase != PhaseNone {
+		assetPlan, assetWarnings, err := planAssets(d, targets)
+		if err != nil {
+			return nil, err
+		}
+		plan.Assets = assetPlan
+		plan.Warnings = append(plan.Warnings, assetWarnings...)
+	}
 	if err := validateCommitMessage(d.Cfg, plan); err != nil {
 		return nil, err
 	}
@@ -178,7 +170,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		}
 	}
 
-	plan.Steps = stepsFor(plan.Phase, d.Cfg.Release.Mode, plan.Assets != nil)
+	plan.Steps = stepsFor(plan.Phase, d.Cfg.Release.Mode, plan.Assets != nil || d.Options.AssetsDir != "")
 	plan.Warnings = append(plan.Warnings, packageWarnings(registered, detected)...)
 	plan.Warnings = append(plan.Warnings, versionFileWarnings(d.Root, d.Cfg.Version.File, plan.Version.Current)...)
 	if len(targets) == 1 && targets[0].tagVersioned() {

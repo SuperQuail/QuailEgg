@@ -21,9 +21,9 @@ var resolverLiterals = map[string]bool{
 // policyAllowlist lists the files that still hold an ecosystem name while the
 // corresponding refactor is in flight. Every entry needs a reason.
 var policyAllowlist = map[string]string{
-	// The Go asset pipeline moves behind ecosystem.AssetPlanner in the assets PR.
-	"internal/release/plan.go":         "asset planning still branches on the Go resolver",
-	"internal/release/assets/build.go": "the Go asset builder runs the go command",
+	// Planning moved behind ecosystem.AssetPlanner; building a Go module still
+	// runs the go command, so the executor keeps that one literal.
+	"internal/release/assets/build.go": "building a planned Go asset runs the go command",
 }
 
 // TestNoEcosystemNamesInCore guards the extension rule: adding a language must

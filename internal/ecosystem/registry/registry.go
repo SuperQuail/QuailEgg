@@ -208,6 +208,16 @@ func VersionSyncerFor(resolver string) (ecosystem.VersionSyncer, bool) {
 	return syncer, ok
 }
 
+// AssetPlannerFor resolves the asset planner of a resolver.
+func AssetPlannerFor(resolver string) (ecosystem.AssetPlanner, bool) {
+	eco, ok := ByID(resolver)
+	if !ok {
+		return nil, false
+	}
+	planner, ok := eco.(ecosystem.AssetPlanner)
+	return planner, ok
+}
+
 // VersionFileCandidates lists the extra version files an ecosystem suggests
 // for a package. Candidates are guesses; qegg init verifies them before use.
 func VersionFileCandidates(root string, pkg ecosystem.Package) []ecosystem.VersionFile {

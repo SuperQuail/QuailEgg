@@ -16,6 +16,7 @@ func releaseOptions(cmd *cobra.Command) release.Options {
 	opts.NoGitHubRelease, _ = cmd.Flags().GetBool("no-github-release")
 	opts.NoPublish, _ = cmd.Flags().GetBool("no-publish")
 	opts.NoAssets, _ = cmd.Flags().GetBool("no-assets")
+	opts.AssetsDir, _ = cmd.Flags().GetString("assets-dir")
 	return opts
 }
 
@@ -26,6 +27,7 @@ func addReleaseFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("no-github-release", false, i18n.T("flag.no_github_release"))
 	cmd.Flags().Bool("no-publish", false, i18n.T("flag.no_publish"))
 	cmd.Flags().Bool("no-assets", false, i18n.T("flag.no_assets"))
+	cmd.Flags().String("assets-dir", "", i18n.T("flag.assets_dir"))
 }
 
 func newReleaseCommand(rt *Runtime) *cobra.Command {

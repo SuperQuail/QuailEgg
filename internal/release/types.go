@@ -30,6 +30,10 @@ type Options struct {
 	NoGitHubRelease bool
 	NoPublish       bool
 	NoAssets        bool
+	// AssetsDir is a directory of prebuilt files to attach instead of building
+	// the assets locally. The managed workflow downloads the build jobs'
+	// artifacts there.
+	AssetsDir string
 }
 
 // Deps bundles everything the executor needs.
