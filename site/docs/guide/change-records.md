@@ -52,9 +52,9 @@ qegg commit --no-commit ...                   # 只写记录，不提交
 `qegg init` 安装的 hook 在每次提交前做两件事：
 
 1. 如果在**项目仓库的默认分支**上提交、且暂存区改动了 `[changes].scope` 范围内的文件，要求至少有一条合法的变更记录（hook 比较 `origin` 与 `[project] repo`，fork 克隆里不拦）；
-2. 运行 `[verify].commands`，失败则拒绝提交。
+2. 当暂存区包含 `[changes].scope` 范围内的文件时运行 `[verify].commands`，失败则拒绝提交；scope 之外的提交跳过校验。
 
-只改文档、CI 配置等 scope 之外的文件不需要记录。`scope` 为空表示整个仓库。普通分支和 fork 克隆上的提交不会被拦，合并前的 `qegg check --ci` 会按 PR 差异要求一条能正常解析的记录。
+只改文档、CI 配置等 scope 之外的文件不需要记录，也不会触发校验命令。`scope` 为空表示整个仓库。普通分支和 fork 克隆上的提交不会被拦，合并前的 `qegg check --ci` 会按 PR 差异要求一条能正常解析的记录。
 
 ::: warning
 确实需要跳过 hook 时，用 `git commit --no-verify`。CI 中的 `qegg check --ci` 仍会按 PR 差异检查记录是否缺失。

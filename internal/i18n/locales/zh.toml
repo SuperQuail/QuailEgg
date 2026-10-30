@@ -12,7 +12,7 @@
 "cmd.resume.short" = "继续上一次中断的发布"
 "cmd.status.short" = "查看发布状态"
 "cmd.hook.short" = "git hook 入口"
-"cmd.hook.pre_commit.short" = "校验暂存区是否包含变更记录"
+"cmd.hook.pre_commit.short" = "检查暂存改动，并只在 scope 内运行校验"
 "cmd.lang.short" = "查看或设置界面语言"
 "cmd.pre.short" = "进入、退出或查看预发布渠道"
 "cmd.version.short" = "打印 qegg 版本"
@@ -94,6 +94,7 @@
 "check.fix.missing_record" = "运行 qegg commit 生成 .changes 记录"
 "hook.missing_record" = "%s 下没有暂存的变更记录；请用 qegg commit 创建"
 "hook.verify_failed" = "提交前校验失败：%s。请修复，或使用 git commit --no-verify 跳过"
+"hook.verify_skipped" = "暂存区没有发版范围内的文件，跳过 pre-commit 校验命令"
 "hook.branch_skip" = "非默认分支的提交不需要变更记录；合并前的 PR 检查会要求一条"
 "hook.fork_skip" = "当前克隆指向 %s，而不是项目仓库 %s；此处跳过变更记录规则"
 

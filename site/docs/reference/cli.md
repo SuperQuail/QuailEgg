@@ -30,7 +30,7 @@ qegg <command> [flags]
 | `--remote <name>` | git remote，默认 `origin` |
 | `--registries <list>` | 发布目标，例如 `npm,pypi,go` |
 | `--changes-dir <dir>` | 变更记录目录，默认 `.changes` |
-| `--scope <dirs>` | hook 生效的目录 |
+| `--scope <dirs>` | 变更记录与提交前校验生效的目录 |
 | `--verify-cmd <cmd>` | 发版前校验命令，可重复 |
 | `--no-verify-cmd` | 不写入校验命令 |
 | `--no-hook` | 不生成 git hook |

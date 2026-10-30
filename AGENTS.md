@@ -70,7 +70,9 @@ A Go file stays under 1000 lines. User-visible strings live only in
    different message. Never commit a record without the code it describes.
 4. The pre-commit hook does two things: it rejects a commit that touches
    `[changes].scope` without a valid record, then runs `[verify].commands`
-   (`go test ./...`, 15 minute timeout). Let it run; do not bypass it.
+   (`go test ./...`, 15 minute timeout) only when the commit touches a file
+   inside `[changes].scope` (an empty scope means the whole repository). Let it
+   run; do not bypass it.
    The record rule only applies on the project clone's default branch: the
    hook compares the `origin` remote with `[project] repo` from the config, so
    feature branches and fork clones are left to the pull request check.
