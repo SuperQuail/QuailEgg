@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.6.0",
-  "created_at": "2026-10-30T03:05:19.896021628Z",
+  "version": "0.6.1",
+  "created_at": "2026-10-30T03:47:20.194766153Z",
   "mode": "pr",
-  "fingerprint": "sha256:c3eb1155684e01fe1885a76f58c4b44d44b400320c611b985ca71c2c0ecefbb9",
+  "fingerprint": "sha256:c580814c65f0372908671ecb706217d7984a6b16473c9cad1c80d048f8caae9a",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,40 +15,44 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-30T03:05:19.896022079Z"
+    "at": "2026-10-30T03:47:20.194766954Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.5.2",
-      "next": "0.6.0",
-      "bump": "minor",
+      "current": "0.6.0",
+      "next": "0.6.1",
+      "bump": "patch",
+      "tag": "v0.6.1",
       "publish": true
+    }
+  ],
+  "releases": [
+    {
+      "version": "0.6.1",
+      "tag": "v0.6.1",
+      "previous_tag": "v0.6.0",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ]
     }
   ],
   "changes": [
     {
-      "file": ".changes/scope-hook-verification.md",
-      "type": "feat",
-      "bump": "minor",
-      "body": "Run the pre-commit verification commands only when a commit touches release-scoped files.",
-      "commit": "07aa477dd338fb23097b70bac968fe6e58bf71ac",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/07aa477dd338fb23097b70bac968fe6e58bf71ac",
-      "pull_number": 4,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/4",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/support-workspace-releases.md",
-      "type": "feat",
-      "bump": "minor",
-      "body": "Release multi-package workspaces per package or with one shared version, including Python prereleases.",
-      "commit": "285b5b04ec401a234e8727dabb6dfdb44c9d33d8",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/285b5b04ec401a234e8727dabb6dfdb44c9d33d8",
-      "pull_number": 3,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/3",
+      "file": ".changes/skip-empty-preview.md",
+      "type": "fix",
+      "scope": "ci",
+      "bump": "patch",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Skip the plan comment when there is nothing to release, so documentation-only pull requests pass.",
+      "commit": "26a7b976d1e5905561484884c017fde9a0954c0a",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/26a7b976d1e5905561484884c017fde9a0954c0a",
+      "pull_number": 7,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/7",
       "author": "Wsrsq"
     }
   ]
