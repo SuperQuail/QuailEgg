@@ -33,7 +33,10 @@ qegg pre exit      # 毕业：下一次发布回到稳定版
 
 ## 提交被 hook 拒绝
 
-暂存区改动了 `[changes].scope` 内的文件却没有变更记录。用 `qegg commit` 生成一条，或确认改动确实不需要发版后用 `git commit --no-verify`。
+两种原因：
+
+1. 暂存区改动了 `[changes].scope` 内的文件却没有变更记录：用 `qegg commit` 生成一条，或确认改动确实不需要发版后用 `git commit --no-verify`；
+2. 暂存区有 scope 内的改动，且 `[verify].commands` 执行失败：先修复命令再提交。scope 之外的提交（文档、site、CI）不会运行校验命令。
 
 如果提示找不到 `qegg`，确认 `$(go env GOPATH)/bin` 在 `PATH` 中。
 
