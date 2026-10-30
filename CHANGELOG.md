@@ -1,5 +1,24 @@
 # Changelog
 
+<!-- qegg:release 0.7.0 -->
+## v0.7.0 - 2026-10-30
+
+### Features
+
+- [`5075f9c`](https://github.com/SuperQuail/QuailEgg/commit/5075f9cade0368621185bd92c1765338557f967d): Read release packages from their configured paths, so standalone nested projects can join the release. ([#12](https://github.com/SuperQuail/QuailEgg/pull/12) by @Wsrsq)
+- [`1a1110f`](https://github.com/SuperQuail/QuailEgg/commit/1a1110f90e63ea02a5de6a172dfdb79e91f9d96d): Release a multi-language workspace from one version, keeping every file that carries it in sync. ([#13](https://github.com/SuperQuail/QuailEgg/pull/13) by @Wsrsq)
+
+### Bug Fixes
+
+- [`f20ff31`](https://github.com/SuperQuail/QuailEgg/commit/f20ff316ad79022556d7a75f001a5d340d2c3831): Release Cargo workspaces that inherit their version from the workspace root. ([#9](https://github.com/SuperQuail/QuailEgg/pull/9) by @Wsrsq)
+
+### Refactors
+
+- [`3c7fab5`](https://github.com/SuperQuail/QuailEgg/commit/3c7fab54726b27a65353e8fa016a1f61152f966b): Drive init and release planning from declared ecosystem capabilities. ([#11](https://github.com/SuperQuail/QuailEgg/pull/11) by @Wsrsq)
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.6.1...v0.7.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.6.1 -->
 ## v0.6.1 - 2026-10-30
 
