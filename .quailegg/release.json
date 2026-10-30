@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.8.0",
-  "created_at": "2026-10-30T09:25:00.340918581Z",
+  "version": "0.9.0",
+  "created_at": "2026-10-30T10:01:42.64549254Z",
   "mode": "pr",
-  "fingerprint": "sha256:9e775c234ce48628d7b8b7d48692c8a58d07e92eaff3d1be8c2ffc1b2794e116",
+  "fingerprint": "sha256:e3a4ed9525808f3c122f67771cc73150d34f7e325222d295839aee3bbecf07d8",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-30T09:25:00.340919062Z"
+    "at": "2026-10-30T10:01:42.645493061Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.7.0",
-      "next": "0.8.0",
+      "current": "0.8.0",
+      "next": "0.9.0",
       "bump": "minor",
-      "tag": "v0.8.0",
+      "tag": "v0.9.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.8.0",
-      "tag": "v0.8.0",
-      "previous_tag": "v0.7.0",
+      "version": "0.9.0",
+      "tag": "v0.9.0",
+      "previous_tag": "v0.8.0",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,33 +41,16 @@
   ],
   "changes": [
     {
-      "file": ".changes/build-custom-assets.md",
-      "type": "feat",
-      "scope": "assets",
-      "bump": "minor",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Build release assets from configured commands and upload the collected files.",
-      "commit": "a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
-      "pull_number": 14,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/14",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/render-platform-workflows.md",
+      "file": ".changes/support-custom-steps.md",
       "type": "feat",
       "scope": "scaffold",
       "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Run platform build jobs before the release and attach their output.",
-      "commit": "a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
-      "pull_number": 14,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/14",
+      "body": "Run custom GitHub Actions steps in the release workflow.",
+      "commit": "ddb7e78b59c2636c91af294cb5cd188aa88a3027",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/ddb7e78b59c2636c91af294cb5cd188aa88a3027",
       "author": "Wsrsq"
     }
   ]

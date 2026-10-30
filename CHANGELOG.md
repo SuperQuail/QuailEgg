@@ -1,5 +1,15 @@
 # Changelog
 
+<!-- qegg:release 0.9.0 -->
+## v0.9.0 - 2026-10-30
+
+### Features
+
+- [`ddb7e78`](https://github.com/SuperQuail/QuailEgg/commit/ddb7e78b59c2636c91af294cb5cd188aa88a3027): Run custom GitHub Actions steps in the release workflow.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.8.0...v0.9.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.8.0 -->
 ## v0.8.0 - 2026-10-30
 
