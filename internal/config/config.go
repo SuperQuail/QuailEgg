@@ -44,20 +44,6 @@ const (
 // ErrNotFound is returned when no configuration file exists.
 var ErrNotFound = errors.New("no .quailegg.toml found")
 
-// EcosystemForRegistry maps a publish target name to its ecosystem identifier.
-// The configuration accepts npm, pypi and crates as publish targets while the
-// adapters are named npm, python and rust.
-func EcosystemForRegistry(target string) string {
-	switch target {
-	case "pypi":
-		return ResolverPython
-	case "crates":
-		return ResolverRust
-	default:
-		return target
-	}
-}
-
 // Config mirrors the TOML schema.
 type Config struct {
 	SchemaVersion int `toml:"schema_version"`
@@ -259,9 +245,6 @@ func (c *Config) Validate() error {
 		if c.Release.VersionScope == VersionScopeShared {
 			resolver := ""
 			for _, pkg := range c.Packages {
-				if pkg.Resolver == ResolverGo {
-					return errors.New("release.version_scope shared does not support Go modules")
-				}
 				if resolver == "" {
 					resolver = pkg.Resolver
 				} else if pkg.Resolver != resolver {
@@ -287,17 +270,8 @@ func (c *Config) Validate() error {
 		if strings.TrimSpace(pkg.Path) == "" {
 			return fmt.Errorf("packages.%s.path must not be empty", name)
 		}
-		switch pkg.Resolver {
-		case ResolverNPM, ResolverPython, ResolverRust, ResolverGo:
-		default:
-			return fmt.Errorf("packages.%s.resolver %q is not supported", name, pkg.Resolver)
-		}
-	}
-	for _, registry := range c.Publish.Registries {
-		switch registry {
-		case ResolverNPM, ResolverGo, "pypi", "crates":
-		default:
-			return fmt.Errorf("publish.registries contains unknown registry %q", registry)
+		if strings.TrimSpace(pkg.Resolver) == "" {
+			return fmt.Errorf("packages.%s.resolver must not be empty", name)
 		}
 	}
 	return nil

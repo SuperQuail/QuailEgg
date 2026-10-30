@@ -35,11 +35,16 @@ type Tool struct {
 // workflow setup and tool checks are derived from it instead of being
 // hardcoded in messages.
 type Spec struct {
-	ID            string
-	Language      string
-	Manifests     []string
-	Publishable   bool
-	BuildRequired bool
+	ID        string
+	Language  string
+	Manifests []string
+	// PublishTargets lists the registry names this ecosystem publishes to
+	// (npm, pypi, crates, go). qegg init derives the publish configuration
+	// and the generated workflow credentials from it.
+	PublishTargets []string
+	// TagPrefix is the prefix a tag-derived version needs. An empty value
+	// means the ecosystem accepts any configured prefix.
+	TagPrefix string
 	// WorkflowSetup is a YAML sequence starting at column zero. qegg init
 	// indents it into the release workflow's steps list.
 	WorkflowSetup string
@@ -60,7 +65,7 @@ const (
 )
 
 // ErrUnsupported is returned for ecosystems without a publisher.
-var ErrUnsupported = errors.New("publishing is not supported for this ecosystem in v0.1")
+var ErrUnsupported = errors.New("publishing is not supported for this ecosystem")
 
 // Publisher uploads one package to its registry.
 type Publisher interface {
@@ -105,12 +110,12 @@ type TagVersioner interface {
 	CheckVersion(pkg Package, next string) error
 }
 
-// WorkspaceSyncer is implemented by ecosystems that keep references between
-// packages of one release unit in sync (Python dependency pins, for example).
-type WorkspaceSyncer interface {
-	// SyncWorkspace updates references between packages that share a version.
-	// It returns the repository-relative paths it changed.
-	SyncWorkspace(ctx context.Context, run execx.Runner, root string, pkgs []Package, version string) ([]string, error)
+// InitAdvisor is implemented by ecosystems that can suggest configuration
+// defaults for qegg init.
+type InitAdvisor interface {
+	// DefaultVerifyCommands returns the verification commands qegg init writes
+	// when the configuration does not set [verify].commands yet.
+	DefaultVerifyCommands(root string) []string
 }
 
 // VersionSyncer is implemented by ecosystems whose manifests reference each

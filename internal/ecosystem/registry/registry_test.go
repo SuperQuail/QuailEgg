@@ -2,6 +2,8 @@ package registry_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -82,5 +84,55 @@ func TestDetectAll(t *testing.T) {
 	}
 	if _, ok := registry.ByID("unknown"); ok {
 		t.Fatal("unknown resolver must not resolve")
+	}
+}
+
+func TestPublishTargets(t *testing.T) {
+	if got := registry.PublishTargetsFor("python"); len(got) != 1 || got[0] != "pypi" {
+		t.Fatalf("python targets = %v", got)
+	}
+	if got := registry.PublishTargetsFor("rust"); len(got) != 1 || got[0] != "crates" {
+		t.Fatalf("rust targets = %v", got)
+	}
+	if id, ok := registry.EcosystemForTarget("crates"); !ok || id != "rust" {
+		t.Fatalf("crates -> %q, %v", id, ok)
+	}
+	if _, ok := registry.EcosystemForTarget("unknown"); ok {
+		t.Fatal("unknown target must not resolve")
+	}
+	all := registry.PublishTargets()
+	for _, want := range []string{"npm", "pypi", "crates", "go"} {
+		found := false
+		for _, target := range all {
+			if target == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("publish targets %v are missing %q", all, want)
+		}
+	}
+}
+
+func TestUnknownCapabilities(t *testing.T) {
+	if got := registry.UnknownResolvers([]string{"npm", "bogus", "npm"}); len(got) != 1 || got[0] != "bogus" {
+		t.Fatalf("unknown resolvers = %v", got)
+	}
+	if got := registry.UnknownRegistries([]string{"pypi", "bogus"}); len(got) != 1 || got[0] != "bogus" {
+		t.Fatalf("unknown registries = %v", got)
+	}
+	if got := registry.EcosystemIDs(); len(got) != len(registry.Specs()) {
+		t.Fatalf("ecosystem ids = %v", got)
+	}
+}
+
+func TestDefaultVerifyCommands(t *testing.T) {
+	root := ecosystemtest.Fixture(t, "npm-basic")
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte(`{"scripts":{"test":"vitest run"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commands := registry.DefaultVerifyCommands(root, []string{"rust", "npm", "rust"})
+	if len(commands) != 2 || commands[0] != "npm test" || commands[1] != "cargo test" {
+		t.Fatalf("commands = %v", commands)
 	}
 }

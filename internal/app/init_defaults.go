@@ -2,8 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -49,47 +47,4 @@ func defaultScope(packages map[string]config.Package) []string {
 	}
 	sort.Strings(scope)
 	return scope
-}
-
-func defaultVerifyCommands(root, ecosystemID string) []string {
-	switch ecosystemID {
-	case "npm":
-		var commands []string
-		if hasScript(root, "test") {
-			commands = append(commands, "npm test")
-		}
-		if hasScript(root, "lint") {
-			commands = append(commands, "npm run lint")
-		}
-		return commands
-	case "python":
-		if _, err := os.Stat(filepath.Join(root, "tests")); err == nil {
-			if execx.LookPath("uv") {
-				return []string{"uv run pytest -q"}
-			}
-			return []string{"pytest -q"}
-		}
-		return nil
-	case "rust":
-		return []string{"cargo test"}
-	case "go":
-		return []string{"go test ./..."}
-	default:
-		return nil
-	}
-}
-
-func hasScript(root, name string) bool {
-	data, err := os.ReadFile(filepath.Join(root, "package.json"))
-	if err != nil {
-		return false
-	}
-	var pkg struct {
-		Scripts map[string]string `json:"scripts"`
-	}
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return false
-	}
-	script, ok := pkg.Scripts[name]
-	return ok && strings.TrimSpace(script) != "" && !strings.Contains(script, "no test specified")
 }

@@ -22,13 +22,12 @@ type driver struct{}
 // Spec describes the Python ecosystem.
 func (driver) Spec() ecosystem.Spec {
 	return ecosystem.Spec{
-		ID:            "python",
-		Language:      "Python",
-		Manifests:     []string{"pyproject.toml"},
-		Publishable:   true,
-		BuildRequired: true,
-		WorkflowSetup: workflowSetup,
-		WorkflowEnv:   workflowEnv,
+		ID:             "python",
+		Language:       "Python",
+		Manifests:      []string{"pyproject.toml"},
+		PublishTargets: []string{"pypi"},
+		WorkflowSetup:  workflowSetup,
+		WorkflowEnv:    workflowEnv,
 		Tools: []ecosystem.Tool{
 			{Name: "uv", Command: "uv"},
 			{Name: "gh", Command: "gh"},

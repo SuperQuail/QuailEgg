@@ -143,6 +143,10 @@ func workflowEcosystems(opts Options) []string {
 }
 
 // ecosystemID maps a publish target name to its ecosystem identifier.
-func ecosystemID(target string) string {
-	return config.EcosystemForRegistry(target)
+func ecosystemID(name string) string {
+	if _, ok := registry.SpecFor(name); ok {
+		return name
+	}
+	id, _ := registry.EcosystemForTarget(name)
+	return id
 }

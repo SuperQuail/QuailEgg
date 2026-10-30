@@ -78,7 +78,7 @@ func (driver) CheckVersion(pkg ecosystem.Package, next string) error {
 	if want == pkg.Name {
 		return nil
 	}
-	return errors.New(i18n.Tf("release.err.go_major", pkg.Name, next, want))
+	return errors.New(i18n.Tf("golang.err.major", pkg.Name, next, want))
 }
 
 var majorSuffix = regexp.MustCompile("/v([0-9]+)$")

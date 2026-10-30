@@ -85,12 +85,23 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if existing == nil && len(packages) == 0 {
 		return nil, errors.New(i18n.Tf("error.no_packages", registry.ManifestListText()))
 	}
+	resolvers := packageResolvers(packages)
+	if unknown := registry.UnknownResolvers(resolvers); len(unknown) > 0 {
+		return nil, errors.New(i18n.Tf("init.err.unknown_resolver", strings.Join(unknown, ", "), strings.Join(registry.EcosystemIDs(), ", ")))
+	}
 
 	versionScope := config.VersionScopePackage
 	if existing != nil && existing.Release.VersionScope != "" {
 		versionScope = existing.Release.VersionScope
 	} else if len(packages) > 1 && uniformVersions(detected) {
 		versionScope = config.VersionScopeShared
+	}
+	if versionScope == config.VersionScopeShared && len(packages) > 1 {
+		for _, name := range sortedPackageNames(packages) {
+			if registry.IsTagVersioned(packages[name].Resolver) {
+				return nil, errors.New(i18n.Tf("init.err.shared_tag_versioned", name))
+			}
+		}
 	}
 	environment := opts.Environment
 	if environment == "" && existing != nil {
@@ -150,10 +161,14 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if len(registries) == 0 {
 		registries = inferRegistries(packages)
 	}
+	if unknown := registry.UnknownRegistries(registries); len(unknown) > 0 {
+		return nil, errors.New(i18n.Tf("init.err.unknown_registry", strings.Join(unknown, ", "), strings.Join(registry.PublishTargets(), ", ")))
+	}
 	ecosystemID := ""
 	if len(registries) > 0 {
-		ecosystemID = config.EcosystemForRegistry(registries[0])
-	} else if len(detected) > 0 {
+		ecosystemID, _ = registry.EcosystemForTarget(registries[0])
+	}
+	if ecosystemID == "" && len(detected) > 0 {
 		ecosystemID = detected[0].Resolver
 	}
 
@@ -164,7 +179,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		verifyCommands = existing.Verify.Commands
 	}
 	if verifyCommands == nil {
-		verifyCommands = defaultVerifyCommands(root, ecosystemID)
+		verifyCommands = registry.DefaultVerifyCommands(root, resolverIDs(detected, packages))
 	}
 
 	releaseBranch := config.Default().Release.Branch
@@ -238,12 +253,13 @@ func detectRemoteRepo(ctx context.Context, root, remote string, existing *config
 
 // uniformVersions reports whether every detected package has the same
 // manifest version under one resolver, which is what shared versioning needs.
+// Ecosystems whose version comes from tags never qualify.
 func uniformVersions(detected []ecosystem.Package) bool {
 	if len(detected) < 2 {
 		return false
 	}
 	first := detected[0]
-	if first.Version == "" || first.Resolver == config.ResolverGo {
+	if first.Version == "" || registry.IsTagVersioned(first.Resolver) {
 		return false
 	}
 	for _, pkg := range detected[1:] {
@@ -258,24 +274,47 @@ func uniformVersions(detected []ecosystem.Package) bool {
 func inferRegistries(packages map[string]config.Package) []string {
 	seen := map[string]bool{}
 	out := []string{}
-	for _, pkg := range packages {
-		target := ""
-		switch pkg.Resolver {
-		case config.ResolverNPM:
-			target = "npm"
-		case config.ResolverPython:
-			target = "pypi"
-		case config.ResolverRust:
-			target = "crates"
-		case config.ResolverGo:
-			target = "go"
+	for _, name := range sortedPackageNames(packages) {
+		for _, target := range registry.PublishTargetsFor(packages[name].Resolver) {
+			if target == "" || seen[target] {
+				continue
+			}
+			seen[target] = true
+			out = append(out, target)
 		}
-		if target == "" || seen[target] {
-			continue
-		}
-		seen[target] = true
-		out = append(out, target)
 	}
 	sort.Strings(out)
 	return out
+}
+
+// packageResolvers lists the configured resolvers in package name order.
+func packageResolvers(packages map[string]config.Package) []string {
+	var out []string
+	for _, name := range sortedPackageNames(packages) {
+		out = append(out, packages[name].Resolver)
+	}
+	return out
+}
+
+// resolverIDs lists the resolvers detection found, falling back to the
+// configured packages when the repository has no detected manifest.
+func resolverIDs(detected []ecosystem.Package, packages map[string]config.Package) []string {
+	out := make([]string, 0, len(detected))
+	for _, pkg := range detected {
+		out = append(out, pkg.Resolver)
+	}
+	if len(out) == 0 {
+		return packageResolvers(packages)
+	}
+	return out
+}
+
+// sortedPackageNames returns the configured package names in deterministic order.
+func sortedPackageNames(packages map[string]config.Package) []string {
+	names := make([]string, 0, len(packages))
+	for name := range packages {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
