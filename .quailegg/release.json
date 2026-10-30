@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.7.0",
-  "created_at": "2026-10-30T08:09:40.10391935Z",
+  "version": "0.8.0",
+  "created_at": "2026-10-30T09:25:00.340918581Z",
   "mode": "pr",
-  "fingerprint": "sha256:df14a02c6510fa2a42fa5ac430ea666bc25dd5d46a74dd42a041df7430e81d6a",
+  "fingerprint": "sha256:9e775c234ce48628d7b8b7d48692c8a58d07e92eaff3d1be8c2ffc1b2794e116",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-30T08:09:40.103923616Z"
+    "at": "2026-10-30T09:25:00.340919062Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.6.1",
-      "next": "0.7.0",
+      "current": "0.7.0",
+      "next": "0.8.0",
       "bump": "minor",
-      "tag": "v0.7.0",
+      "tag": "v0.8.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.7.0",
-      "tag": "v0.7.0",
-      "previous_tag": "v0.6.1",
+      "version": "0.8.0",
+      "tag": "v0.8.0",
+      "previous_tag": "v0.7.0",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,63 +41,33 @@
   ],
   "changes": [
     {
-      "file": ".changes/declare-ecosystem-capabilities.md",
-      "type": "refactor",
-      "scope": "ecosystem",
-      "bump": "patch",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Drive init and release planning from declared ecosystem capabilities.",
-      "commit": "3c7fab54726b27a65353e8fa016a1f61152f966b",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/3c7fab54726b27a65353e8fa016a1f61152f966b",
-      "pull_number": 11,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/11",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/inspect-configured-packages.md",
+      "file": ".changes/build-custom-assets.md",
       "type": "feat",
-      "scope": "ecosystem",
+      "scope": "assets",
       "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Read release packages from their configured paths, so standalone nested projects can join the release.",
-      "commit": "5075f9cade0368621185bd92c1765338557f967d",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/5075f9cade0368621185bd92c1765338557f967d",
-      "pull_number": 12,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/12",
+      "body": "Build release assets from configured commands and upload the collected files.",
+      "commit": "a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
+      "pull_number": 14,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/14",
       "author": "Wsrsq"
     },
     {
-      "file": ".changes/support-cargo-workspaces.md",
-      "type": "fix",
-      "scope": "ecosystem",
-      "bump": "patch",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Release Cargo workspaces that inherit their version from the workspace root.",
-      "commit": "f20ff316ad79022556d7a75f001a5d340d2c3831",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/f20ff316ad79022556d7a75f001a5d340d2c3831",
-      "pull_number": 9,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/9",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/sync-version-files.md",
+      "file": ".changes/render-platform-workflows.md",
       "type": "feat",
-      "scope": "release",
+      "scope": "scaffold",
       "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Release a multi-language workspace from one version, keeping every file that carries it in sync.",
-      "commit": "1a1110f90e63ea02a5de6a172dfdb79e91f9d96d",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/1a1110f90e63ea02a5de6a172dfdb79e91f9d96d",
-      "pull_number": 13,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/13",
+      "body": "Run platform build jobs before the release and attach their output.",
+      "commit": "a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a5c7efa9318e57d01a3c2b0cfa12063ee8d70ed9",
+      "pull_number": 14,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/14",
       "author": "Wsrsq"
     }
   ]
