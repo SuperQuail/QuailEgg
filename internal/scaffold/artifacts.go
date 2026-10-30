@@ -142,16 +142,7 @@ func workflowEcosystems(opts Options) []string {
 	return ids
 }
 
-// ecosystemID maps a publish target name to its ecosystem identifier. The
-// configuration accepts npm, pypi and crates as publish targets while the
-// adapters are named npm, python and rust.
+// ecosystemID maps a publish target name to its ecosystem identifier.
 func ecosystemID(target string) string {
-	switch target {
-	case "pypi":
-		return "python"
-	case "crates":
-		return "rust"
-	default:
-		return target
-	}
+	return config.EcosystemForRegistry(target)
 }

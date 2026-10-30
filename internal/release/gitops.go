@@ -16,6 +16,7 @@ type GitOps interface {
 	Push(ctx context.Context, remote string, refs ...string) error
 	Add(ctx context.Context, paths ...string) error
 	Remove(ctx context.Context, paths ...string) error
+	Ignored(ctx context.Context, path string) (bool, error)
 	Commit(ctx context.Context, message string) (string, error)
 	CommitNoVerify(ctx context.Context, message string) (string, error)
 	IntroducingCommit(ctx context.Context, path string) (string, error)

@@ -44,6 +44,20 @@ const (
 // ErrNotFound is returned when no configuration file exists.
 var ErrNotFound = errors.New("no .quailegg.toml found")
 
+// EcosystemForRegistry maps a publish target name to its ecosystem identifier.
+// The configuration accepts npm, pypi and crates as publish targets while the
+// adapters are named npm, python and rust.
+func EcosystemForRegistry(target string) string {
+	switch target {
+	case "pypi":
+		return ResolverPython
+	case "crates":
+		return ResolverRust
+	default:
+		return target
+	}
+}
+
 // Config mirrors the TOML schema.
 type Config struct {
 	SchemaVersion int `toml:"schema_version"`

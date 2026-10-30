@@ -97,3 +97,82 @@ func TestInitKeepsPackageScopeForMixedVersions(t *testing.T) {
 		t.Fatalf("mixed versions must stay in package scope:\n%s", data)
 	}
 }
+
+func newCargoWorkspace(t *testing.T) string {
+	t.Helper()
+	execx.SanitizeGitHookEnv()
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-q")
+	runGit(t, dir, "config", "user.email", "init@example.com")
+	runGit(t, dir, "config", "user.name", "init")
+	runGit(t, dir, "remote", "add", "origin", "https://github.com/acme/demo")
+	files := map[string]string{
+		"Cargo.toml": `[workspace]
+members = ["crates/*", "app"]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+`,
+		"crates/core/Cargo.toml": `[package]
+name = "init-core"
+version.workspace = true
+`,
+		"crates/cli/Cargo.toml": `[package]
+name = "init-cli"
+version.workspace = true
+
+[dependencies]
+init-core = { path = "../core" }
+`,
+		"app/Cargo.toml": `[package]
+name = "init-app"
+version.workspace = true
+publish = false
+`,
+	}
+	for rel, body := range files {
+		path := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: initial")
+	return dir
+}
+
+func TestInitRegistersCargoWorkspace(t *testing.T) {
+	dir := newCargoWorkspace(t)
+	if _, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   true,
+		QeggVersion:   "latest",
+	}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".quailegg.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		`version_scope = "shared"`,
+		`registries = ["crates"]`,
+		`commands = ["cargo test"]`,
+		`[packages."init-core"]`,
+		`[packages."init-app"]`,
+		`[packages."init-app"]
+path = "app"
+resolver = "rust"
+publish = false`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("generated config is missing %q:\n%s", want, text)
+		}
+	}
+}

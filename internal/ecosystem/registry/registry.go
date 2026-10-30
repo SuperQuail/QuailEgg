@@ -87,6 +87,16 @@ func WorkspaceSyncerFor(resolver string) (ecosystem.WorkspaceSyncer, bool) {
 	return syncer, ok
 }
 
+// VersionSyncerFor resolves the per-package version syncer of a resolver.
+func VersionSyncerFor(resolver string) (ecosystem.VersionSyncer, bool) {
+	eco, ok := ByID(resolver)
+	if !ok {
+		return nil, false
+	}
+	syncer, ok := eco.(ecosystem.VersionSyncer)
+	return syncer, ok
+}
+
 // SpecFor resolves a specification by identifier.
 func SpecFor(id string) (ecosystem.Spec, bool) {
 	for _, spec := range Specs() {
