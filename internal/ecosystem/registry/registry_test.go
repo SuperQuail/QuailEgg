@@ -136,3 +136,30 @@ func TestDefaultVerifyCommands(t *testing.T) {
 		t.Fatalf("commands = %v", commands)
 	}
 }
+
+func TestInspectConfiguredPath(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "ui"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "{\n  \"name\": \"ui-pkg\",\n  \"version\": \"0.1.0\",\n  \"private\": true\n}\n"
+	if err := os.WriteFile(filepath.Join(root, "ui", "package.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := registry.Inspect(root, ecosystem.Package{Name: "ui-pkg", Path: "ui", Resolver: "npm"})
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if pkg.Version != "0.1.0" || pkg.Publish {
+		t.Fatalf("unexpected package: %+v", pkg)
+	}
+	if _, err := registry.Inspect(root, ecosystem.Package{Name: "other", Path: "ui", Resolver: "npm"}); err == nil {
+		t.Fatal("a manifest name mismatch must fail")
+	}
+	if _, err := registry.Inspect(root, ecosystem.Package{Name: "ui-pkg", Path: "../ui", Resolver: "npm"}); err == nil {
+		t.Fatal("an escaping path must fail")
+	}
+	if _, err := registry.Inspect(root, ecosystem.Package{Name: "ui-pkg", Path: "missing", Resolver: "npm"}); err == nil {
+		t.Fatal("a missing manifest must fail")
+	}
+}

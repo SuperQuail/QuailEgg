@@ -2,6 +2,8 @@ package npm_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -94,5 +96,27 @@ func TestPublishUsesChannelDistTag(t *testing.T) {
 	}
 	if len(run.calls) != 1 || run.calls[0] != "npm publish" {
 		t.Fatalf("calls = %v, want a plain publish", run.calls)
+	}
+}
+
+func TestInspectNestedPackage(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "ui"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "{\n  \"name\": \"ui-pkg\",\n  \"version\": \"0.3.0\",\n  \"private\": true\n}\n"
+	if err := os.WriteFile(filepath.Join(root, "ui", "package.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	inspector, ok := npm.New().(ecosystem.Inspector)
+	if !ok {
+		t.Fatal("npm adapter does not implement Inspector")
+	}
+	pkg, err := inspector.Inspect(root, ecosystem.Package{Name: "ui-pkg", Path: "ui", Resolver: "npm"})
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if pkg.Version != "0.3.0" || pkg.Publish || filepath.ToSlash(pkg.Manifest) != "ui/package.json" {
+		t.Fatalf("unexpected package: %+v", pkg)
 	}
 }

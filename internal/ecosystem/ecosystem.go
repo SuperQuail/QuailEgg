@@ -118,6 +118,16 @@ type InitAdvisor interface {
 	DefaultVerifyCommands(root string) []string
 }
 
+// Inspector is implemented by ecosystems that can read one package from a
+// configured directory without scanning the repository. qegg init still uses
+// Detect for suggestions; the release planner reads configured paths through
+// Inspect.
+type Inspector interface {
+	// Inspect reads the package at root/pkg.Path and returns it with Name,
+	// Version, Manifest, Publish and Deps filled in.
+	Inspect(root string, pkg Package) (Package, error)
+}
+
 // VersionSyncer is implemented by ecosystems whose manifests reference each
 // other and whose packages may carry different next versions (Cargo workspace
 // members, for example). pkgs carries every managed package with Version set

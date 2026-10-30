@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/ecosystemtest"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/golang"
 )
@@ -91,5 +92,20 @@ func TestSetVersionIsNoop(t *testing.T) {
 	}
 	if string(before) != string(after) {
 		t.Fatalf("go.mod must not change:\n%s", after)
+	}
+}
+
+func TestInspectRootModule(t *testing.T) {
+	root := ecosystemtest.Fixture(t, "go-basic")
+	inspector, ok := golang.New().(ecosystem.Inspector)
+	if !ok {
+		t.Fatal("go adapter does not implement Inspector")
+	}
+	pkg, err := inspector.Inspect(root, ecosystem.Package{Name: "example.com/demo", Path: ".", Resolver: "go"})
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if pkg.Name != "example.com/demo" || pkg.Manifest != "go.mod" {
+		t.Fatalf("unexpected package: %+v", pkg)
 	}
 }

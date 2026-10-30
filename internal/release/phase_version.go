@@ -114,12 +114,12 @@ func (e *executor) verify(ctx context.Context) error {
 }
 
 func (e *executor) bump(ctx context.Context) error {
-	detected, err := registry.DetectAll(e.d.Root)
+	inspected, err := e.inspectPlanPackages()
 	if err != nil {
 		return err
 	}
 	if e.plan.VersionScope != config.VersionScopeShared {
-		if inherited := inheritedWorkspaceVersions(detected); len(inherited) > 1 {
+		if inherited := inheritedWorkspaceVersions(inspected); len(inherited) > 1 {
 			return errors.New(i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
 		}
 	}
@@ -130,7 +130,7 @@ func (e *executor) bump(ctx context.Context) error {
 		}
 	}
 	for _, pkg := range e.plan.Packages {
-		target, ok := findDetected(detected, pkg.Name, pkg.Path)
+		target, ok := findInspected(inspected, pkg.Name)
 		if !ok {
 			return errors.New(i18n.Tf("release.err.package_missing", pkg.Name))
 		}
@@ -150,16 +150,35 @@ func (e *executor) bump(ctx context.Context) error {
 		}
 		e.d.UI.Info("%s: %s -> %s", pkg.Name, pkg.Current, value)
 	}
-	if err := e.syncWorkspace(ctx, detected); err != nil {
+	if err := e.syncWorkspace(ctx, inspected); err != nil {
 		return err
 	}
 	return nil
 }
 
+// inspectPlanPackages reads every planned package from its configured path.
+func (e *executor) inspectPlanPackages() ([]ecosystem.Package, error) {
+	inputs := make([]ecosystem.Package, 0, len(e.plan.Packages))
+	for _, pkg := range e.plan.Packages {
+		inputs = append(inputs, ecosystem.Package{Name: pkg.Name, Path: pkg.Path, Resolver: pkg.Resolver})
+	}
+	return registry.InspectAll(e.d.Root, inputs)
+}
+
+// findInspected resolves a planned package by name.
+func findInspected(pkgs []ecosystem.Package, name string) (ecosystem.Package, bool) {
+	for _, pkg := range pkgs {
+		if pkg.Name == name {
+			return pkg, true
+		}
+	}
+	return ecosystem.Package{}, false
+}
+
 // syncWorkspace keeps sibling references (dependency pins, lock files) in sync
 // after the manifests were bumped. Every package is passed with the version to
 // write; ecosystems without a VersionSyncer have nothing to sync.
-func (e *executor) syncWorkspace(ctx context.Context, detected []ecosystem.Package) error {
+func (e *executor) syncWorkspace(ctx context.Context, inspected []ecosystem.Package) error {
 	next := map[string]string{}
 	for _, release := range e.plan.Releases {
 		for _, name := range release.Packages {
@@ -168,7 +187,7 @@ func (e *executor) syncWorkspace(ctx context.Context, detected []ecosystem.Packa
 	}
 	groups := map[string][]ecosystem.Package{}
 	for _, planned := range e.plan.Packages {
-		target, ok := findDetected(detected, planned.Name, planned.Path)
+		target, ok := findInspected(inspected, planned.Name)
 		if !ok {
 			continue
 		}
@@ -231,14 +250,11 @@ func (e *executor) commit(ctx context.Context) error {
 	} else {
 		paths = append(paths, filepath.Join(e.d.Root, "CHANGELOG.md"))
 	}
-	detected, err := registry.DetectAll(e.d.Root)
-	if err != nil {
-		return err
-	}
 	for _, pkg := range e.plan.Packages {
-		if target, ok := findDetected(detected, pkg.Name, pkg.Path); ok {
-			paths = append(paths, fsx.Join(e.d.Root, target.Manifest))
+		if pkg.Manifest == "" {
+			continue
 		}
+		paths = append(paths, fsx.Join(e.d.Root, pkg.Manifest))
 	}
 	for _, rel := range e.syncPaths {
 		ignored, err := e.d.Git.Ignored(ctx, rel)
