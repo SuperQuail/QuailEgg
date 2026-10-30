@@ -63,6 +63,17 @@
 - 发布步骤为空操作：push tag 之后 Go 模块代理会按需抓取。预检查询 proxy.golang.org 只反映“是否已被缓存”，且使用带 `v` 的规范版本号；私有模块或尚未被抓取的版本返回 404，属正常现象。
 - 首次发布没有历史 tag 时以 `0.0.0` 为基线：`feat` 记录得到 0.1.0，`patch` 记录得到 0.0.1。
 
+## 多包仓库
+
+`qegg init` 会把同一仓库里的所有包登记进 `[packages.*]`。发布有两种版本范围：
+
+- `version_scope = "package"`（默认）：每个包按自己的变更记录独立 bump、独立 tag、独立 GitHub Release。tag 由 `[git] tag_format` 决定，默认 `{{slug}}-v{{version}}`（如 `core-v1.2.3`）；变更日志按 `<!-- qegg:release core@1.2.3 -->` 分段，标题为 `## core v1.2.3 - 日期`。
+- `version_scope = "shared"`：所有包共用一个版本、一个 tag（沿用 `tag_prefix`），一次发布全部包；没有记录的包也同步版本。要求所有包同生态且当前版本一致。
+
+`depends-on` 只影响发布顺序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块与 `[release.assets]` 不支持多包仓库。
+
+Python 的预发布沿用仓库里的拼写（`2.0.2-a14`），tag 与 PyPI 使用 PEP 440 形式（`2.0.2a14`），由适配器转换。
+
 ## 发布资产（Go）
 
 Go 适配器还负责发布资产：release 层新增 `internal/release/assets`，在 publish 之前交叉编译 main 包、打包并上传到 GitHub Release。发布资产默认关闭，需要在 `[release.assets]` 里写任意字段或 `enabled = true` 才会启用。

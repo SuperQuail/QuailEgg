@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"path/filepath"
+	"strings"
 
 	"github.com/SuperQuail/QuailEgg/internal/changelog"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
@@ -10,7 +11,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/release"
 )
 
-// Changelog writes (or previews) the changelog section for the pending release.
+// Changelog writes (or previews) the changelog sections for the pending release.
 func (a *App) Changelog(ctx context.Context, dryRun bool) error {
 	plan, err := a.Plan(ctx)
 	if err != nil {
@@ -20,10 +21,13 @@ func (a *App) Changelog(ctx context.Context, dryRun bool) error {
 		a.UI.Info("%s", i18n.T("changelog.nothing"))
 		return nil
 	}
-	section := release.ChangelogSection(plan, a.Now())
-	rendered := changelog.Render(section)
+	sections := release.ChangelogSections(plan, a.Now())
+	var rendered strings.Builder
+	for _, section := range sections {
+		rendered.WriteString(changelog.Render(section))
+	}
 	if dryRun {
-		a.UI.Info("%s", rendered)
+		a.UI.Info("%s", rendered.String())
 		return nil
 	}
 	path := filepath.Join(a.Root, "CHANGELOG.md")
@@ -31,13 +35,18 @@ func (a *App) Changelog(ctx context.Context, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	updated, err := changelog.Update(existing, section)
+	updated, err := changelog.UpdateAll(existing, sections)
 	if err != nil {
 		return err
 	}
 	if err := fsx.WriteFileAtomic(path, updated, 0o644); err != nil {
 		return err
 	}
-	a.UI.Success("%s", i18n.Tf("changelog.updated", plan.Version.Next))
+	title := plan.Version.Next
+	if title == "" {
+		a.UI.Success("%s", i18n.Tf("changelog.updated_multi", len(sections)))
+		return nil
+	}
+	a.UI.Success("%s", i18n.Tf("changelog.updated", title))
 	return nil
 }

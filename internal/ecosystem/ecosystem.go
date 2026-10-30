@@ -101,3 +101,11 @@ type TagVersioner interface {
 	// CheckVersion rejects a next version that the ecosystem cannot express.
 	CheckVersion(pkg Package, next string) error
 }
+
+// WorkspaceSyncer is implemented by ecosystems that keep references between
+// packages of one release unit in sync (Python dependency pins, for example).
+type WorkspaceSyncer interface {
+	// SyncWorkspace updates references between packages that share a version.
+	// It returns the repository-relative paths it changed.
+	SyncWorkspace(ctx context.Context, run execx.Runner, root string, pkgs []Package, version string) ([]string, error)
+}

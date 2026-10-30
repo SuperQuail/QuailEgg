@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/SuperQuail/QuailEgg/internal/changes"
 	"github.com/SuperQuail/QuailEgg/internal/config"
-	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
@@ -26,6 +25,7 @@ type CheckReport struct {
 	Tools         map[string]string `json:"tools"`
 	Verify        VerifyStatus      `json:"verify"`
 	Packages      PackageStatus     `json:"packages"`
+	Entries       []PackageEntry    `json:"entries,omitempty"`
 	Problems      []Problem         `json:"problems"`
 }
 
@@ -41,6 +41,14 @@ type PackageStatus struct {
 	Registered   []string `json:"registered"`
 	Detected     []string `json:"detected"`
 	Unregistered []string `json:"unregistered"`
+}
+
+// PackageEntry is one checked package.
+type PackageEntry struct {
+	Name     string `json:"name"`
+	Resolver string `json:"resolver"`
+	Version  string `json:"version"`
+	Manifest string `json:"manifest,omitempty"`
 }
 
 // Problem is one actionable check failure.
@@ -79,35 +87,70 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 		})
 	}
 
-	primary, ok := a.primaryPackage(detected)
-	if !ok {
+	names := a.Cfg.PackageNames()
+	if len(names) == 0 {
+		for _, pkg := range detected {
+			names = append(names, pkg.Name)
+		}
+	}
+	seenTools := map[string]bool{}
+	for _, name := range names {
+		pkg, ok := a.findPackage(detected, name)
+		if !ok {
+			report.Problems = append(report.Problems, Problem{
+				Code:    "package-missing",
+				Message: i18n.Tf("check.problem.package_missing", name),
+				Fix:     i18n.T("check.fix.run_init"),
+			})
+			continue
+		}
+		version, err := registry.CurrentVersion(ctx, a.Run, a.Root, pkg, a.Cfg.Git.TagPrefix)
+		if err != nil {
+			report.Problems = append(report.Problems, Problem{Code: "version-failed", Message: err.Error()})
+			continue
+		}
+		pkg.Version = version
+		report.Entries = append(report.Entries, PackageEntry{
+			Name: pkg.Name, Resolver: pkg.Resolver, Version: pkg.Version, Manifest: pkg.Manifest,
+		})
+		for _, tool := range requiredTools(pkg.Resolver) {
+			if seenTools[tool.command] {
+				continue
+			}
+			seenTools[tool.command] = true
+			if execx.LookPath(tool.command) {
+				report.Tools[tool.name] = tool.hint
+			} else {
+				report.Tools[tool.name] = ""
+				report.Problems = append(report.Problems, Problem{
+					Code:    "tool-missing",
+					Message: i18n.Tf("check.problem.tool_missing", tool.command, tool.hint),
+					Fix:     tool.install,
+				})
+			}
+		}
+	}
+	if len(report.Entries) == 0 {
 		report.Problems = append(report.Problems, Problem{
 			Code:    "no-package",
 			Message: i18n.T("check.problem.no_package"),
 		})
 		return report, nil
 	}
-	version, versionErr := registry.CurrentVersion(ctx, a.Run, a.Root, primary, a.Cfg.Git.TagPrefix)
-	if versionErr == nil {
-		primary.Version = version
-	}
-	report.Ecosystem = primary.Resolver
-	report.Package = primary.Name
-	report.Version = primary.Version
-	report.Manifest = primary.Manifest
-	if versionErr != nil {
-		report.Problems = append(report.Problems, Problem{Code: "version-failed", Message: versionErr.Error()})
-	}
-
-	for _, tool := range requiredTools(primary.Resolver) {
-		if execx.LookPath(tool.command) {
-			report.Tools[tool.name] = tool.hint
-		} else {
-			report.Tools[tool.name] = ""
+	report.Ecosystem = report.Entries[0].Resolver
+	report.Package = report.Entries[0].Name
+	report.Version = report.Entries[0].Version
+	report.Manifest = report.Entries[0].Manifest
+	if a.Cfg.Release.VersionScope == config.VersionScopeShared && len(report.Entries) > 1 {
+		base := report.Entries[0]
+		for _, entry := range report.Entries[1:] {
+			if entry.Version == base.Version {
+				continue
+			}
 			report.Problems = append(report.Problems, Problem{
-				Code:    "tool-missing",
-				Message: i18n.Tf("check.problem.tool_missing", tool.command, tool.hint),
-				Fix:     tool.install,
+				Code:    "shared-version-mismatch",
+				Message: i18n.Tf("check.problem.shared_version_mismatch", entry.Name, entry.Version, base.Name, base.Version),
+				Fix:     i18n.T("check.fix.shared_version"),
 			})
 		}
 	}
@@ -142,26 +185,6 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 
 	report.OK = len(report.Problems) == 0
 	return report, nil
-}
-
-func (a *App) primaryPackage(detected []ecosystem.Package) (ecosystem.Package, bool) {
-	if len(a.Cfg.Packages) == 1 {
-		for name, pkg := range a.Cfg.Packages {
-			for _, candidate := range detected {
-				if candidate.Name == name || candidate.Path == pkg.Path {
-					return candidate, true
-				}
-			}
-			if len(detected) == 1 {
-				return detected[0], true
-			}
-			return ecosystem.Package{}, false
-		}
-	}
-	if len(detected) == 1 {
-		return detected[0], true
-	}
-	return ecosystem.Package{}, false
 }
 
 func (a *App) ciRecordProblem(ctx context.Context) *Problem {

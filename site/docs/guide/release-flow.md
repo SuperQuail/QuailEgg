@@ -66,7 +66,7 @@ git push
 - 同一渠道连续发布时 `n` 递增，目标基线变大时从 1 重新开始；
 - 预发布**不消费变更记录、也不写 `CHANGELOG.md`**，记录留到稳定版一起发布；
 - `qegg pre exit` 之后的下一次发布是同一基线的稳定版（`0.5.0-alpha.2` → `0.5.0`），会一次性写 CHANGELOG 并消费记录；
-- GitHub Release 标记为 Pre-release 且不会成为 Latest；npm 发布到同名 dist-tag（`alpha`/`beta`/`rc`），不会覆盖 `latest`。
+- GitHub Release 标记为 Pre-release 且不会成为 Latest；npm 发布到同名 dist-tag（`alpha`/`beta`/`rc`），不会覆盖 `latest`；Python 保留 `2.0.2-a14` 的写法，tag 与 PyPI 用 `2.0.2a14`。
 
 ## 本地调试发布
 

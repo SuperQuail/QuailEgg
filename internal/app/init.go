@@ -3,9 +3,11 @@ package app
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/SuperQuail/QuailEgg/internal/config"
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
 	"github.com/SuperQuail/QuailEgg/internal/github"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
@@ -34,6 +36,7 @@ type InitOptions struct {
 	Force          bool
 	DryRun         bool
 	QeggVersion    string
+	Environment    string
 }
 
 // Init plans (and optionally applies) the repository scaffolding.
@@ -81,6 +84,17 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	}
 	if existing == nil && len(packages) == 0 {
 		return nil, errors.New(i18n.Tf("error.no_packages", registry.ManifestListText()))
+	}
+
+	versionScope := config.VersionScopePackage
+	if existing != nil && existing.Release.VersionScope != "" {
+		versionScope = existing.Release.VersionScope
+	} else if len(packages) > 1 && uniformVersions(detected) {
+		versionScope = config.VersionScopeShared
+	}
+	environment := opts.Environment
+	if environment == "" && existing != nil {
+		environment = existing.Release.Environment
 	}
 
 	baseBranch := opts.Branch
@@ -133,6 +147,9 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if registries == nil && existing != nil {
 		registries = existing.Publish.Registries
 	}
+	if len(registries) == 0 {
+		registries = inferRegistries(packages)
+	}
 	ecosystemID := ""
 	if len(registries) > 0 {
 		ecosystemID = registries[0]
@@ -174,6 +191,8 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		VerifyCommands:  verifyCommands,
 		Ecosystem:       ecosystemID,
 		QeggVersion:     version,
+		VersionScope:    versionScope,
+		Environment:     environment,
 		WithHook:        opts.WithHook,
 		WithWorkflows:   opts.WithWorkflows,
 		WithStatus:      opts.WithStatus,
@@ -215,4 +234,48 @@ func detectRemoteRepo(ctx context.Context, root, remote string, existing *config
 		return id, i18n.Tf("init.warn.repo_differs", remote, id, existing.Project.Repo), nil
 	}
 	return id, "", nil
+}
+
+// uniformVersions reports whether every detected package has the same
+// manifest version under one resolver, which is what shared versioning needs.
+func uniformVersions(detected []ecosystem.Package) bool {
+	if len(detected) < 2 {
+		return false
+	}
+	first := detected[0]
+	if first.Version == "" || first.Resolver == config.ResolverGo {
+		return false
+	}
+	for _, pkg := range detected[1:] {
+		if pkg.Version != first.Version || pkg.Resolver != first.Resolver {
+			return false
+		}
+	}
+	return true
+}
+
+// inferRegistries maps the configured packages to publish targets.
+func inferRegistries(packages map[string]config.Package) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, pkg := range packages {
+		target := ""
+		switch pkg.Resolver {
+		case config.ResolverNPM:
+			target = "npm"
+		case config.ResolverPython:
+			target = "pypi"
+		case config.ResolverRust:
+			target = "crates"
+		case config.ResolverGo:
+			target = "go"
+		}
+		if target == "" || seen[target] {
+			continue
+		}
+		seen[target] = true
+		out = append(out, target)
+	}
+	sort.Strings(out)
+	return out
 }

@@ -73,6 +73,7 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 	cmd.Flags().StringVar(&opts.Remote, "remote", "", i18n.T("flag.remote"))
 	cmd.Flags().StringSliceVar(&opts.Registries, "registries", nil, i18n.T("flag.registries"))
 	cmd.Flags().StringVar(&opts.ChangesDir, "changes-dir", "", i18n.T("flag.changes_dir"))
+	cmd.Flags().StringVar(&opts.Environment, "environment", "", i18n.T("flag.environment"))
 	cmd.Flags().StringSliceVar(&opts.Scope, "scope", nil, i18n.T("flag.scope"))
 	cmd.Flags().StringSliceVar(&opts.VerifyCommands, "verify-cmd", nil, i18n.T("flag.verify_cmd"))
 	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify-cmd", false, i18n.T("flag.no_verify_cmd"))

@@ -89,6 +89,7 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 - release 工作流只在发布相关路径变化时运行（`.changes/**`、`.quailegg.toml`、`.quailegg/pre-release.lock`、`.quailegg/release.json`、`CHANGELOG.md` 与各生态清单），只改文档的推送不会重建 release 分支。
 - release PR 由 `github-actions[bot]` 用 GITHUB_TOKEN 创建，GitHub 不会为它正常启动检查：PR 上可能出现 `action_required`，或一个 0 job 的启动失败 run（合并/强推后尤其明显）。`qegg-pr` 对 release 分支加了 `if: github.head_ref != 'release'`，run 一旦真正启动就跳过；不要把这条检查设为必需，验证由 publish 那次 run 负责。需要真实检查只能换成 PAT/GitHub App 身份。
 - workflow 安装 `@latest`，新版本发布后 CI 自动升级；要固定版本时用 `qegg init --force --qegg-version vX.Y.Z`。
+- `[release] environment` 会渲染成发布 workflow 的 `environment:`，便于把 PyPI 凭证限制在受保护的 environment 里（NeoBot 这类项目用它做 `pypi` 审批）。
 - CHANGELOG 的贡献者句柄取自 PR（没有 PR 时取 commit）作者的 GitHub login；私有仓库本地需要 `GITHUB_TOKEN`/`GH_TOKEN` 或登录过的 `gh`，都不可用时省略作者，不写显示名，也不影响发版。
 
 ## 预发布（alpha / beta / rc）
@@ -109,3 +110,11 @@ qegg pre exit       # 退出渠道，下一次发布回到稳定版
 - 预发布**不消费变更记录、也不写 `CHANGELOG.md`**，记录留到稳定版一起发布；只有新增记录才会产生下一个预发布号，避免空转发。
 - `qegg pre exit` 之后的下一次发布是同一基线的稳定版（`0.5.0-alpha.2` → `0.5.0`），会一次性写 CHANGELOG 并消费记录。
 - GitHub Release 标成 Pre-release 且不会成为 Latest；npm 发布到同名的 dist-tag（`alpha` / `beta` / `rc`），不会覆盖 `latest`。
+- Python 保留 `pyproject.toml` 里的写法（`2.0.2-a14`），tag 与 PyPI 用 `2.0.2a14`；每个单元按自己的 tag 序列计算 `n`。
+
+## 多包仓库
+
+- `version_scope = "package"`（默认）逐个包发布：每个包独立版本、独立 tag（默认 `{{slug}}-v{{version}}`，可用 `[git] tag_format` 覆盖）和独立 GitHub Release。
+- `version_scope = "shared"` 让所有包共用一个版本与 tag，适合内部包必须同版本的仓库（例如 uv workspace 里 app 固定依赖兄弟包）；要求所有包生态一致且当前版本相同。
+- 只有命中本次发布包的记录才会被消费；`release: false` 记录留到对应包发布时再写入变更日志。
+- 共享版本的 Python 工作区会自动把 `[project].dependencies` 里兄弟包的 `==` pin 改成新版本；仓库根有 `uv.lock` 时还会执行 `uv lock`。

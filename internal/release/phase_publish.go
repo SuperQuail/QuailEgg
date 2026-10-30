@@ -70,8 +70,17 @@ func (e *executor) preflightPublish(ctx context.Context) error {
 	if rel == nil {
 		return errors.New(i18n.T("release.err.no_marker"))
 	}
-	if rel.Version != e.plan.Version.Next {
+	if rel.Version != "" && e.plan.Version.Next != "" && rel.Version != e.plan.Version.Next {
 		return errors.New(i18n.Tf("release.err.marker_mismatch", rel.Version, e.plan.Version.Next))
+	}
+	planned := map[string]bool{}
+	for _, release := range e.plan.Releases {
+		planned[release.Tag] = true
+	}
+	for _, release := range rel.Releases {
+		if len(e.plan.Releases) > 0 && !planned[release.Tag] {
+			return errors.New(i18n.Tf("release.err.marker_mismatch", release.Version, e.plan.Version.Next))
+		}
 	}
 	return nil
 }
@@ -117,26 +126,31 @@ func (e *executor) setPackageState(name, status, reason string) {
 }
 
 func (e *executor) tag(ctx context.Context) error {
-	exists, err := e.d.Git.TagExists(ctx, e.plan.Tag)
-	if err != nil {
-		return err
-	}
-	if exists {
-		head, err := e.d.Git.HeadSHA(ctx)
+	for _, release := range e.plan.Releases {
+		exists, err := e.d.Git.TagExists(ctx, release.Tag)
 		if err != nil {
 			return err
 		}
-		points, err := e.d.Git.TagPointsAt(ctx, e.plan.Tag, head)
-		if err != nil {
+		if exists {
+			head, err := e.d.Git.HeadSHA(ctx)
+			if err != nil {
+				return err
+			}
+			points, err := e.d.Git.TagPointsAt(ctx, release.Tag, head)
+			if err != nil {
+				return err
+			}
+			if !points {
+				return errors.New(i18n.Tf("release.err.tag_mismatch", release.Tag))
+			}
+			e.skip("tag", i18n.T("release.skip.tag_exists"))
+			continue
+		}
+		if err := e.d.Git.CreateTag(ctx, release.Tag, "Release "+release.Tag); err != nil {
 			return err
 		}
-		if !points {
-			return errors.New(i18n.Tf("release.err.tag_mismatch", e.plan.Tag))
-		}
-		e.skip("tag", i18n.T("release.skip.tag_exists"))
-		return nil
 	}
-	return e.d.Git.CreateTag(ctx, e.plan.Tag, "Release "+e.plan.Tag)
+	return nil
 }
 
 func (e *executor) push(ctx context.Context) error {
@@ -152,7 +166,9 @@ func (e *executor) push(ctx context.Context) error {
 	if e.d.Cfg.Release.Mode == config.ModePR {
 		refs = nil
 	}
-	refs = append(refs, "refs/tags/"+e.plan.Tag)
+	for _, release := range e.plan.Releases {
+		refs = append(refs, "refs/tags/"+release.Tag)
+	}
 	return e.d.Git.Push(ctx, e.d.Cfg.Git.Remote, refs...)
 }
 
@@ -167,26 +183,29 @@ func (e *executor) githubRelease(ctx context.Context) error {
 		e.warnAssetsNotUploaded()
 		return nil
 	}
-	notes, ok := e.releaseNotes()
-	if !ok {
-		notes = "Release v" + e.plan.Version.Next
+	prerelease := e.plan.Channel != ""
+	for _, release := range e.plan.Releases {
+		notes, ok := e.releaseNotes(release)
+		if !ok {
+			notes = "Release " + release.Tag
+		}
+		err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, release.Tag, release.Tag, notes, prerelease || release.Prerelease != "")
+		if errors.Is(err, github.ErrExists) {
+			e.d.UI.Info("%s", i18n.Tf("release.msg.release_exists", release.Tag))
+		} else if err != nil {
+			return err
+		} else {
+			e.d.UI.Success("%s", i18n.Tf("release.msg.release_created", release.Tag))
+		}
 	}
-	title := e.plan.Tag
-	err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, e.plan.Tag, title, notes, e.plan.Channel != "")
-	if errors.Is(err, github.ErrExists) {
-		e.d.UI.Info("%s", i18n.Tf("release.msg.release_exists", title))
-	} else if err != nil {
-		return err
-	} else {
-		e.d.UI.Success("%s", i18n.Tf("release.msg.release_created", title))
-	}
-	if len(e.run.Assets) == 0 {
+	if len(e.run.Assets) == 0 || len(e.plan.Releases) != 1 {
 		return nil
 	}
-	if err := github.UploadReleaseAssets(ctx, e.d.Run, e.plan.Tag, e.run.Assets); err != nil {
+	tag := e.plan.Releases[0].Tag
+	if err := github.UploadReleaseAssets(ctx, e.d.Run, tag, e.run.Assets); err != nil {
 		return err
 	}
-	e.d.UI.Success("%s", i18n.Tf("release.msg.assets_uploaded", len(e.run.Assets), e.plan.Tag))
+	e.d.UI.Success("%s", i18n.Tf("release.msg.assets_uploaded", len(e.run.Assets), tag))
 	return nil
 }
 
@@ -197,14 +216,20 @@ func (e *executor) warnAssetsNotUploaded() {
 	}
 }
 
-func (e *executor) releaseNotes() (string, bool) {
-	if e.plan.Channel != "" {
-		return changelog.RenderBody(ChangelogSection(e.plan, e.d.Now())), true
+func (e *executor) releaseNotes(release ReleasePlan) (string, bool) {
+	if e.plan.Channel != "" || release.Prerelease != "" {
+		for _, section := range ChangelogSections(e.plan, e.d.Now()) {
+			if section.Package == release.Name && section.Version == release.Version {
+				return changelog.RenderBody(section), true
+			}
+		}
+		return "", false
 	}
 	path := filepath.Join(e.d.Root, "CHANGELOG.md")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", false
 	}
-	return changelog.Extract(data, e.plan.Version.Next)
+	key := changelog.Section{Version: release.Version, Package: release.Name}.Key()
+	return changelog.Extract(data, key)
 }

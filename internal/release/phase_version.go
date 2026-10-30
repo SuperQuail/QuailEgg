@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/SuperQuail/QuailEgg/internal/changelog"
 	"github.com/SuperQuail/QuailEgg/internal/config"
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
 	"github.com/SuperQuail/QuailEgg/internal/github"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
@@ -13,7 +14,6 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/verify"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -117,6 +117,12 @@ func (e *executor) bump(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	next := map[string]string{}
+	for _, release := range e.plan.Releases {
+		for _, name := range release.Packages {
+			next[name] = release.Version
+		}
+	}
 	for _, pkg := range e.plan.Packages {
 		target, ok := findDetected(detected, pkg.Name, pkg.Path)
 		if !ok {
@@ -129,11 +135,46 @@ func (e *executor) bump(ctx context.Context) error {
 		if current != pkg.Current {
 			return errors.New(i18n.Tf("release.err.version_changed", pkg.Name, pkg.Current, current))
 		}
-		if err := registry.SetVersion(e.d.Root, target, pkg.Next); err != nil {
+		value := next[pkg.Name]
+		if value == "" {
+			continue
+		}
+		if err := registry.SetVersion(e.d.Root, target, value); err != nil {
 			return err
 		}
-		e.d.UI.Info("%s: %s -> %s", pkg.Name, pkg.Current, pkg.Next)
+		e.d.UI.Info("%s: %s -> %s", pkg.Name, pkg.Current, value)
 	}
+	if err := e.syncWorkspace(ctx, detected); err != nil {
+		return err
+	}
+	return nil
+}
+
+// syncWorkspace keeps sibling references (dependency pins, lock files) in sync
+// when every package of the unit shares one version.
+func (e *executor) syncWorkspace(ctx context.Context, detected []ecosystem.Package) error {
+	if e.plan.VersionScope != config.VersionScopeShared || len(e.plan.Releases) != 1 {
+		return nil
+	}
+	release := e.plan.Releases[0]
+	pkgs := make([]ecosystem.Package, 0, len(release.Packages))
+	for _, name := range release.Packages {
+		if target, ok := findDetected(detected, name, ""); ok {
+			pkgs = append(pkgs, target)
+		}
+	}
+	if len(pkgs) == 0 {
+		return nil
+	}
+	syncer, ok := registry.WorkspaceSyncerFor(pkgs[0].Resolver)
+	if !ok {
+		return nil
+	}
+	paths, err := syncer.SyncWorkspace(ctx, e.d.Run, e.d.Root, pkgs, release.Version)
+	if err != nil {
+		return err
+	}
+	e.syncPaths = paths
 	return nil
 }
 
@@ -142,13 +183,13 @@ func (e *executor) writeChangelog(ctx context.Context) error {
 		e.skip("changelog", i18n.T("release.skip.prerelease_changelog"))
 		return nil
 	}
-	section := ChangelogSection(e.plan, e.d.Now())
+	sections := ChangelogSections(e.plan, e.d.Now())
 	path := filepath.Join(e.d.Root, "CHANGELOG.md")
 	existing, err := fsx.ReadOrEmpty(path)
 	if err != nil {
 		return err
 	}
-	updated, err := changelog.Update(existing, section)
+	updated, err := changelog.UpdateAll(existing, sections)
 	if err != nil {
 		return err
 	}
@@ -179,6 +220,9 @@ func (e *executor) commit(ctx context.Context) error {
 			paths = append(paths, fsx.Join(e.d.Root, target.Manifest))
 		}
 	}
+	for _, rel := range e.syncPaths {
+		paths = append(paths, fsx.Join(e.d.Root, rel))
+	}
 	if err := e.d.Git.Add(ctx, paths...); err != nil {
 		return err
 	}
@@ -191,7 +235,7 @@ func (e *executor) commit(ctx context.Context) error {
 			return err
 		}
 	}
-	message := strings.ReplaceAll(e.d.Cfg.Release.CommitMessage, "{{version}}", e.plan.Version.Next)
+	message := releaseCommitMessage(e.d.Cfg, e.plan)
 	sha, err := e.d.Git.CommitNoVerify(ctx, message)
 	if err != nil {
 		return err

@@ -25,6 +25,8 @@ type Options struct {
 	Scope           []string
 	VerifyCommands  []string
 	Ecosystem       string
+	VersionScope    string
+	Environment     string
 	QeggVersion     string
 	WithHook        bool
 	WithWorkflows   bool

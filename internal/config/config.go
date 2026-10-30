@@ -25,6 +25,14 @@ const (
 	ModeCommit = "commit"
 )
 
+// Version scopes.
+const (
+	// VersionScopePackage versions every package on its own.
+	VersionScopePackage = "package"
+	// VersionScopeShared gives every package one version and one tag.
+	VersionScopeShared = "shared"
+)
+
 // Resolver identifiers.
 const (
 	ResolverNPM    = "npm"
@@ -64,6 +72,8 @@ type Project struct {
 type Git struct {
 	TagPrefix string `toml:"tag_prefix"`
 	Remote    string `toml:"remote"`
+	// TagFormat renders tags in package scope. Empty uses <slug>-v<version>.
+	TagFormat string `toml:"tag_format"`
 }
 
 // Release controls how versions are produced and published.
@@ -72,7 +82,11 @@ type Release struct {
 	Branch        string `toml:"branch"`
 	GitHubRelease bool   `toml:"github_release"`
 	CommitMessage string `toml:"commit_message"`
-	Assets        Assets `toml:"assets"`
+	// VersionScope is "package" (default) or "shared".
+	VersionScope string `toml:"version_scope"`
+	// Environment is the GitHub Actions environment of the release job.
+	Environment string `toml:"environment"`
+	Assets      Assets `toml:"assets"`
 }
 
 // Assets configures the binaries attached to a GitHub release. Only Go modules
@@ -122,6 +136,7 @@ func Default() *Config {
 			Branch:        "release",
 			GitHubRelease: true,
 			CommitMessage: "chore(release): v{{version}}",
+			VersionScope:  VersionScopePackage,
 		},
 		Changes:  Changes{Dir: ".changes"},
 		Verify:   Verify{Timeout: "15m", FailFast: true},
@@ -184,6 +199,9 @@ func (c *Config) applyDefaults() {
 	if c.Release.CommitMessage == "" {
 		c.Release.CommitMessage = d.Release.CommitMessage
 	}
+	if c.Release.VersionScope == "" {
+		c.Release.VersionScope = d.Release.VersionScope
+	}
 	if c.Changes.Dir == "" {
 		c.Changes.Dir = d.Changes.Dir
 	}
@@ -205,6 +223,42 @@ func (c *Config) Validate() error {
 	}
 	if c.Release.Mode == ModePR && c.Release.Branch == c.Project.DefaultBranch {
 		return fmt.Errorf("release.branch must differ from project.default_branch %q in pr mode", c.Project.DefaultBranch)
+	}
+	switch c.Release.VersionScope {
+	case VersionScopePackage, VersionScopeShared:
+	default:
+		return fmt.Errorf("release.version_scope must be %q or %q, got %q", VersionScopePackage, VersionScopeShared, c.Release.VersionScope)
+	}
+	if format := strings.TrimSpace(c.Git.TagFormat); format != "" {
+		if !strings.Contains(format, "{{version}}") {
+			return fmt.Errorf("git.tag_format %q must contain {{version}}", format)
+		}
+		unknown := format
+		for _, placeholder := range []string{"{{version}}", "{{slug}}", "{{name}}"} {
+			unknown = strings.ReplaceAll(unknown, placeholder, "")
+		}
+		if strings.Contains(unknown, "{{") {
+			return fmt.Errorf("git.tag_format %q contains an unknown placeholder", format)
+		}
+	}
+	if len(c.Packages) > 1 {
+		if c.Release.VersionScope == VersionScopeShared {
+			resolver := ""
+			for _, pkg := range c.Packages {
+				if pkg.Resolver == ResolverGo {
+					return errors.New("release.version_scope shared does not support Go modules")
+				}
+				if resolver == "" {
+					resolver = pkg.Resolver
+				} else if pkg.Resolver != resolver {
+					return fmt.Errorf("release.version_scope shared requires one resolver, found %q and %q", resolver, pkg.Resolver)
+				}
+			}
+		}
+		assets := c.Release.Assets
+		if assets.Enabled != nil || assets.Name != "" || assets.Main != "" || len(assets.Targets) > 0 || len(assets.Ldflags) > 0 {
+			return errors.New("release.assets does not support multi-package repositories")
+		}
 	}
 	if c.Project.Repo != "" && strings.Count(c.Project.Repo, "/") < 2 {
 		return fmt.Errorf("project.repo %q must look like host/owner/name", c.Project.Repo)

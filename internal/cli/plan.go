@@ -32,8 +32,11 @@ func newPlanCommand(rt *Runtime) *cobra.Command {
 				return p.EmitJSON(plan)
 			}
 			if markdown {
-				section := release.ChangelogSection(plan, a.Now())
-				_, err := io.WriteString(cmd.OutOrStdout(), changelog.Render(section))
+				var out []byte
+				for _, section := range release.ChangelogSections(plan, a.Now()) {
+					out = append(out, []byte(changelog.Render(section))...)
+				}
+				_, err := io.WriteString(cmd.OutOrStdout(), string(out))
 				return err
 			}
 			printPlan(p, plan)
@@ -54,14 +57,28 @@ func printPlan(p *ui.Printer, plan *release.Plan) {
 	}
 	switch plan.Phase {
 	case release.PhaseVersion:
-		p.Info("%s", i18n.Tf("plan.phase_version", plan.Version.Current, plan.Version.Next, plan.Version.Bump))
+		if plan.Version.Next != "" {
+			p.Info("%s", i18n.Tf("plan.phase_version", plan.Version.Current, plan.Version.Next, plan.Version.Bump))
+		} else {
+			p.Info("%s", i18n.Tf("plan.phase_packages", len(plan.Releases)))
+		}
 	case release.PhasePublish:
-		p.Info("%s", i18n.Tf("plan.phase_publish", plan.Version.Next))
+		if plan.Version.Next != "" {
+			p.Info("%s", i18n.Tf("plan.phase_publish", plan.Version.Next))
+		} else {
+			p.Info("%s", i18n.Tf("plan.phase_publish_packages", len(plan.Releases)))
+		}
 	default:
 		p.Info("%s", i18n.T("plan.nothing"))
 		return
 	}
-	p.Info("%s", i18n.Tf("plan.tag", plan.Tag))
+	for _, release := range plan.Releases {
+		if release.Name == "" {
+			p.Info("%s", i18n.Tf("plan.tag", release.Tag))
+			continue
+		}
+		p.Info("%s", i18n.Tf("plan.package_line", release.Name, releaseCurrent(plan, release), release.Version, release.Tag))
+	}
 	if plan.Assets != nil {
 		p.Info("%s", i18n.Tf("plan.assets_line", plan.Assets.Name, len(plan.Assets.Targets)))
 	}
@@ -74,4 +91,15 @@ func printPlan(p *ui.Printer, plan *release.Plan) {
 	for _, warning := range plan.Warnings {
 		p.Warn("%s", warning)
 	}
+}
+
+func releaseCurrent(plan *release.Plan, rel release.ReleasePlan) string {
+	if len(rel.Packages) == 1 {
+		for _, pkg := range plan.Packages {
+			if pkg.Name == rel.Packages[0] {
+				return pkg.Current
+			}
+		}
+	}
+	return plan.Version.Current
 }

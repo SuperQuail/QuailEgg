@@ -77,6 +77,16 @@ func TagVersion(resolver, version string) string {
 	return version
 }
 
+// WorkspaceSyncerFor resolves the workspace syncer of a resolver.
+func WorkspaceSyncerFor(resolver string) (ecosystem.WorkspaceSyncer, bool) {
+	eco, ok := ByID(resolver)
+	if !ok {
+		return nil, false
+	}
+	syncer, ok := eco.(ecosystem.WorkspaceSyncer)
+	return syncer, ok
+}
+
 // SpecFor resolves a specification by identifier.
 func SpecFor(id string) (ecosystem.Spec, bool) {
 	for _, spec := range Specs() {

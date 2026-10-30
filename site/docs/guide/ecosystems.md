@@ -9,7 +9,7 @@ QuailEgg 根据清单文件识别包，并用对应生态的方式写回版本�
 | Rust | `Cargo.toml` | crates.io | `[package].version` | `cargo publish` |
 | Go | `go.mod` | proxy.golang.org | 无，版本来自 git tag | 无，push tag 即发布 |
 
-npm/pnpm、uv、cargo 的多包仓库都能被识别。
+npm/pnpm、uv、cargo 的多包仓库都能被识别，可以按包独立发版，也可以用 `version_scope = "shared"` 统一版本。
 
 ## Node.js
 
