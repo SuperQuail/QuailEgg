@@ -28,6 +28,10 @@ jobs:
       - name: Preview
         run: |
           qegg plan --markdown > plan.md
-          gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none -F plan.md
+          if [ -s plan.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none -F plan.md
+          else
+            echo "no pending release; skipping the plan comment"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

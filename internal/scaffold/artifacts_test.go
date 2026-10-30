@@ -496,3 +496,12 @@ func TestReleaseWorkflowConfiguresEnvironment(t *testing.T) {
 		t.Fatalf("release workflow does not configure the environment:\n%s", release)
 	}
 }
+
+func TestPRWorkflowSkipsEmptyPreview(t *testing.T) {
+	pr := string(planFileByPath(t, mustBuild(t, testOptions(t)), prWorkflowPlanPath).Content)
+	for _, want := range []string{"if [ -s plan.md ]; then", "no pending release"} {
+		if !strings.Contains(pr, want) {
+			t.Errorf("PR workflow is missing %q", want)
+		}
+	}
+}
