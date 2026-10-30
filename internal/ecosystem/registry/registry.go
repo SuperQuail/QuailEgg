@@ -208,6 +208,20 @@ func VersionSyncerFor(resolver string) (ecosystem.VersionSyncer, bool) {
 	return syncer, ok
 }
 
+// VersionFileCandidates lists the extra version files an ecosystem suggests
+// for a package. Candidates are guesses; qegg init verifies them before use.
+func VersionFileCandidates(root string, pkg ecosystem.Package) []ecosystem.VersionFile {
+	eco, ok := ByID(pkg.Resolver)
+	if !ok {
+		return nil
+	}
+	advisor, ok := eco.(ecosystem.VersionFileAdvisor)
+	if !ok {
+		return nil
+	}
+	return advisor.VersionFileCandidates(root, pkg)
+}
+
 // SpecFor resolves a specification by identifier.
 func SpecFor(id string) (ecosystem.Spec, bool) {
 	for _, spec := range Specs() {

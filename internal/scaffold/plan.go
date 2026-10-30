@@ -34,6 +34,7 @@ type Options struct {
 	AddPackages     bool
 	Force           bool
 	Packages        map[string]config.Package
+	VersionFiles    []config.VersionFile
 	Existing        *config.Config
 	ExistingContent []byte
 }
@@ -97,6 +98,7 @@ func Build(opts Options) (*Plan, error) {
 	reason := "new configuration"
 	if len(opts.ExistingContent) > 0 {
 		merged := MergeProjectRepo(MergePackages(opts.ExistingContent, opts, packages), opts.Repo)
+		merged = MergeVersionFiles(merged, opts.VersionFiles)
 		configContent = merged
 		if bytes.Equal(opts.ExistingContent, merged) {
 			action = ActionSkip

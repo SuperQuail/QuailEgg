@@ -153,7 +153,7 @@ func (e *executor) bump(ctx context.Context) error {
 	if err := e.syncWorkspace(ctx, inspected); err != nil {
 		return err
 	}
-	return nil
+	return e.writeVersionFiles()
 }
 
 // inspectPlanPackages reads every planned package from its configured path.

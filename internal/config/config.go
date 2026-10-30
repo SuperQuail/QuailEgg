@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
+	"github.com/SuperQuail/QuailEgg/internal/versionfile"
 	"github.com/pelletier/go-toml/v2"
 	"os"
 	"path"
@@ -58,6 +59,7 @@ type Config struct {
 	Verify   Verify             `toml:"verify"`
 	Publish  Publish            `toml:"publish"`
 	Packages map[string]Package `toml:"packages"`
+	Version  Version            `toml:"version"`
 }
 
 // Project holds project level settings.
@@ -98,6 +100,19 @@ type Assets struct {
 	Targets []string `toml:"targets"`
 	Ldflags []string `toml:"ldflags"`
 }
+
+// Version configures files outside the package manifests that carry the
+// release version. They are written by the version phase and checked by qegg
+// check, so a Tauri app whose version lives in tauri.conf.json stays in step.
+type Version struct {
+	// File lists the extra files. The configuration spells each entry as a
+	// [[version.file]] table.
+	File []VersionFile `toml:"file"`
+}
+
+// VersionFile is one file outside the package manifests that carries the
+// release version.
+type VersionFile = versionfile.Spec
 
 // Changes configures the change record directory and hook scope.
 type Changes struct {
@@ -241,17 +256,15 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("git.tag_format %q contains an unknown placeholder", format)
 		}
 	}
-	if len(c.Packages) > 1 {
-		if c.Release.VersionScope == VersionScopeShared {
-			resolver := ""
-			for _, pkg := range c.Packages {
-				if resolver == "" {
-					resolver = pkg.Resolver
-				} else if pkg.Resolver != resolver {
-					return fmt.Errorf("release.version_scope shared requires one resolver, found %q and %q", resolver, pkg.Resolver)
-				}
-			}
+	for i, file := range c.Version.File {
+		if err := file.Validate(); err != nil {
+			return fmt.Errorf("version.file[%d]: %w", i, err)
 		}
+	}
+	if len(c.Version.File) > 0 && len(c.Packages) > 1 && c.Release.VersionScope != VersionScopeShared {
+		return errors.New("version.file needs release.version_scope = \"shared\" once several packages are registered")
+	}
+	if len(c.Packages) > 1 {
 		assets := c.Release.Assets
 		if assets.Enabled != nil || assets.Name != "" || assets.Main != "" || len(assets.Targets) > 0 || len(assets.Ldflags) > 0 {
 			return errors.New("release.assets does not support multi-package repositories")

@@ -61,11 +61,12 @@
    - `InitAdvisor`：`DefaultVerifyCommands(root)`，`qegg init` 写进 `[verify].commands` 的默认命令。混合生态仓库会按 resolver 排序去重收集。
    - `VersionSyncer`：同步兄弟依赖 pin 与 lockfile（Cargo workspace、uv workspace）。
    - `VersionStyle`：版本拼写与 tag 拼写不同时实现（Python 的 PEP 440）。
+   - `VersionFileAdvisor`：清单之外还有文件承载版本时实现（Tauri 的 `tauri.conf.json`）。返回的只是候选路径，`qegg init` 会先确认文件里是字面量版本才写进 `[[version.file]]`。
    - `Publisher`：`Name/Precheck/Build/Publish`；不需要构建的生态 `Build` 返回 nil。
 
    Go 的差异全部落在这张表里：版本来自 tag → `TagVersioner`；tag 必须 `v` → `Spec.TagPrefix`；清单没有版本 → `SetVersion` 空实现；发布即 push tag → `Publisher` 空实现；多包共享版本由现有的“多包 + tag-versioned”通用规则拒绝。核心代码没有 `if resolver == "go"`。
 
-   `config.Validate` 只做 schema 校验；未知 resolver/registry、shared 与 tag-versioned 冲突等跨生态规则由 `qegg init` / `plan` / `check` 通过 registry 判断。
+   `config.Validate` 只做 schema 校验（含 `[[version.file]]` 的路径与 scope 组合）；未知 resolver/registry、shared 与 tag-versioned 冲突等跨生态规则由 `qegg init` / `plan` / `check` 通过 registry 判断。
 
 3. 在 `internal/ecosystem/registry/registry.go` 的 `All()` 里加一行，例如 `npm.New()`；需要的能力查询（`PublishTargetsFor`、`EcosystemForTarget`、`DefaultVerifyCommands`、`VersionSyncerFor` 等）已经在 registry 里。
 
@@ -93,6 +94,17 @@ publish = false
 - 路径必须是仓库相对路径、不能越界；清单缺失会报“manifest 不存在”，而不是“未检测到”；
 - 未登记但被发现的包仍然只是警告。
 
+清单之外承载版本的文件（Tauri 的 `src-tauri/tauri.conf.json`）用 `[[version.file]]` 登记，版本阶段会把它与清单一起改写，并并入 release commit：
+
+~~~toml
+[[version.file]]
+path = "src-tauri/tauri.conf.json"
+format = "json"
+key = "version"
+~~~
+
+`qegg init` 会向适配器询问候选（rust 适配器认识 `tauri.conf.json` 与 `src-tauri/tauri.conf.json`），确认文件里是字面量版本后自动写入配置。`qegg check` 会比对文件里的版本与包版本，漂移直接报错。
+
 各适配器都实现了 `Inspect`：npm 读 `package.json`、rust 读 `Cargo.toml`（继承版本回读根 workspace）、python 读 `pyproject.toml`、go 只接受根目录的 `go.mod`。
 
 ## Go 的边界
@@ -108,11 +120,13 @@ publish = false
 `qegg init` 会把同一仓库里的所有包登记进 `[packages.*]`。发布有两种版本范围：
 
 - `version_scope = "package"`（默认）：每个包按自己的变更记录独立 bump、独立 tag、独立 GitHub Release。tag 由 `[git] tag_format` 决定，默认 `{{slug}}-v{{version}}`（如 `core-v1.2.3`）；变更日志按 `<!-- qegg:release core@1.2.3 -->` 分段，标题为 `## core v1.2.3 - 日期`。
-- `version_scope = "shared"`：所有包共用一个版本、一个 tag（沿用 `tag_prefix`），一次发布全部包；没有记录的包也同步版本。要求所有包同生态且当前版本一致。
+- `version_scope = "shared"`：所有包共用一个版本、一个 tag（沿用 `tag_prefix`），一次发布全部包；没有记录的包也同步版本。要求所有包当前版本一致，但可以跨生态（Tauri 的 Rust crates 与前端共用应用版本）；tag 拼写必须一致，因此带 PEP 440 拼写的 Python 包在预发布时不能与其他生态共享版本。
 
 发布顺序按清单里声明的依赖和 `depends-on` 排序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块与 `[release.assets]` 不支持多包仓库。
 
 Python 的预发布沿用仓库里的拼写（`2.0.2-a14`），tag 与 PyPI 使用 PEP 440 形式（`2.0.2a14`），由适配器转换。
+
+`[[version.file]]` 要求整仓只有一个发布版本，因此只能在单包仓库或 `version_scope = "shared"` 下使用；多包 `package` scope 会在加载配置时直接报错。
 
 ## Cargo workspace
 

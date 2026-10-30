@@ -40,13 +40,13 @@ The docs site is a separate pnpm project: `cd site && pnpm install`, then
 - `internal/ecosystem/{npm,python,rust,golang}/`: adapters; `ecosystem/registry` is the only entry point.
 - `internal/changes/`: record parsing, writing, and the pre-commit rules.
 - `internal/scaffold/`: `qegg init` plan and generated assets.
-- `internal/i18n`, `config`, `semver`, `git`, `github`, `platform`: shared leaves.
+- `internal/i18n`, `config`, `semver`, `git`, `github`, `versionfile`, `platform`: shared leaves.
 - `test/e2e/`: end-to-end tests; `site/`: rspress documentation site.
 
 Dependency direction is `cmd -> cli -> app -> release -> {state, verify, registry,
 github, changes, changelog, config, semver, platform}`. Ecosystem sub-packages may
-depend on `ecosystem` only; `platform/*` and `i18n` are leaves and must not depend
-upwards. Core packages (`app`, `release`, `scaffold`) must not name an ecosystem:
+depend on `ecosystem` only; `platform/*`, `i18n` and `versionfile` are leaves and
+must not depend upwards. Core packages (`app`, `release`, `scaffold`) must not name an ecosystem:
 ask `ecosystem/registry` for the capability. `internal/ecosystem/registry/policy_test.go`
 guards this. Details in `docs/architecture.md`.
 

@@ -170,6 +170,10 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 		}
 	}
 
+	if len(a.Cfg.Version.File) > 0 {
+		report.Problems = append(report.Problems, a.versionFileProblems(report.Entries)...)
+	}
+
 	if len(a.Cfg.Verify.Commands) == 0 {
 		report.Verify.Problems = append(report.Verify.Problems, i18n.T("check.problem.verify_empty"))
 	}
@@ -283,6 +287,44 @@ func ciDiffRefs() (string, string) {
 		return "", ""
 	}
 	return event.PullRequest.Base.SHA, event.PullRequest.Head.SHA
+}
+
+// versionFileProblems verifies the configured version files against the one
+// release version of the repository.
+func (a *App) versionFileProblems(entries []PackageEntry) []Problem {
+	versions := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		versions[entry.Version] = true
+	}
+	if len(versions) != 1 {
+		return []Problem{{
+			Code:    "version-file-ambiguous",
+			Message: i18n.T("check.problem.version_file_ambiguous"),
+			Fix:     i18n.T("check.fix.version_file_ambiguous"),
+		}}
+	}
+	expected := entries[0].Version
+	problems := make([]Problem, 0, len(a.Cfg.Version.File))
+	for _, file := range a.Cfg.Version.File {
+		current, err := file.Read(a.Root)
+		if err != nil {
+			problems = append(problems, Problem{
+				Code:    "version-file-invalid",
+				Message: err.Error(),
+				Fix:     i18n.T("check.fix.version_file_invalid"),
+			})
+			continue
+		}
+		if current == expected {
+			continue
+		}
+		problems = append(problems, Problem{
+			Code:    "version-file-drift",
+			Message: i18n.Tf("check.problem.version_file_drift", file.Path, current, expected),
+			Fix:     i18n.T("check.fix.version_file_drift"),
+		})
+	}
+	return problems
 }
 
 // inspectPackage reads a configured package from its path. When the
