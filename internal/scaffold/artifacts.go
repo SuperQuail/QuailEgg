@@ -81,6 +81,7 @@ type view struct {
 	EcosystemSetups []string
 	EcosystemEnvs   []string
 	BuildJobs       []buildJobView
+	ReleaseEnv      string
 	ReleasePaths    []string
 	HookNote        string
 }
@@ -91,6 +92,8 @@ type buildJobView struct {
 	Runner    string
 	Timeout   int
 	Steps     []string
+	YAML      string
+	Env       string
 	Artifacts []string
 }
 
@@ -101,12 +104,15 @@ func newView(opts Options) view {
 		ReleasePaths: releasePaths(opts),
 		HookNote:     i18n.T("scaffold.hook_note"),
 	}
+	data.ReleaseEnv = envBlock(opts.Workflow.Env)
 	for _, job := range opts.Build {
 		data.BuildJobs = append(data.BuildJobs, buildJobView{
 			ID:        job.Name,
 			Runner:    job.Runner,
 			Timeout:   job.TimeoutMinutes,
 			Steps:     job.Steps,
+			YAML:      job.YAML,
+			Env:       envBlock(job.Env),
 			Artifacts: job.Artifacts,
 		})
 	}
@@ -161,6 +167,35 @@ func workflowEcosystems(opts Options) []string {
 		add(opts.Ecosystem)
 	}
 	return ids
+}
+
+// envBlock renders a job environment mapping, sorted by variable name.
+func envBlock(env map[string]string) string {
+	if len(env) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(env))
+	for key := range env {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, key := range keys {
+		b.WriteString(key + ": " + yamlQuote(env[key]) + "\n")
+	}
+	return b.String()
+}
+
+// yamlQuote renders s as a double quoted YAML scalar.
+func yamlQuote(s string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+		"\"", "\\\"",
+		"\n", "\\n",
+		"\r", "\\r",
+		"\t", "\\t",
+	)
+	return "\"" + replacer.Replace(s) + "\""
 }
 
 // ecosystemID maps a publish target name to its ecosystem identifier.

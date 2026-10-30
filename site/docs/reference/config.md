@@ -67,7 +67,7 @@ Go 包默认由生态交叉编译；`commands` / `files` 用于自定义构建�
 | `commands` | string[] | `[]` | 发版前在仓库根目录执行的命令，支持 `{{version}}`、`{{tag}}`，并注入 `QEGG_VERSION`、`QEGG_TAG` |
 | `files` | string[] | `[]` | 收集的仓库相对 glob（`**` 可用）；一旦写入就不再走生态构建 |
 
-`commands` 必须和 `files` 一起使用。多包仓库只有 `version_scope = "shared"` 才能挂资产（一个 GitHub Release 只能对应一个版本）。
+`commands` 必须和 `files` 一起使用；`files` 不能与 `main`、`targets`、`ldflags` 同时出现（自定义收集和 Go 交叉编译是两种模式）。多包仓库只有 `version_scope = "shared"` 才能挂资产（一个 GitHub Release 只能对应一个版本）。
 
 ## [release.workflow]
 
@@ -79,8 +79,10 @@ Go 包默认由生态交叉编译；`commands` / `files` 用于自定义构建�
 | `runner` | string | `"ubuntu-latest"` | release job 的 runner |
 | `timeout_minutes` | int | `60` | release job 超时（1–1440） |
 | `steps` | string[] | `[]` | release job 里 `qegg release` 之前的 shell 步骤 |
+| `yaml` | string | 空 | 原样插入的 steps YAML，可写 `uses:`；与 `steps` 互斥 |
+| `env` | table | `{}` | shell 步骤的环境变量；`yaml` 模式请在块内自己写 `env:` |
 
-`external` 模式下只生成 PR 与 status 工作流，发布工作流由仓库自己维护，但仍需调用 `qegg release --yes`。
+`steps` 和 `yaml` 只能二选一。`external` 模式下只生成 PR 与 status 工作流，发布工作流由仓库自己维护，但仍需调用 `qegg release --yes`。
 
 ## [[release.build]]
 
@@ -91,8 +93,12 @@ managed 工作流的多平台构建 job：每个平台一个 job，产物由 rel
 | `name` | string | 必填 | job 名，只能用字母、数字、`-`、`_`；生成 `build-<name>` |
 | `runner` | string | 继承 `[release.workflow].runner` | 该平台的 runner |
 | `timeout_minutes` | int | 继承 `[release.workflow].timeout_minutes` | 该 job 超时 |
-| `steps` | string[] | `[]` | 该 job 的 shell 步骤 |
-| `artifacts` | string[] | 必填 | `actions/upload-artifact` 的路径 glob |
+| `steps` | string[] | `[]` | 该 job 的 shell 步骤（qegg 自动加 checkout、setup-go 与各生态 setup） |
+| `yaml` | string | 空 | 原样插入的 steps YAML；与 `steps` 互斥，且不再加内置 checkout/setup |
+| `env` | table | `{}` | shell 步骤的环境变量；`yaml` 模式请在块内自己写 `env:` |
+| `artifacts` | string[] | 必填 | `actions/upload-artifact` 的路径 glob；`yaml` 模式下 qegg 仍自动加这一步 |
+
+每个 build job 必须有 `steps` 或 `yaml` 之一。`yaml` 模式完全接管 steps（qegg 只补 artifact 上传），所以 `checkout`、工具链、构建都要自己写。
 
 ```toml
 [[release.build]]
@@ -100,7 +106,23 @@ name = "windows"
 runner = "windows-latest"
 steps = ["pnpm -C ui install --frozen-lockfile", "cargo tauri build"]
 artifacts = ["target/release/bundle/msi/*.msi"]
+
+[[release.build]]
+name = "macos-arm"
+runner = "macos-latest"
+yaml = """
+- uses: actions/checkout@v4
+  with: { fetch-depth: 0 }
+- uses: pnpm/action-setup@v4
+  with: { version: 11 }
+- run: pnpm --dir ui install --frozen-lockfile
+- run: pnpm --dir ui build
+- run: pnpm --dir ui tauri build --target aarch64-apple-darwin
+"""
+artifacts = ["target/release/bundle/**/*"]
 ```
+
+存在 `[[release.build]]` 时不能设 `[release.assets].enabled = false`：build job 的产物本来就通过 `--assets-dir` 上传。
 
 ## [changes]
 

@@ -40,6 +40,44 @@ steps = ["pnpm -C ui build", "cargo tauri build"]
 artifacts = ["target/release/bundle/msi/*.msi"]
 ```
 
+### 自定义 action（`yaml`）
+
+需要 `uses:`（`pnpm/action-setup`、固定 rust 版本、`tauri-action` 等）时，用 `yaml` 代替 `steps`，两者互斥。`yaml` 模式完全接管 steps：qegg 不再自动加 checkout / setup-go / 生态 setup，只保留 artifact 上传，所以 `checkout` 和工具链要自己写。
+
+```toml
+[[release.build]]
+name = "macos-arm"
+runner = "macos-latest"
+timeout_minutes = 60
+yaml = """
+- uses: actions/checkout@v4
+  with: { fetch-depth: 0 }
+- uses: pnpm/action-setup@v4
+  with: { version: 11 }
+- uses: actions/setup-node@v4
+  with: { node-version: 22, cache: pnpm, cache-dependency-path: ui/pnpm-lock.yaml }
+- uses: dtolnay/rust-toolchain@master
+  with: { toolchain: "1.94.0", targets: aarch64-apple-darwin }
+- run: pnpm --dir ui install --frozen-lockfile
+- run: pnpm --dir ui build
+- run: pnpm --dir ui tauri build --target aarch64-apple-darwin
+"""
+artifacts = ["target/release/bundle/**/*"]
+```
+
+shell `steps` 需要环境变量时用 `env`（`yaml` 模式请在块内写 `env:`）：
+
+```toml
+[[release.build]]
+name = "windows"
+runner = "windows-latest"
+env = { TAURI_SIGNING_PRIVATE_KEY = "${{ secrets.TAURI_KEY }}" }
+steps = ["pnpm -C ui tauri build"]
+artifacts = ["target/release/bundle/msi/*.msi"]
+```
+
+`tauri-action` 默认会自己创建 GitHub Release 并上传安装包，会和 qegg 的 tag + Release 步骤重复。managed 模式建议只用 `tauri build` 构建、产物交给 qegg；要让 `tauri-action` 自己发 Release，就用下面的 `external` 模式。
+
 ## 外部工作流
 
 不想让 qegg 生成发布工作流时：

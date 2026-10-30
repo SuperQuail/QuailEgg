@@ -23,7 +23,14 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: [[ .Runner ]]
     timeout-minutes: [[ .Timeout ]]
+[[- if .Env ]]
+    env:
+[[ indent 6 .Env ]]
+[[- end ]]
     steps:
+[[- if .YAML ]]
+[[ indent 6 .YAML ]]
+[[- else ]]
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
@@ -33,6 +40,7 @@ jobs:
 [[- end ]]
 [[- range .Steps ]]
       - run: [[ shquote . ]]
+[[- end ]]
 [[- end ]]
       - uses: actions/upload-artifact@v4
         with:
@@ -52,6 +60,10 @@ jobs:
 [[- end ]]
     runs-on: [[ .Workflow.Runner ]]
     timeout-minutes: [[ .Workflow.TimeoutMinutes ]]
+[[- if .ReleaseEnv ]]
+    env:
+[[ indent 6 .ReleaseEnv ]]
+[[- end ]]
 [[- if .Environment ]]
     environment: [[ .Environment ]]
 [[- end ]]
@@ -70,8 +82,12 @@ jobs:
 [[- end ]]
       - name: Install qegg
         run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@[[ .QeggVersion ]]
+[[- if .Workflow.YAML ]]
+[[ indent 6 .Workflow.YAML ]]
+[[- else ]]
 [[- range .Workflow.Steps ]]
       - run: [[ shquote . ]]
+[[- end ]]
 [[- end ]]
 [[- if .BuildJobs ]]
       - uses: actions/download-artifact@v4

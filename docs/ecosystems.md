@@ -146,7 +146,7 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 
 1. **生态自己构建**：Go 通过 `AssetPlanner` 规划 main 包矩阵，`internal/release/assets` 负责交叉编译、打包与校验和。默认目标 linux/amd64、linux/arm64、darwin/amd64、darwin/arm64、windows/amd64；产物是 `<name>_<version>_<os>_<arch>.tar.gz`（Windows 为 `.zip`）与 `checksums.txt`，输出到 `.quailegg/assets/<tag>/`，不进版本库。多个 main 包时自动模式告警并禁用，需要 `[release.assets].main` 指定；库项目不构建。
 2. **自定义构建**：`commands` 在仓库根目录执行（支持 `{{version}}` / `{{tag}}` 占位符，注入 `QEGG_VERSION`、`QEGG_TAG`），`files` 按仓库相对 glob（`**` 可用）收集产物。写入 `files` 后不再走生态构建；`commands` 必须与 `files` 一起使用。同名产物直接报错。
-3. **CI 预构建**：`qegg release --assets-dir <dir>` 直接收集目录里的文件，不再本地构建。managed 工作流的 `[[release.build]]` 各平台 job 用它把安装包交给 release job 上传。
+3. **CI 预构建**：`qegg release --assets-dir <dir>` 直接收集目录里的文件，不再本地构建。managed 工作流的 `[[release.build]]` 各平台 job 用它把安装包交给 release job 上传；只收文件，目录（例如 macOS 的 `.app`）不会保持结构，应该上传 dmg / msi / deb / AppImage。
 
 - `--no-assets` 跳过；GitHub Release 关闭时只构建不上传
 - 上传依赖 `gh`，`--clobber` 保证重跑幂等
@@ -155,8 +155,8 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 
 `qegg init` 生成 `qegg-release.yml`、`qegg-pr.yml`、`qegg-status.yml`。release 工作流的内容由 `[release.workflow]` 和 `[[release.build]]` 决定：
 
-- `[release.workflow]`：`mode`（`managed` / `external`）、`runner`、`timeout_minutes`、`steps`（release job 的前置 shell 步骤）
-- `[[release.build]]`：每平台一个构建 job，`name` / `runner` / `timeout_minutes` / `steps` / `artifacts`；job 固定跑 checkout、setup-go、各生态 setup，再跑自定义步骤并上传 `qegg-assets-<name>`
+- `[release.workflow]`：`mode`（`managed` / `external`）、`runner`、`timeout_minutes`、`steps`（release job 的前置 shell 步骤）或 `yaml`（原样 steps 块，与 `steps` 互斥）、`env`
+- `[[release.build]]`：每平台一个构建 job，`name` / `runner` / `timeout_minutes` / `steps` 或 `yaml` / `env` / `artifacts`；shell 模式下 job 固定跑 checkout、setup-go、各生态 setup，再跑自定义步骤；`yaml` 模式完全接管 steps（仍需自己写 checkout），qegg 只补 `qegg-assets-<name>` 上传
 - release job `needs` 全部构建 job，下载 artifact 到 `.quailegg/assets/downloaded`，执行 `qegg release --yes --assets-dir ...`
 - `mode = "external"` 时不生成 `qegg-release.yml`，只生成 PR 与 status 工作流；发布工作流由仓库自己维护，仍需调用 `qegg release --yes`
 

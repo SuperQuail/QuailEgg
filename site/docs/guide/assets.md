@@ -73,7 +73,9 @@ qegg release --yes --assets-dir .quailegg/assets/downloaded
 
 手写工作流时也可以用同一个参数，把任何已构建好的目录交给 qegg 上传。
 
-多包仓库需要 `version_scope = "shared"`：一个 GitHub Release 只能挂一个版本的资产。
+需要 `uses:` 自定义 action 时，把 `steps` 换成 `yaml`（两者互斥），见 [GitHub Actions](github-actions#自定义-actionyaml)。只上传文件：目录（例如 macOS 的 `.app`）下载后会被拆平，应该上传 dmg / msi / deb / AppImage。
+
+多包仓库需要 `version_scope = "shared"`：一个 GitHub Release 只能挂一个版本的资产；有 `[[release.build]]` 时也不能把 `[release.assets].enabled` 设为 `false`。
 
 ## 跳过与上传
 

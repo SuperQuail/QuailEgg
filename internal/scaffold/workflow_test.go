@@ -99,6 +99,70 @@ func TestReleaseWorkflowRendersBuildJobs(t *testing.T) {
 	}
 }
 
+func TestReleaseWorkflowRendersYAMLSteps(t *testing.T) {
+	plan := buildPlan(t, Options{
+		Workflow: config.Workflow{
+			Mode:           config.WorkflowManaged,
+			Runner:         "ubuntu-latest",
+			TimeoutMinutes: 60,
+			Env:            map[string]string{"CACHE_DIR": ".cache"},
+		},
+		Build: []config.BuildJob{{
+			Name:           "macos-arm",
+			Runner:         "macos-latest",
+			TimeoutMinutes: 45,
+			YAML:            "- uses: actions/checkout@v4\n- uses: pnpm/action-setup@v4\n  with: { version: 11 }\n- run: pnpm build",
+			Env:             map[string]string{"NODE_OPTIONS": "--max-old-space-size=4096"},
+			Artifacts:       []string{"target/release/bundle/**/*"},
+		}},
+	})
+	content := string(workflowFile(t, plan, "qegg-release.yml").Content)
+	build := content[strings.Index(content, "  build-macos-arm:"):strings.Index(content, "  release:")]
+	for _, want := range []string{
+		"    env:\n      NODE_OPTIONS: \"--max-old-space-size=4096\"",
+		"      - uses: actions/checkout@v4",
+		"      - uses: pnpm/action-setup@v4",
+		"        with: { version: 11 }",
+		"      - run: pnpm build",
+		"      - uses: actions/upload-artifact@v4",
+		"          name: qegg-assets-macos-arm",
+	} {
+		if !strings.Contains(build, want) {
+			t.Fatalf("build job is missing %q:\n%s", want, build)
+		}
+	}
+	if strings.Contains(build, "actions/setup-go") || strings.Contains(build, "dtolnay") {
+		t.Fatalf("yaml mode must not add built-in setup steps:\n%s", build)
+	}
+	if !strings.Contains(content, "    env:\n      CACHE_DIR: \".cache\"") {
+		t.Fatalf("release job env missing:\n%s", content)
+	}
+}
+
+func TestReleaseWorkflowYAMLReleaseSteps(t *testing.T) {
+	plan := buildPlan(t, Options{
+		Workflow: config.Workflow{
+			Mode:           config.WorkflowManaged,
+			Runner:         "ubuntu-latest",
+			TimeoutMinutes: 60,
+			YAML:            "- uses: actions/setup-node@v4\n  with: { node-version: 22 }\n- run: echo release-env",
+		},
+	})
+	content := string(workflowFile(t, plan, "qegg-release.yml").Content)
+	for _, want := range []string{
+		"      - uses: actions/setup-node@v4",
+		"        with: { node-version: 22 }",
+		"      - run: echo release-env",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("release job is missing %q:\n%s", want, content)
+		}
+	}
+	if strings.Contains(content, "[[") {
+		t.Fatalf("workflow contains an unrendered action:\n%s", content)
+	}
+}
+
 func TestReleaseWorkflowWithoutBuildJobs(t *testing.T) {
 	plan := buildPlan(t, Options{})
 	content := string(workflowFile(t, plan, "qegg-release.yml").Content)

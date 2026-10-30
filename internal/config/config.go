@@ -118,6 +118,11 @@ type Workflow struct {
 	TimeoutMinutes int `toml:"timeout_minutes"`
 	// Steps run in the release job before qegg release starts.
 	Steps []string `toml:"steps"`
+	// YAML replaces Steps with a raw steps block, so custom actions
+	// (uses: ...) are possible. The two fields are mutually exclusive.
+	YAML string `toml:"yaml"`
+	// Env sets environment variables of the shell steps.
+	Env map[string]string `toml:"env"`
 }
 
 // BuildJob is one platform build of the managed workflow. The generated job
@@ -128,7 +133,13 @@ type BuildJob struct {
 	Runner         string   `toml:"runner"`
 	TimeoutMinutes int      `toml:"timeout_minutes"`
 	Steps          []string `toml:"steps"`
-	Artifacts      []string `toml:"artifacts"`
+	// YAML replaces Steps with a raw steps block and turns off the built-in
+	// checkout and ecosystem setup, so the job runs exactly what is written.
+	// The artifact upload stays; the two step fields are mutually exclusive.
+	YAML string `toml:"yaml"`
+	// Env sets environment variables of the shell steps.
+	Env       map[string]string `toml:"env"`
+	Artifacts []string          `toml:"artifacts"`
 }
 
 // Assets configures the files attached to a GitHub release. A Go module is
@@ -350,6 +361,9 @@ func (c *Config) Validate() error {
 	if len(c.Release.Build) > 0 && len(c.Packages) > 1 && c.Release.VersionScope != VersionScopeShared {
 		return errors.New("release.build needs release.version_scope = \"shared\" once several packages are registered")
 	}
+	if len(c.Release.Build) > 0 && c.Release.Assets.Enabled != nil && !*c.Release.Assets.Enabled {
+		return errors.New("release.build uploads its artifacts; drop release.assets.enabled = false or the build jobs")
+	}
 	if c.Project.Repo != "" && strings.Count(c.Project.Repo, "/") < 2 {
 		return fmt.Errorf("project.repo %q must look like host/owner/name", c.Project.Repo)
 	}
@@ -414,6 +428,9 @@ func (a Assets) validate() error {
 	if len(a.Commands) > 0 && len(a.Files) == 0 {
 		return errors.New("release.assets.commands needs at least one release.assets.files pattern")
 	}
+	if len(a.Files) > 0 && (a.Main != "" || len(a.Targets) > 0 || len(a.Ldflags) > 0) {
+		return errors.New("release.assets.files cannot be combined with main, targets or ldflags")
+	}
 	for _, command := range a.Commands {
 		if strings.TrimSpace(command) == "" {
 			return errors.New("release.assets.commands must not contain an empty command")
@@ -438,10 +455,11 @@ func (w Workflow) validate(builds []BuildJob) error {
 	if w.TimeoutMinutes < 1 || w.TimeoutMinutes > 1440 {
 		return fmt.Errorf("release.workflow.timeout_minutes %d must be between 1 and 1440", w.TimeoutMinutes)
 	}
-	for _, step := range w.Steps {
-		if strings.TrimSpace(step) == "" {
-			return errors.New("release.workflow.steps must not contain an empty step")
-		}
+	if err := validateStepForms("release.workflow", w.Steps, w.YAML); err != nil {
+		return err
+	}
+	if err := validateStepEnv("release.workflow.env", w.Env, w.YAML); err != nil {
+		return err
 	}
 	if len(builds) > 0 && w.Mode != WorkflowManaged {
 		return errors.New("release.build needs release.workflow.mode = \"managed\"")
@@ -471,10 +489,45 @@ func (w Workflow) validate(builds []BuildJob) error {
 				return err
 			}
 		}
-		for _, step := range job.Steps {
-			if strings.TrimSpace(step) == "" {
-				return fmt.Errorf("release.build[%d].steps must not contain an empty step", i)
-			}
+		section := fmt.Sprintf("release.build[%d]", i)
+		if err := validateStepForms(section, job.Steps, job.YAML); err != nil {
+			return err
+		}
+		if err := validateStepEnv(section+".env", job.Env, job.YAML); err != nil {
+			return err
+		}
+		if len(job.Steps) == 0 && strings.TrimSpace(job.YAML) == "" {
+			return fmt.Errorf("%s needs steps or yaml", section)
+		}
+	}
+	return nil
+}
+
+// validateStepForms checks that a step block is written exactly one way.
+func validateStepForms(section string, steps []string, yaml string) error {
+	if len(steps) > 0 && strings.TrimSpace(yaml) != "" {
+		return fmt.Errorf("%s: steps and yaml are mutually exclusive", section)
+	}
+	for _, step := range steps {
+		if strings.TrimSpace(step) == "" {
+			return fmt.Errorf("%s.steps must not contain an empty step", section)
+		}
+	}
+	return nil
+}
+
+// validateStepEnv checks the environment variables of the shell steps. A raw
+// yaml block carries its own env, so the field would be silently ignored.
+func validateStepEnv(section string, env map[string]string, yaml string) error {
+	if len(env) == 0 {
+		return nil
+	}
+	if strings.TrimSpace(yaml) != "" {
+		return fmt.Errorf("%s is only used by steps; set env inside the yaml block", section)
+	}
+	for key := range env {
+		if strings.TrimSpace(key) == "" {
+			return fmt.Errorf("%s contains an empty variable name", section)
 		}
 	}
 	return nil

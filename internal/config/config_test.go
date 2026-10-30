@@ -285,6 +285,7 @@ artifacts = ["target/release/bundle/msi/*.msi"]
 
 [[release.build]]
 name = "macos"
+steps = ["cargo tauri build"]
 artifacts = ["target/release/bundle/dmg/*.dmg"]
 `)
 	cfg, err := LoadFile(path)
@@ -301,6 +302,55 @@ artifacts = ["target/release/bundle/dmg/*.dmg"]
 	mac := cfg.Release.Build[1]
 	if mac.Runner != "windows-latest" || mac.TimeoutMinutes != 30 {
 		t.Fatalf("build defaults were not applied: %+v", mac)
+	}
+}
+
+func TestWorkflowYAMLSteps(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[release.workflow]\nyaml = \"\"\"\n- uses: pnpm/action-setup@v4\n  with: { version: 11 }\n\"\"\"\n\n[[release.build]]\nname = \"macos-arm\"\nrunner = \"macos-latest\"\nyaml = \"\"\"\n- uses: actions/checkout@v4\n- uses: dtolnay/rust-toolchain@master\n  with: { toolchain: \"1.94.0\" }\n\"\"\"\nartifacts = [\"target/release/bundle/**/*\"]\n")
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if !strings.Contains(cfg.Release.Workflow.YAML, "pnpm/action-setup") {
+		t.Fatalf("workflow yaml = %q", cfg.Release.Workflow.YAML)
+	}
+	if len(cfg.Release.Build) != 1 || !strings.Contains(cfg.Release.Build[0].YAML, "rust-toolchain") {
+		t.Fatalf("build yaml = %+v", cfg.Release.Build)
+	}
+}
+
+func TestWorkflowRejectsBothStepForms(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[release.workflow]\nsteps = [\"echo hi\"]\nyaml = \"\"\"\n- run: echo hi\n\"\"\"\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error when steps and yaml are both set")
+	}
+}
+
+func TestWorkflowEnvOnlyWithSteps(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[release.workflow]\nenv = { CACHE_DIR = \".cache\" }\nyaml = \"\"\"\n- run: echo hi\n\"\"\"\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for env with a yaml step block")
+	}
+}
+
+func TestBuildJobNeedsStepsOrYAML(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[[release.build]]\nname = \"windows\"\nartifacts = [\"dist/*.msi\"]\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a build job without steps")
+	}
+}
+
+func TestAssetsRejectsGoSettingsWithFiles(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[release.assets]\nfiles = [\"dist/*.msi\"]\nmain = \"cmd/tool\"\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for files combined with main")
+	}
+}
+
+func TestBuildJobsNeedAssetsEnabled(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[release.assets]\nenabled = false\n\n[[release.build]]\nname = \"windows\"\nsteps = [\"echo build\"]\nartifacts = [\"dist/*.msi\"]\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for build jobs with assets disabled")
 	}
 }
 
