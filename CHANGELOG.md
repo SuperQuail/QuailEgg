@@ -1,5 +1,16 @@
 # Changelog
 
+<!-- qegg:release 0.6.0 -->
+## v0.6.0 - 2026-10-30
+
+### Features
+
+- [`07aa477`](https://github.com/SuperQuail/QuailEgg/commit/07aa477dd338fb23097b70bac968fe6e58bf71ac): Run the pre-commit verification commands only when a commit touches release-scoped files. ([#4](https://github.com/SuperQuail/QuailEgg/pull/4) by @Wsrsq)
+- [`285b5b0`](https://github.com/SuperQuail/QuailEgg/commit/285b5b04ec401a234e8727dabb6dfdb44c9d33d8): Release multi-package workspaces per package or with one shared version, including Python prereleases. ([#3](https://github.com/SuperQuail/QuailEgg/pull/3) by @Wsrsq)
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.5.2...v0.6.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.5.2 -->
 ## v0.5.2 - 2026-10-29
 
