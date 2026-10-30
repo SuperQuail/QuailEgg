@@ -31,20 +31,76 @@
 | `branch` | string | `"release"` | pr 模式的发布分支 |
 | `github_release` | bool | `true` | 是否创建 GitHub Release |
 | `commit_message` | string | `"chore(release): v{{version}}"` | 版本提交信息，支持 `{{version}}`、`{{versions}}`、`{{count}}` |
-| `version_scope` | string | `"package"` | `package`（每包独立版本）或 `shared`（全部包同版本） |
+| `version_scope` | string | `"package"` | `package`（每包独立版本）或 `shared`（全部包同版本；可跨生态，tag 拼写必须一致） |
 | `environment` | string | 空 | 发布 workflow 的 GitHub Actions environment 名 |
+
+## [[version.file]]
+
+清单之外还承载版本的文件，例如 Tauri 的 `src-tauri/tauri.conf.json`。`qegg init` 会在生态给出候选时自动登记；表可以重复。
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `path` | string | 必填 | 仓库相对路径 |
+| `format` | string | `"json"` | 目前只支持 `json` |
+| `key` | string | `"version"` | 顶层 JSON 字符串成员 |
+
+版本阶段只改写版本字面量（保留其余字节）并并入 release commit；`qegg check` 会比对文件版本与包版本，漂移直接报错。要求整仓只有一个发布版本：单包仓库，或 `version_scope = "shared"`。
+
+```toml
+[[version.file]]
+path = "src-tauri/tauri.conf.json"
+format = "json"
+key = "version"
+```
 
 ## [release.assets]
 
-仅 Go 生态。整个表缺省时关闭，写入任意字段即开启。
+Go 包默认由生态交叉编译；`commands` / `files` 用于自定义构建（例如 Tauri 的 `cargo tauri build`）。整表缺省时关闭，写入任意字段即开启。
 
 | 字段 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | `enabled` | bool | 关闭 | 显式开关 |
-| `name` | string | main 包目录名 | 产物名称 |
-| `main` | string | 自动探测 `cmd/*` 或根目录 | main 包路径，必须在仓库内 |
-| `targets` | string[] | 五个常用平台 | `os/arch` 列表 |
-| `ldflags` | string[] | `["-X main.version={{version}}"]` | 支持 `{{version}}`、`{{tag}}` |
+| `name` | string | 包名或仓库名 | 产物名称 |
+| `main` | string | 自动探测 `cmd/*` 或根目录 | Go main 包路径，必须在仓库内 |
+| `targets` | string[] | 五个常用平台 | Go 的 `os/arch` 列表 |
+| `ldflags` | string[] | `["-X main.version={{version}}"]` | Go 链接参数，支持 `{{version}}`、`{{tag}}` |
+| `commands` | string[] | `[]` | 发版前在仓库根目录执行的命令，支持 `{{version}}`、`{{tag}}`，并注入 `QEGG_VERSION`、`QEGG_TAG` |
+| `files` | string[] | `[]` | 收集的仓库相对 glob（`**` 可用）；一旦写入就不再走生态构建 |
+
+`commands` 必须和 `files` 一起使用。多包仓库只有 `version_scope = "shared"` 才能挂资产（一个 GitHub Release 只能对应一个版本）。
+
+## [release.workflow]
+
+控制 `qegg init` 生成的 `qegg-release.yml`。
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `mode` | string | `"managed"` | `managed`（qegg 生成）或 `external`（仓库自己维护发布工作流） |
+| `runner` | string | `"ubuntu-latest"` | release job 的 runner |
+| `timeout_minutes` | int | `60` | release job 超时（1–1440） |
+| `steps` | string[] | `[]` | release job 里 `qegg release` 之前的 shell 步骤 |
+
+`external` 模式下只生成 PR 与 status 工作流，发布工作流由仓库自己维护，但仍需调用 `qegg release --yes`。
+
+## [[release.build]]
+
+managed 工作流的多平台构建 job：每个平台一个 job，产物由 release job 下载后交给 qegg 上传。
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `name` | string | 必填 | job 名，只能用字母、数字、`-`、`_`；生成 `build-<name>` |
+| `runner` | string | 继承 `[release.workflow].runner` | 该平台的 runner |
+| `timeout_minutes` | int | 继承 `[release.workflow].timeout_minutes` | 该 job 超时 |
+| `steps` | string[] | `[]` | 该 job 的 shell 步骤 |
+| `artifacts` | string[] | 必填 | `actions/upload-artifact` 的路径 glob |
+
+```toml
+[[release.build]]
+name = "windows"
+runner = "windows-latest"
+steps = ["pnpm -C ui install --frozen-lockfile", "cargo tauri build"]
+artifacts = ["target/release/bundle/msi/*.msi"]
+```
 
 ## [changes]
 
