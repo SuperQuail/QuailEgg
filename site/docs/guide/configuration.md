@@ -72,7 +72,9 @@ publish = false               # 提升版本，但不发布到 registry
 
 检测到未登记的包时，`qegg plan` 会给出警告，运行 `qegg init` 可以补充登记。
 
-独立发版的 tag 默认是 `core-v1.2.3`（`[git] tag_format`，支持 `{{version}}`、`{{slug}}`、`{{name}}`）；shared 版本范围沿用 `tag_prefix`，所有包共用 `v1.2.3`。
+独立发版的 tag 默认是 `core-v1.2.3`（`[git] tag_format`，支持 `{{version}}`、`{{slug}}`、`{{name}}`）；shared 版本范围沿用 `tag_prefix`，所有包共用 `v1.2.3`。发布顺序按清单依赖和 `depends-on` 决定，被依赖的包先发布。
+
+Cargo workspace 的成员用 `version.workspace = true` 继承根版本时只能选 `shared`：Cargo 一个 workspace 只有一个版本，package scope 下有两个继承成员会在 release 时报错。
 
 ```toml
 [release]

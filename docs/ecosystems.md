@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- |
 | Node.js | `package.json` | npm | `version` 字段 | `npm publish` |
 | Python | `pyproject.toml` | PyPI | `[project].version`、`[tool.poetry].version`、hatch/setuptools 动态版本文件 | `uv publish` / `twine upload` |
-| Rust | `Cargo.toml` | crates.io | `[package].version` | `cargo publish` |
+| Rust | `Cargo.toml` | crates.io | `[package].version`；继承时写根 `[workspace.package].version` | `cargo publish` |
 | Go | `go.mod` | proxy.golang.org | 无（版本来自 git tag） | 无（push tag 即发布），默认附带交叉编译的二进制资产 |
 
 ## 工作流里注入什么，由项目决定
@@ -70,9 +70,20 @@
 - `version_scope = "package"`（默认）：每个包按自己的变更记录独立 bump、独立 tag、独立 GitHub Release。tag 由 `[git] tag_format` 决定，默认 `{{slug}}-v{{version}}`（如 `core-v1.2.3`）；变更日志按 `<!-- qegg:release core@1.2.3 -->` 分段，标题为 `## core v1.2.3 - 日期`。
 - `version_scope = "shared"`：所有包共用一个版本、一个 tag（沿用 `tag_prefix`），一次发布全部包；没有记录的包也同步版本。要求所有包同生态且当前版本一致。
 
-`depends-on` 只影响发布顺序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块与 `[release.assets]` 不支持多包仓库。
+发布顺序按清单里声明的依赖和 `depends-on` 排序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块与 `[release.assets]` 不支持多包仓库。
 
 Python 的预发布沿用仓库里的拼写（`2.0.2-a14`），tag 与 PyPI 使用 PEP 440 形式（`2.0.2a14`），由适配器转换。
+
+## Cargo workspace
+
+Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[workspace]`）也可以，成员的 `version.workspace = true` 会解析成根清单 `[workspace.package].version`。Cargo 一个 workspace 只能有一个版本，所以：
+
+- 继承版本的 workspace 必须用 `version_scope = "shared"`。`package` scope 下有两个及以上继承成员时，`qegg plan` 给出警告，`qegg release` 直接报错，而不是写出一个自相矛盾的仓库。
+- bump 时只改根 `[workspace.package].version`；如果根清单同时是包（有 `[package]`），它自己的版本照常写回。
+- 兄弟 `path` 依赖的 `version` 跟着更新，缺 `version` 的内联表会补上（`[workspace.dependencies]` 与成员清单都处理），否则 `cargo publish` 会拒绝。
+- 有 `Cargo.lock` 时执行 `cargo update --workspace` 并把它并入 release commit；`Cargo.lock` 被 `.gitignore` 忽略时只刷新、不提交。
+- `[package]` 里的 `publish = false`，或 `publish = ["..."]` 且不含 `crates-io`，都会被当作不发布；`qegg init` 会把它写进 `[packages.*].publish`。
+- 一个仓库只支持根目录的一个 workspace，嵌套 workspace 不识别。
 
 ## 发布资产（Go）
 
