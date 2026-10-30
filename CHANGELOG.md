@@ -1,5 +1,15 @@
 # Changelog
 
+<!-- qegg:release 0.6.1 -->
+## v0.6.1 - 2026-10-30
+
+### Bug Fixes
+
+- [`26a7b97`](https://github.com/SuperQuail/QuailEgg/commit/26a7b976d1e5905561484884c017fde9a0954c0a): Skip the plan comment when there is nothing to release, so documentation-only pull requests pass. ([#7](https://github.com/SuperQuail/QuailEgg/pull/7) by @Wsrsq)
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.6.0...v0.6.1
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.6.0 -->
 ## v0.6.0 - 2026-10-30
 
