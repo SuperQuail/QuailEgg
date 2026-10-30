@@ -19,7 +19,8 @@
 
 | 字段 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `tag_prefix` | string | `"v"` | Tag 前缀，Go 项目必须为 `v` |
+| `tag_prefix` | string | `"v"` | Tag 前缀，Go 项目必须为 `v`；单包与 shared 版本范围使用 |
+| `tag_format` | string | 空 | 独立多包的 tag 模板，默认 `{{slug}}-v{{version}}`，支持 `{{version}}`、`{{slug}}`、`{{name}}` |
 | `remote` | string | `"origin"` | 推送使用的 remote |
 
 ## [release]
@@ -29,7 +30,9 @@
 | `mode` | string | `"pr"` | `pr` 或 `commit` |
 | `branch` | string | `"release"` | pr 模式的发布分支 |
 | `github_release` | bool | `true` | 是否创建 GitHub Release |
-| `commit_message` | string | `"chore(release): v{{version}}"` | 版本提交信息，支持 `{{version}}` |
+| `commit_message` | string | `"chore(release): v{{version}}"` | 版本提交信息，支持 `{{version}}`、`{{versions}}`、`{{count}}` |
+| `version_scope` | string | `"package"` | `package`（每包独立版本）或 `shared`（全部包同版本） |
+| `environment` | string | 空 | 发布 workflow 的 GitHub Actions environment 名 |
 
 ## [release.assets]
 

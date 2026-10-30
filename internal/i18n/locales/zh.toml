@@ -80,11 +80,15 @@
 
 # --- check ------------------------------------------------------------------
 "check.summary" = "生态: %s  包: %s  版本: %s"
+"check.entry_line" = "  %s（%s）%s"
 "check.fix" = "  修复: %s"
 "check.passed" = "检查通过"
 "check.problem.unregistered_package" = "检测到未登记的包：%s"
 "check.fix.run_init" = "运行 qegg init 补充登记"
 "check.problem.no_package" = "没有可用的包；请先运行 qegg init"
+"check.problem.package_missing" = "包 %q 已登记但未在仓库中检测到"
+"check.problem.shared_version_mismatch" = "包 %s 的版本是 %s，而 %s 是 %s；shared 版本范围要求所有包同版本"
+"check.fix.shared_version" = "让所有包版本一致，或把 release.version_scope 改成 \"package\""
 "check.problem.tool_missing" = "缺少 %s（用于 %s）"
 "check.problem.verify_empty" = "未配置发版前校验命令"
 "check.problem.commit_mode" = "commit 模式没有人工评审环节"
@@ -105,6 +109,9 @@
 "plan.change_line" = "  - [%s] %s"
 "plan.step_line" = "  %s %s"
 "plan.assets_line" = "资产: %s（%d 个平台）"
+"plan.phase_packages" = "阶段：发布 %d 个包"
+"plan.phase_publish_packages" = "阶段：发布 %d 个包"
+"plan.package_line" = "  - %s: %s -> %s（Tag %s）"
 "plan.channel" = "渠道: %s"
 "plan.graduating" = "毕业: 预发布线将转为稳定版"
 
@@ -122,6 +129,7 @@
 # --- changelog 命令 ---------------------------------------------------------
 "changelog.nothing" = "没有可生成 CHANGELOG 的待发变更"
 "changelog.updated" = "已更新 CHANGELOG.md（v%s）"
+"changelog.updated_multi" = "已用 %d 个版本段更新 CHANGELOG.md"
 
 # --- verify 命令 ------------------------------------------------------------
 "verify.none_configured" = "未配置 [verify].commands"
@@ -131,6 +139,7 @@
 "status.marker" = "待发布版本: v%s（%s）"
 "status.no_marker" = "没有待发布的版本"
 "status.tag" = "Tag: %s  存在: %v  已发布: %s"
+"status.package_line" = "  %s: Tag %s  存在: %v  已发布: %s"
 "status.pending" = "待处理变更记录: %d 条"
 "status.last_run" = "最近一次运行: %s（%s，%s）"
 
@@ -154,6 +163,11 @@
 "release.err.branch" = "只能在 %q 分支发版（当前 %q）"
 "release.err.release_branch_is_base" = "release.branch %q 不能与默认分支相同"
 "release.err.package_missing" = "包 %q 不再存在"
+"release.err.shared_version_mismatch" = "包 %s 的版本是 %s，包 %s 的版本是 %s；release.version_scope = \"shared\" 要求统一版本"
+"release.err.shared_resolver" = "release.version_scope = \"shared\" 要求同一生态，实际是 %s 与 %s"
+"release.err.multi_package_tag_versioned" = "包 %q 的版本来自 tag；多包仓库要求清单里有版本"
+"release.err.tag_collision" = "Tag %s 会同时被 %s 与 %s 使用；请在 git.tag_format 里使用 {{name}} 或 {{slug}}"
+"release.err.commit_message_multi" = "commit_message 使用了 {{version}}，但本次会发布多个版本；请改用 {{versions}} 或 {{count}}"
 "release.err.version_changed" = "包 %q 的清单版本已从 %s 变为 %s，请重新运行 qegg plan"
 "release.err.no_marker" = "没有待发布的版本（缺少 .quailegg/release.json）"
 "release.err.marker_mismatch" = "发布标记版本 %s 与计划版本 %s 不一致"
@@ -174,7 +188,8 @@
 "release.warn.assets_not_uploaded" = "发布资产已构建，但 GitHub Release 被禁用，因此没有上传"
 "release.warn.sync_failed" = "同步发布分支失败：%v"
 "release.skip.prerelease_changelog" = "CHANGELOG 由稳定版发布写入"
-"release.err.prerelease_unsupported" = "暂不支持 Python 包的预发布"
+"release.warn.prerelease_unlocked" = "清单版本是预发布版本但没有启用预发布渠道；运行 qegg pre <渠道> 可继续该版本线"
+"release.err.prerelease_lock_mismatch" = "预发布锁文件版本 %s 不是 %s 渠道的预发布版本"
 "release.warn.prerelease_idle" = "预发布渠道 %s 已启用，但没有待发布的记录"
 "release.warn.prerelease_unchanged" = "自 %s 之后没有新记录，新增记录后才会发布下一个预发布版本"
 "release.msg.committed" = "已提交 %s (%s)"
@@ -193,6 +208,7 @@
 "release.skip.tag_exists" = "Tag 已存在"
 "release.skip.no_assets" = "已通过 --no-assets 跳过"
 "release.pr.header" = "本 PR 由 qegg 自动生成，合并后会触发 v%s 的发布。"
+"release.pr.header_multi" = "本 PR 由 qegg 自动生成，合并后会发布 %d 个包。"
 "release.pr.version" = "### 版本"
 "release.pr.changes" = "### 变更"
 "release.pr.verify" = "### 校验"

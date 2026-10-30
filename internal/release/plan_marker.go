@@ -28,13 +28,21 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 	for _, pkg := range p.Packages {
 		marker.Packages = append(marker.Packages, state.MarkerPackage{
 			Name: pkg.Name, Path: pkg.Path, Resolver: pkg.Resolver,
-			Current: pkg.Current, Next: pkg.Next, Bump: pkg.Bump, Publish: pkg.Publish,
+			Current: pkg.Current, Next: pkg.Next, Bump: pkg.Bump, Tag: pkg.Tag, Publish: pkg.Publish,
+		})
+	}
+	for _, release := range p.Releases {
+		marker.Releases = append(marker.Releases, state.MarkerRelease{
+			Name: release.Name, Version: release.Version, Tag: release.Tag,
+			PrevTag: release.PrevTag, Packages: append([]string(nil), release.Packages...),
+			Prerelease: release.Prerelease,
 		})
 	}
 	for _, change := range p.Changes {
 		marker.Changes = append(marker.Changes, state.MarkerChange{
 			File: change.File, Type: change.Type, Scope: change.Scope,
-			Bump: change.Bump, Body: change.Body, Commit: change.Commit, CommitURL: change.CommitURL,
+			Bump: change.Bump, Packages: append([]string(nil), change.Packages...), Body: change.Body,
+			Commit: change.Commit, CommitURL: change.CommitURL,
 			PullNumber: change.PullNumber, PullURL: change.PullURL, Author: change.Author,
 		})
 	}
@@ -44,11 +52,17 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 func (p *Plan) pullRequestBody(d *Deps) string {
 	var b strings.Builder
 	b.WriteString(i18n.Tf("release.pr.header", p.Version.Next) + "\n\n")
+	if p.Version.Next == "" {
+		b.WriteString(i18n.Tf("release.pr.header_multi", len(p.Releases)) + "\n\n")
+	}
 	if p.Channel != "" {
 		b.WriteString(i18n.Tf("release.pr.prerelease", p.Channel) + "\n\n")
 	}
 	b.WriteString(i18n.T("release.pr.version") + "\n\n")
 	for _, pkg := range p.Packages {
+		if pkg.Next == pkg.Current {
+			continue
+		}
 		fmt.Fprintf(&b, i18n.T("release.pr.package")+"\n", pkg.Name, pkg.Current, pkg.Next, pkg.Bump)
 	}
 	if len(p.Changes) > 0 {
@@ -64,6 +78,9 @@ func (p *Plan) pullRequestBody(d *Deps) string {
 		}
 	}
 	b.WriteString("\n" + i18n.T("release.pr.changelog") + "\n\n")
-	b.WriteString(changelog.RenderBody(ChangelogSection(p, d.Now())))
+	for _, section := range ChangelogSections(p, d.Now()) {
+		b.WriteString(changelog.RenderBody(section))
+		b.WriteString("\n")
+	}
 	return b.String()
 }

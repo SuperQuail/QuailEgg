@@ -487,3 +487,12 @@ func TestNoEmbeddedArtifactsInSources(t *testing.T) {
 		}
 	}
 }
+
+func TestReleaseWorkflowConfiguresEnvironment(t *testing.T) {
+	opts := testOptions(t)
+	opts.Environment = "pypi"
+	release := string(planFileByPath(t, mustBuild(t, opts), releaseWorkflowPlanPath).Content)
+	if !strings.Contains(release, "    environment: pypi") {
+		t.Fatalf("release workflow does not configure the environment:\n%s", release)
+	}
+}

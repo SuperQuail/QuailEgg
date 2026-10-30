@@ -11,9 +11,10 @@ import (
 )
 
 type executor struct {
-	d    *Deps
-	plan *Plan
-	run  *state.RunRecord
+	d         *Deps
+	plan      *Plan
+	run       *state.RunRecord
+	syncPaths []string
 }
 
 // Run executes the plan and records progress in local state.

@@ -73,3 +73,55 @@ func TestMergeProjectRepo(t *testing.T) {
 		t.Fatalf("a config without a project table needs one:\n%s", bare)
 	}
 }
+
+func TestRenderConfigSharedScopeAndEnvironment(t *testing.T) {
+	packages := map[string]config.Package{
+		"core": {Path: "packages/core", Resolver: "python"},
+		"app":  {Path: "app", Resolver: "python"},
+	}
+	out := renderConfig(Options{
+		BaseBranch:   "main",
+		Mode:         config.ModePR,
+		TagPrefix:    "v",
+		Remote:       "origin",
+		ChangesDir:   ".changes",
+		VersionScope: config.VersionScopeShared,
+		Environment:  "pypi",
+		Registries:   []string{"pypi"},
+		Packages:     packages,
+	}, packages)
+	if !strings.Contains(string(out), `version_scope = "shared"`) {
+		t.Fatalf("shared config is missing version_scope:\n%s", out)
+	}
+	if !strings.Contains(string(out), `environment = "pypi"`) {
+		t.Fatalf("config is missing environment:\n%s", out)
+	}
+	path := filepath.Join(t.TempDir(), config.FileName)
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.LoadFile(path); err != nil {
+		t.Fatalf("generated config does not load: %v\n%s", err, out)
+	}
+}
+
+func TestRenderConfigOmitsDefaultScopeAndCommitMessage(t *testing.T) {
+	packages := map[string]config.Package{
+		"core": {Path: "packages/core", Resolver: "npm"},
+		"cli":  {Path: "packages/cli", Resolver: "npm"},
+	}
+	out := renderConfig(Options{
+		BaseBranch: "main",
+		Mode:       config.ModePR,
+		TagPrefix:  "v",
+		Remote:     "origin",
+		ChangesDir: ".changes",
+		Packages:   packages,
+	}, packages)
+	if strings.Contains(string(out), "version_scope") {
+		t.Fatalf("package scope must stay implicit:\n%s", out)
+	}
+	if !strings.Contains(string(out), `commit_message = "chore(release): bump versions"`) {
+		t.Fatalf("multi-package config needs a neutral commit message:\n%s", out)
+	}
+}

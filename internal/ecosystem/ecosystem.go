@@ -76,6 +76,20 @@ type Ecosystem interface {
 	Publisher() Publisher
 }
 
+// VersionStyle is implemented by ecosystems whose version spelling differs from
+// the tool's SemVer form, or whose git tag spelling differs from the manifest.
+// Python keeps SemVer pre-release spelling in pyproject.toml ("2.0.2-a14") but
+// tags and PyPI use the PEP 440 form ("2.0.2a14").
+type VersionStyle interface {
+	// Prerelease renders one prerelease version in the ecosystem spelling.
+	Prerelease(base, channel string, counter int) (string, error)
+	// SplitPrerelease parses a version in the ecosystem spelling. It reports ok
+	// only for a prerelease version of a known channel.
+	SplitPrerelease(version string) (base, channel string, counter int, ok bool)
+	// TagVersion converts a manifest version into the version embedded in a tag.
+	TagVersion(version string) string
+}
+
 // TagVersioner is implemented by ecosystems whose current version is the latest
 // git release tag instead of a manifest field (Go modules). The release planner
 // resolves the current version through it and validates the planned next
@@ -86,4 +100,12 @@ type TagVersioner interface {
 	CurrentVersion(ctx context.Context, run execx.Runner, root string, pkg Package, tagPrefix string) (string, error)
 	// CheckVersion rejects a next version that the ecosystem cannot express.
 	CheckVersion(pkg Package, next string) error
+}
+
+// WorkspaceSyncer is implemented by ecosystems that keep references between
+// packages of one release unit in sync (Python dependency pins, for example).
+type WorkspaceSyncer interface {
+	// SyncWorkspace updates references between packages that share a version.
+	// It returns the repository-relative paths it changed.
+	SyncWorkspace(ctx context.Context, run execx.Runner, root string, pkgs []Package, version string) ([]string, error)
 }

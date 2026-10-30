@@ -43,7 +43,13 @@ func printStatus(p *ui.Printer, report *app.StatusReport) {
 	} else {
 		p.Info("%s", i18n.T("status.no_marker"))
 	}
-	p.Info("%s", i18n.Tf("status.tag", report.Tag, report.TagExists, report.Published))
+	if len(report.Packages) > 1 {
+		for _, pkg := range report.Packages {
+			p.Info("%s", i18n.Tf("status.package_line", pkg.Name, pkg.Tag, pkg.TagExists, pkg.Published))
+		}
+	} else {
+		p.Info("%s", i18n.Tf("status.tag", report.Tag, report.TagExists, report.Published))
+	}
 	if report.Channel != "" {
 		p.Info("%s", i18n.Tf("status.channel", report.Channel))
 	}

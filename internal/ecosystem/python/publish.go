@@ -62,5 +62,5 @@ func (publisher) Publish(ctx context.Context, run execx.Runner, root string, pkg
 }
 
 func endpoint(name, releaseVersion string) string {
-	return "https://pypi.org/pypi/" + url.PathEscape(name) + "/" + url.PathEscape(releaseVersion) + "/json"
+	return "https://pypi.org/pypi/" + url.PathEscape(name) + "/" + url.PathEscape(canonicalVersion(releaseVersion)) + "/json"
 }

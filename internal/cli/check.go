@@ -45,6 +45,9 @@ func newCheckCommand(rt *Runtime) *cobra.Command {
 
 func printCheck(p *ui.Printer, report *app.CheckReport) {
 	p.Info("%s", i18n.Tf("check.summary", report.Ecosystem, report.Package, report.Version))
+	for _, entry := range report.Entries {
+		p.Info("%s", i18n.Tf("check.entry_line", entry.Name, entry.Resolver, entry.Version))
+	}
 	for _, problem := range report.Problems {
 		p.Errorf("%s: %s", problem.Code, problem.Message)
 		if problem.Fix != "" {

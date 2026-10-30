@@ -23,12 +23,22 @@ type Entry struct {
 	SortKey    string
 }
 
-// Section is one version section.
+// Section is one version section. Package is set for package-scoped releases
+// in a multi-package repository; the marker key becomes <package>@<version>.
 type Section struct {
 	Version    string
+	Package    string
 	Date       time.Time
 	Entries    []Entry
 	CompareURL string
+}
+
+// Key is the marker identity of a section.
+func (s Section) Key() string {
+	if s.Package == "" {
+		return s.Version
+	}
+	return s.Package + "@" + s.Version
 }
 
 var typeOrder = []string{"feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore", "style", "revert"}
@@ -41,7 +51,7 @@ var releaseStartRE = regexp.MustCompile(`^<!-- qegg:release v?([^\s]+) -->$`)
 // Render returns the full marked block for a section.
 func Render(sec Section) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "<!-- qegg:release %s -->\n", sec.Version)
+	fmt.Fprintf(&b, "<!-- qegg:release %s -->\n", sec.Key())
 	renderBody(&b, sec)
 	b.WriteString(ReleaseEnd)
 	b.WriteString("\n")
@@ -57,7 +67,11 @@ func RenderBody(sec Section) string {
 }
 
 func renderBody(b *strings.Builder, sec Section) {
-	fmt.Fprintf(b, "## v%s - %s\n", sec.Version, sec.Date.Format("2006-01-02"))
+	if sec.Package != "" {
+		fmt.Fprintf(b, "## %s v%s - %s\n", sec.Package, sec.Version, sec.Date.Format("2006-01-02"))
+	} else {
+		fmt.Fprintf(b, "## v%s - %s\n", sec.Version, sec.Date.Format("2006-01-02"))
+	}
 	grouped := groupEntries(sec.Entries)
 	for _, typ := range typeOrder {
 		entries := grouped[typ]
@@ -123,7 +137,7 @@ func groupEntries(entries []Entry) map[string][]Entry {
 	return grouped
 }
 
-// Update inserts or replaces the section for sec.Version.
+// Update inserts or replaces the section whose key matches sec.
 func Update(existing []byte, sec Section) ([]byte, error) {
 	text := strings.ReplaceAll(string(existing), "\r\n", "\n")
 	lines := []string{}
@@ -132,10 +146,11 @@ func Update(existing []byte, sec Section) ([]byte, error) {
 	}
 	block := strings.Split(strings.TrimRight(Render(sec), "\n"), "\n")
 
+	key := sec.Key()
 	start := -1
 	for i, line := range lines {
 		m := releaseStartRE.FindStringSubmatch(strings.TrimSpace(line))
-		if m == nil || m[1] != sec.Version {
+		if m == nil || m[1] != key {
 			continue
 		}
 		start = i
@@ -150,7 +165,7 @@ func Update(existing []byte, sec Section) ([]byte, error) {
 			}
 		}
 		if end < 0 {
-			return nil, fmt.Errorf("version %s block is missing %s", sec.Version, ReleaseEnd)
+			return nil, fmt.Errorf("version %s block is missing %s", key, ReleaseEnd)
 		}
 		out := append([]string{}, lines[:start]...)
 		out = append(out, block...)
@@ -197,6 +212,21 @@ func Update(existing []byte, sec Section) ([]byte, error) {
 	return finish(out), nil
 }
 
+// UpdateAll inserts or replaces every section. The sections keep their order:
+// because every insertion lands above the previous block, they are written
+// back to front.
+func UpdateAll(existing []byte, sections []Section) ([]byte, error) {
+	out := existing
+	for i := len(sections) - 1; i >= 0; i-- {
+		updated, err := Update(out, sections[i])
+		if err != nil {
+			return nil, err
+		}
+		out = updated
+	}
+	return out, nil
+}
+
 func finish(lines []string) []byte {
 	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
 		lines = lines[:len(lines)-1]
@@ -213,14 +243,15 @@ func hasTitle(lines []string) bool {
 	return false
 }
 
-// Extract returns the rendered body of a version section without markers.
-func Extract(existing []byte, version string) (string, bool) {
+// Extract returns the rendered body of a section without markers. The key is
+// the section key: a version, or <package>@<version>.
+func Extract(existing []byte, key string) (string, bool) {
 	text := strings.ReplaceAll(string(existing), "\r\n", "\n")
 	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
 	start := -1
 	for i, line := range lines {
 		m := releaseStartRE.FindStringSubmatch(strings.TrimSpace(line))
-		if m != nil && m[1] == version {
+		if m != nil && m[1] == key {
 			start = i
 			break
 		}
@@ -244,5 +275,8 @@ func Extract(existing []byte, version string) (string, bool) {
 
 // SectionTitle returns the rendered heading of a version.
 func SectionTitle(sec Section) string {
+	if sec.Package != "" {
+		return fmt.Sprintf("%s v%s - %s", sec.Package, sec.Version, sec.Date.Format("2006-01-02"))
+	}
 	return fmt.Sprintf("v%s - %s", sec.Version, sec.Date.Format("2006-01-02"))
 }

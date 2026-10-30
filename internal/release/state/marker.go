@@ -42,21 +42,33 @@ type MarkerPackage struct {
 	Current  string `json:"current"`
 	Next     string `json:"next"`
 	Bump     string `json:"bump"`
+	Tag      string `json:"tag,omitempty"`
 	Publish  bool   `json:"publish"`
+}
+
+// MarkerRelease is one release unit of a pending release.
+type MarkerRelease struct {
+	Name       string   `json:"name,omitempty"`
+	Version    string   `json:"version"`
+	Tag        string   `json:"tag"`
+	PrevTag    string   `json:"previous_tag,omitempty"`
+	Packages   []string `json:"packages"`
+	Prerelease string   `json:"prerelease,omitempty"`
 }
 
 // MarkerChange is one consumed change record.
 type MarkerChange struct {
-	File       string `json:"file"`
-	Type       string `json:"type"`
-	Scope      string `json:"scope,omitempty"`
-	Bump       string `json:"bump"`
-	Body       string `json:"body"`
-	Commit     string `json:"commit,omitempty"`
-	CommitURL  string `json:"commit_url,omitempty"`
-	PullNumber int    `json:"pull_number,omitempty"`
-	PullURL    string `json:"pull_url,omitempty"`
-	Author     string `json:"author,omitempty"`
+	File       string   `json:"file"`
+	Type       string   `json:"type"`
+	Scope      string   `json:"scope,omitempty"`
+	Bump       string   `json:"bump"`
+	Packages   []string `json:"packages,omitempty"`
+	Body       string   `json:"body"`
+	Commit     string   `json:"commit,omitempty"`
+	CommitURL  string   `json:"commit_url,omitempty"`
+	PullNumber int      `json:"pull_number,omitempty"`
+	PullURL    string   `json:"pull_url,omitempty"`
+	Author     string   `json:"author,omitempty"`
 }
 
 // Marker is the committed release plan.
@@ -70,6 +82,7 @@ type Marker struct {
 	Repo          MarkerRepo      `json:"repo"`
 	Verified      MarkerVerified  `json:"verified"`
 	Packages      []MarkerPackage `json:"packages"`
+	Releases      []MarkerRelease `json:"releases,omitempty"`
 	Changes       []MarkerChange  `json:"changes"`
 }
 

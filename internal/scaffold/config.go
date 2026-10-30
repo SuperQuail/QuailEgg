@@ -26,7 +26,18 @@ func renderConfig(opts Options, packages map[string]config.Package) []byte {
 	b.WriteString("mode = " + strconv.Quote(opts.Mode) + "\n")
 
 	b.WriteString("github_release = true\n")
-	b.WriteString("commit_message = " + strconv.Quote("chore(release): v{{version}}") + "\n\n")
+	commitMessage := "chore(release): v{{version}}"
+	if len(packages) > 1 && opts.VersionScope != config.VersionScopeShared {
+		commitMessage = "chore(release): bump versions"
+	}
+	b.WriteString("commit_message = " + strconv.Quote(commitMessage) + "\n")
+	if opts.VersionScope != "" && opts.VersionScope != config.VersionScopePackage {
+		b.WriteString("version_scope = " + strconv.Quote(opts.VersionScope) + "\n")
+	}
+	if opts.Environment != "" {
+		b.WriteString("environment = " + strconv.Quote(opts.Environment) + "\n")
+	}
+	b.WriteString("\n")
 	b.WriteString("[changes]\n")
 	b.WriteString("dir = " + strconv.Quote(opts.ChangesDir) + "\n")
 	b.WriteString("scope = " + stringSlice(opts.Scope) + "\n\n")

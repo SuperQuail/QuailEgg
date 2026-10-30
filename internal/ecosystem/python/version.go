@@ -99,8 +99,8 @@ func readVersionAssignment(path string) (string, error) {
 }
 
 func (driver) SetVersion(root string, pkg ecosystem.Package, next string) error {
-	if !releaseVersion.MatchString(next) {
-		return fmt.Errorf("version %q is not X.Y.Z", next)
+	if _, _, _, _, ok := parsePythonVersion(next); !ok {
+		return fmt.Errorf("version %q is not X.Y.Z or a PEP 440 prerelease", next)
 	}
 	pyprojectPath := filepath.Join(fsx.Join(root, pkg.Path), "pyproject.toml")
 	data, err := os.ReadFile(pyprojectPath)

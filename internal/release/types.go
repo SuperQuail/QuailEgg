@@ -68,21 +68,36 @@ type PackagePlan struct {
 	Current  string `json:"current"`
 	Next     string `json:"next"`
 	Bump     string `json:"bump"`
+	Tag      string `json:"tag,omitempty"`
 	Manifest string `json:"-"`
+}
+
+// ReleasePlan is one release unit: a package set that shares one version and
+// one git tag. A single-package or shared-version repository has exactly one
+// unit; a package-scoped multi-package repository has one unit per releasing
+// package.
+type ReleasePlan struct {
+	Name       string   `json:"name,omitempty"`
+	Version    string   `json:"version"`
+	Tag        string   `json:"tag"`
+	PrevTag    string   `json:"previous_tag,omitempty"`
+	Packages   []string `json:"packages"`
+	Prerelease string   `json:"prerelease,omitempty"`
 }
 
 // ChangePlan is one consumed record.
 type ChangePlan struct {
-	File       string `json:"file"`
-	Type       string `json:"type"`
-	Scope      string `json:"scope,omitempty"`
-	Bump       string `json:"bump"`
-	Body       string `json:"body"`
-	Commit     string `json:"commit,omitempty"`
-	CommitURL  string `json:"commit_url,omitempty"`
-	PullNumber int    `json:"pull_number,omitempty"`
-	PullURL    string `json:"pull_url,omitempty"`
-	Author     string `json:"author,omitempty"`
+	File       string   `json:"file"`
+	Type       string   `json:"type"`
+	Scope      string   `json:"scope,omitempty"`
+	Bump       string   `json:"bump"`
+	Packages   []string `json:"packages,omitempty"`
+	Body       string   `json:"body"`
+	Commit     string   `json:"commit,omitempty"`
+	CommitURL  string   `json:"commit_url,omitempty"`
+	PullNumber int      `json:"pull_number,omitempty"`
+	PullURL    string   `json:"pull_url,omitempty"`
+	Author     string   `json:"author,omitempty"`
 }
 
 // VerifyInfo describes the pre-release commands.
@@ -107,8 +122,10 @@ type Plan struct {
 	Graduating    bool          `json:"graduating,omitempty"`
 	Fingerprint   string        `json:"fingerprint"`
 	Project       ProjectInfo   `json:"project"`
+	VersionScope  string        `json:"version_scope,omitempty"`
 	Version       VersionInfo   `json:"version"`
 	Packages      []PackagePlan `json:"packages"`
+	Releases      []ReleasePlan `json:"releases,omitempty"`
 	Changes       []ChangePlan  `json:"changes"`
 	Verify        VerifyInfo    `json:"verify"`
 	Steps         []StepInfo    `json:"steps"`

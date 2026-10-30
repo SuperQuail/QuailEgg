@@ -52,7 +52,7 @@ resolver = "npm"              # npm | python | rust | go
 
 ## 多包仓库
 
-每个包单独登记，`path` 指向包所在目录：
+每个包单独登记，`path` 指向包所在目录。默认每个包按自己的记录独立发版；要让所有包共用一个版本，加 `version_scope = "shared"`：
 
 ```toml
 [packages."@acme/core"]
@@ -71,6 +71,14 @@ publish = false               # 提升版本，但不发布到 registry
 ```
 
 检测到未登记的包时，`qegg plan` 会给出警告，运行 `qegg init` 可以补充登记。
+
+独立发版的 tag 默认是 `core-v1.2.3`（`[git] tag_format`，支持 `{{version}}`、`{{slug}}`、`{{name}}`）；shared 版本范围沿用 `tag_prefix`，所有包共用 `v1.2.3`。
+
+```toml
+[release]
+version_scope = "shared"   # package（默认）| shared
+environment = "pypi"       # 渲染进发布 workflow 的 environment
+```
 
 ## 凭证
 
