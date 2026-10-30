@@ -93,6 +93,26 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 			names = append(names, pkg.Name)
 		}
 	}
+	for _, name := range names {
+		pkg, ok := a.Cfg.Packages[name]
+		if !ok {
+			continue
+		}
+		if _, known := registry.ByID(pkg.Resolver); !known {
+			report.Problems = append(report.Problems, Problem{
+				Code:    "unknown-resolver",
+				Message: i18n.Tf("check.problem.unknown_resolver", name, pkg.Resolver),
+				Fix:     i18n.T("check.fix.unknown_resolver"),
+			})
+		}
+	}
+	if unknown := registry.UnknownRegistries(a.Cfg.Publish.Registries); len(unknown) > 0 {
+		report.Problems = append(report.Problems, Problem{
+			Code:    "unknown-registry",
+			Message: i18n.Tf("check.problem.unknown_registry", strings.Join(unknown, ", "), strings.Join(registry.PublishTargets(), ", ")),
+			Fix:     i18n.T("check.fix.unknown_registry"),
+		})
+	}
 	seenTools := map[string]bool{}
 	for _, name := range names {
 		pkg, ok := a.findPackage(detected, name)
@@ -152,6 +172,17 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 				Message: i18n.Tf("check.problem.shared_version_mismatch", entry.Name, entry.Version, base.Name, base.Version),
 				Fix:     i18n.T("check.fix.shared_version"),
 			})
+		}
+		for _, entry := range report.Entries {
+			if !registry.IsTagVersioned(entry.Resolver) {
+				continue
+			}
+			report.Problems = append(report.Problems, Problem{
+				Code:    "shared-tag-versioned",
+				Message: i18n.Tf("check.problem.shared_tag_versioned", entry.Name),
+				Fix:     i18n.T("check.fix.shared_tag_versioned"),
+			})
+			break
 		}
 	}
 

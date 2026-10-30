@@ -176,3 +176,100 @@ publish = false`,
 		}
 	}
 }
+
+func newInitRepo(t *testing.T) string {
+	t.Helper()
+	execx.SanitizeGitHookEnv()
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-q")
+	runGit(t, dir, "config", "user.email", "init@example.com")
+	runGit(t, dir, "config", "user.name", "init")
+	runGit(t, dir, "remote", "add", "origin", "https://github.com/acme/demo")
+	return dir
+}
+
+func writeInitFiles(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for rel, body := range files {
+		path := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: initial")
+}
+
+func TestInitCollectsVerifyCommandsPerEcosystem(t *testing.T) {
+	dir := newInitRepo(t)
+	writeInitFiles(t, dir, map[string]string{
+		"Cargo.toml":             "[workspace]\nmembers = [\"crates/core\"]\n\n[workspace.package]\nversion = \"0.1.0\"\n",
+		"crates/core/Cargo.toml": "[package]\nname = \"mixed-core\"\nversion.workspace = true\n",
+		"package.json":           "{\"name\":\"mixed-ui\",\"scripts\":{\"test\":\"vitest run\"}}\n",
+	})
+	if _, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   true,
+		QeggVersion:   "latest",
+	}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".quailegg.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "commands = [\"npm test\", \"cargo test\"]") {
+		t.Fatalf("verify commands are not collected per ecosystem:\n%s", data)
+	}
+}
+
+func TestInitRejectsUnknownRegistry(t *testing.T) {
+	dir := newInitRepo(t)
+	writeInitFiles(t, dir, map[string]string{
+		"Cargo.toml": "[package]\nname = \"solo\"\nversion = \"0.1.0\"\n",
+	})
+	_, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   true,
+		QeggVersion:   "latest",
+		Registries:    []string{"bogus"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "bogus") {
+		t.Fatalf("err = %v, want an unknown registry error", err)
+	}
+}
+
+func TestInitRejectsUnknownResolver(t *testing.T) {
+	dir := newInitRepo(t)
+	cfg := "schema_version = 1\n\n[project]\ndefault_branch = \"main\"\n\n[release]\nmode = \"pr\"\nbranch = \"release\"\n\n[packages.x]\npath = \".\"\nresolver = \"bogus\"\n"
+	writeInitFiles(t, dir, map[string]string{".quailegg.toml": cfg})
+	_, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   false,
+		QeggVersion:   "latest",
+	})
+	if err == nil || !strings.Contains(err.Error(), "bogus") {
+		t.Fatalf("err = %v, want an unknown resolver error", err)
+	}
+}
+
+func TestInitRejectsSharedTagVersioned(t *testing.T) {
+	dir := newInitRepo(t)
+	cfg := "schema_version = 1\n\n[project]\ndefault_branch = \"main\"\n\n[release]\nmode = \"pr\"\nbranch = \"release\"\nversion_scope = \"shared\"\n\n[packages.a]\npath = \".\"\nresolver = \"go\"\n\n[packages.b]\npath = \"b\"\nresolver = \"go\"\n"
+	writeInitFiles(t, dir, map[string]string{".quailegg.toml": cfg})
+	_, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   false,
+		QeggVersion:   "latest",
+	})
+	if err == nil || !strings.Contains(err.Error(), "tag") {
+		t.Fatalf("err = %v, want a shared/tag-versioned error", err)
+	}
+}

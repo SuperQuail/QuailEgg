@@ -166,15 +166,17 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		return nil, err
 	}
 	if scope != config.VersionScopeShared {
-		if inherited := inheritedCargoVersions(detected); len(inherited) > 1 {
+		if inherited := inheritedWorkspaceVersions(detected); len(inherited) > 1 {
 			plan.Warnings = append(plan.Warnings, i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
 		}
 	}
 
 	plan.Steps = stepsFor(plan.Phase, d.Cfg.Release.Mode, plan.Assets != nil)
 	plan.Warnings = append(plan.Warnings, packageWarnings(registered, detected)...)
-	if len(targets) == 1 && targets[0].tagVersioned() && d.Cfg.Git.TagPrefix != "v" {
-		plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.tag_version_prefix", d.Cfg.Git.TagPrefix))
+	if len(targets) == 1 && targets[0].tagVersioned() {
+		if spec, ok := registry.SpecFor(targets[0].pkg.Resolver); ok && spec.TagPrefix != "" && d.Cfg.Git.TagPrefix != spec.TagPrefix {
+			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.tag_prefix", spec.Language, spec.TagPrefix, d.Cfg.Git.TagPrefix))
+		}
 	}
 	if d.Cfg.Release.Mode == config.ModeCommit {
 		plan.Warnings = append(plan.Warnings, i18n.T("release.warn.commit_mode"))
@@ -554,12 +556,12 @@ func targetNames(targets []target) []string {
 	return names
 }
 
-// inheritedCargoVersions lists detected Rust packages that inherit their
-// version from the Cargo workspace root.
-func inheritedCargoVersions(detected []ecosystem.Package) []string {
+// inheritedWorkspaceVersions lists detected packages whose version comes from
+// the workspace manifest rather than from their own manifest.
+func inheritedWorkspaceVersions(detected []ecosystem.Package) []string {
 	var names []string
 	for _, pkg := range detected {
-		if pkg.Resolver == config.ResolverRust && pkg.Inherited {
+		if pkg.Inherited {
 			names = append(names, pkg.Name)
 		}
 	}

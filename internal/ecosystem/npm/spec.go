@@ -21,12 +21,12 @@ type driver struct{}
 // Spec describes the npm ecosystem.
 func (driver) Spec() ecosystem.Spec {
 	return ecosystem.Spec{
-		ID:            "npm",
-		Language:      "Node.js",
-		Manifests:     []string{"package.json"},
-		Publishable:   true,
-		WorkflowSetup: workflowSetup,
-		WorkflowEnv:   workflowEnv,
+		ID:             "npm",
+		Language:       "Node.js",
+		Manifests:      []string{"package.json"},
+		PublishTargets: []string{"npm"},
+		WorkflowSetup:  workflowSetup,
+		WorkflowEnv:    workflowEnv,
 		Tools: []ecosystem.Tool{
 			{Name: "npm", Command: "npm"},
 			{Name: "gh", Command: "gh"},

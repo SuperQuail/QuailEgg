@@ -16,17 +16,24 @@ import (
 // dependencySpec matches one PEP 508 dependency pinned with ==.
 var dependencySpec = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9._-]*)(\[[^\]]*\])?\s*==\s*([^;,\s]+)(\s*;.*)?$`)
 
-// SyncWorkspace rewrites exact "==package" pins between workspace packages and
-// refreshes uv.lock when the repository has one.
-func (driver) SyncWorkspace(ctx context.Context, run execx.Runner, root string, pkgs []ecosystem.Package, version string) ([]string, error) {
-	siblings := make(map[string]bool, len(pkgs))
+// SyncVersions rewrites exact "==package" pins between workspace packages and
+// refreshes uv.lock when the repository has one. Every package carries the
+// version it is released with, so shared and independent workspaces behave the
+// same way.
+func (driver) SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []ecosystem.Package) ([]string, error) {
+	versions := make(map[string]string, len(pkgs))
 	for _, pkg := range pkgs {
-		siblings[normalizeName(pkg.Name)] = true
+		if pkg.Version != "" {
+			versions[normalizeName(pkg.Name)] = pkg.Version
+		}
+	}
+	if len(versions) == 0 {
+		return nil, nil
 	}
 	changed := []string{}
 	for _, pkg := range pkgs {
 		manifest := filepath.Join(root, filepath.FromSlash(pkg.Path), "pyproject.toml")
-		updated, err := rewriteSiblingPins(manifest, siblings, version)
+		updated, err := rewriteSiblingPins(manifest, versions)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -51,7 +58,7 @@ func (driver) SyncWorkspace(ctx context.Context, run execx.Runner, root string, 
 }
 
 // rewriteSiblingPins updates exact sibling pins inside [project].dependencies.
-func rewriteSiblingPins(manifest string, siblings map[string]bool, version string) (bool, error) {
+func rewriteSiblingPins(manifest string, versions map[string]string) (bool, error) {
 	data, err := os.ReadFile(manifest)
 	if err != nil {
 		return false, err
@@ -74,7 +81,8 @@ func rewriteSiblingPins(manifest string, siblings map[string]bool, version strin
 		if spec == nil {
 			continue
 		}
-		if !siblings[normalizeName(spec[1])] || spec[3] == version {
+		version, ok := versions[normalizeName(spec[1])]
+		if !ok || spec[3] == version {
 			continue
 		}
 		replacement := spec[1] + spec[2] + "==" + version + spec[4]
@@ -85,3 +93,5 @@ func rewriteSiblingPins(manifest string, siblings map[string]bool, version strin
 	}
 	return true, os.WriteFile(manifest, []byte(strings.Replace(text, section, updated, 1)), 0o644)
 }
+
+var _ ecosystem.VersionSyncer = driver{}

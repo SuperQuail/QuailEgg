@@ -316,7 +316,7 @@ func newPythonWorkspaceRepo(t *testing.T) string {
 
 func TestSharedPythonWorkspaceSyncsPins(t *testing.T) {
 	dir := newPythonWorkspaceRepo(t)
-	d := workspacePythonDeps(t, dir)
+	d := workspacePythonDeps(t, dir, config.VersionScopeShared)
 	ctx := context.Background()
 	plan, err := Build(ctx, d)
 	if err != nil {
@@ -337,7 +337,7 @@ func TestSharedPythonWorkspaceSyncsPins(t *testing.T) {
 	}
 }
 
-func workspacePythonDeps(t *testing.T, dir string) *Deps {
+func workspacePythonDeps(t *testing.T, dir, scope string) *Deps {
 	t.Helper()
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_ACTIONS", "")
@@ -351,7 +351,7 @@ func workspacePythonDeps(t *testing.T, dir string) *Deps {
 		"core": {Path: "packages/core", Resolver: "python", Publish: &publish},
 		"app":  {Path: "app", Resolver: "python", Publish: &publish},
 	}
-	cfg.Release.VersionScope = config.VersionScopeShared
+	cfg.Release.VersionScope = scope
 	cfg.Release.Mode = config.ModeCommit
 	cfg.Release.GitHubRelease = false
 	cfg.Release.CommitMessage = "chore(release): bump versions"
@@ -366,6 +366,29 @@ func workspacePythonDeps(t *testing.T, dir string) *Deps {
 		Options: Options{
 			SkipVerify: true, NoPublish: true, NoPush: true, NoGitHubRelease: true,
 		},
+	}
+}
+
+func TestIndependentPythonWorkspaceSyncsPins(t *testing.T) {
+	dir := newPythonWorkspaceRepo(t)
+	d := workspacePythonDeps(t, dir, config.VersionScopePackage)
+	ctx := context.Background()
+	plan, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if len(plan.Releases) != 1 || plan.Releases[0].Name != "core" {
+		t.Fatalf("plan releases = %+v", plan.Releases)
+	}
+	if err := Run(ctx, d, plan); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "app", "pyproject.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "\"core==1.0.1\"") {
+		t.Fatalf("app pin was not synced in package scope:\n%s", data)
 	}
 }
 

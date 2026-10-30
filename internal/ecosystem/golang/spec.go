@@ -16,10 +16,11 @@ type driver struct{}
 // to build qegg, so no extra setup step or registry credential is needed.
 func (driver) Spec() ecosystem.Spec {
 	return ecosystem.Spec{
-		ID:          "go",
-		Language:    "Go",
-		Manifests:   []string{"go.mod"},
-		Publishable: true,
+		ID:             "go",
+		Language:       "Go",
+		Manifests:      []string{"go.mod"},
+		PublishTargets: []string{"go"},
+		TagPrefix:      "v",
 		Tools: []ecosystem.Tool{
 			{Name: "go", Command: "go"},
 			{Name: "gh", Command: "gh"},

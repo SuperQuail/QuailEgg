@@ -18,8 +18,8 @@ func TestSpec(t *testing.T) {
 	if len(spec.Manifests) != 1 || spec.Manifests[0] != "go.mod" {
 		t.Fatalf("unexpected manifests: %v", spec.Manifests)
 	}
-	if !spec.Publishable || spec.BuildRequired {
-		t.Fatalf("unexpected flags: %+v", spec)
+	if len(spec.PublishTargets) != 1 || spec.PublishTargets[0] != "go" || spec.TagPrefix != "v" {
+		t.Fatalf("unexpected capabilities: %+v", spec)
 	}
 	if spec.WorkflowSetup != "" || spec.WorkflowEnv != "" {
 		t.Fatalf("go must not add workflow fragments: %+v", spec)

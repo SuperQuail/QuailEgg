@@ -21,12 +21,12 @@ type driver struct{}
 // Spec describes the Rust ecosystem.
 func (driver) Spec() ecosystem.Spec {
 	return ecosystem.Spec{
-		ID:            "rust",
-		Language:      "Rust",
-		Manifests:     []string{"Cargo.toml"},
-		Publishable:   true,
-		WorkflowSetup: workflowSetup,
-		WorkflowEnv:   workflowEnv,
+		ID:             "rust",
+		Language:       "Rust",
+		Manifests:      []string{"Cargo.toml"},
+		PublishTargets: []string{"crates"},
+		WorkflowSetup:  workflowSetup,
+		WorkflowEnv:    workflowEnv,
 		Tools: []ecosystem.Tool{
 			{Name: "cargo", Command: "cargo"},
 			{Name: "gh", Command: "gh"},

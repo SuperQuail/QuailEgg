@@ -119,7 +119,7 @@ func (e *executor) bump(ctx context.Context) error {
 		return err
 	}
 	if e.plan.VersionScope != config.VersionScopeShared {
-		if inherited := inheritedCargoVersions(detected); len(inherited) > 1 {
+		if inherited := inheritedWorkspaceVersions(detected); len(inherited) > 1 {
 			return errors.New(i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
 		}
 	}
@@ -157,9 +157,8 @@ func (e *executor) bump(ctx context.Context) error {
 }
 
 // syncWorkspace keeps sibling references (dependency pins, lock files) in sync
-// after the manifests were bumped. Ecosystems that version packages
-// independently receive every package with its next version; the shared
-// workspace syncer remains the fallback for Python.
+// after the manifests were bumped. Every package is passed with the version to
+// write; ecosystems without a VersionSyncer have nothing to sync.
 func (e *executor) syncWorkspace(ctx context.Context, detected []ecosystem.Package) error {
 	next := map[string]string{}
 	for _, release := range e.plan.Releases {
@@ -183,26 +182,13 @@ func (e *executor) syncWorkspace(ctx context.Context, detected []ecosystem.Packa
 		resolvers = append(resolvers, resolver)
 	}
 	sort.Strings(resolvers)
-	shared := e.plan.VersionScope == config.VersionScopeShared && len(e.plan.Releases) == 1
 	var synced []string
 	for _, resolver := range resolvers {
-		pkgs := groups[resolver]
-		if syncer, ok := registry.VersionSyncerFor(resolver); ok {
-			paths, err := syncer.SyncVersions(ctx, e.d.Run, e.d.Root, pkgs)
-			if err != nil {
-				return err
-			}
-			synced = append(synced, paths...)
-			continue
-		}
-		if !shared {
-			continue
-		}
-		syncer, ok := registry.WorkspaceSyncerFor(resolver)
+		syncer, ok := registry.VersionSyncerFor(resolver)
 		if !ok {
 			continue
 		}
-		paths, err := syncer.SyncWorkspace(ctx, e.d.Run, e.d.Root, pkgs, e.plan.Releases[0].Version)
+		paths, err := syncer.SyncVersions(ctx, e.d.Run, e.d.Root, groups[resolver])
 		if err != nil {
 			return err
 		}

@@ -77,14 +77,121 @@ func TagVersion(resolver, version string) string {
 	return version
 }
 
-// WorkspaceSyncerFor resolves the workspace syncer of a resolver.
-func WorkspaceSyncerFor(resolver string) (ecosystem.WorkspaceSyncer, bool) {
-	eco, ok := ByID(resolver)
+// PublishTargetsFor returns the registry names the resolver publishes to.
+func PublishTargetsFor(resolver string) []string {
+	spec, ok := SpecFor(resolver)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	syncer, ok := eco.(ecosystem.WorkspaceSyncer)
-	return syncer, ok
+	return append([]string(nil), spec.PublishTargets...)
+}
+
+// PublishTargets returns every publish target name the adapters declare.
+func PublishTargets() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, spec := range Specs() {
+		for _, target := range spec.PublishTargets {
+			if target == "" || seen[target] {
+				continue
+			}
+			seen[target] = true
+			out = append(out, target)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// EcosystemForTarget maps a publish target name to its ecosystem identifier.
+func EcosystemForTarget(target string) (string, bool) {
+	for _, spec := range Specs() {
+		for _, known := range spec.PublishTargets {
+			if known == target {
+				return spec.ID, true
+			}
+		}
+	}
+	return "", false
+}
+
+// DefaultVerifyCommands collects the init defaults of every resolver, in a
+// stable order and without duplicates.
+func DefaultVerifyCommands(root string, resolvers []string) []string {
+	names := make([]string, 0, len(resolvers))
+	seenResolver := map[string]bool{}
+	for _, resolver := range resolvers {
+		if resolver == "" || seenResolver[resolver] {
+			continue
+		}
+		seenResolver[resolver] = true
+		names = append(names, resolver)
+	}
+	sort.Strings(names)
+	seenCommand := map[string]bool{}
+	var out []string
+	for _, resolver := range names {
+		eco, ok := ByID(resolver)
+		if !ok {
+			continue
+		}
+		advisor, ok := eco.(ecosystem.InitAdvisor)
+		if !ok {
+			continue
+		}
+		for _, command := range advisor.DefaultVerifyCommands(root) {
+			command = strings.TrimSpace(command)
+			if command == "" || seenCommand[command] {
+				continue
+			}
+			seenCommand[command] = true
+			out = append(out, command)
+		}
+	}
+	return out
+}
+
+// EcosystemIDs returns every registered ecosystem identifier in a stable order.
+func EcosystemIDs() []string {
+	specs := Specs()
+	out := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		out = append(out, spec.ID)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// UnknownResolvers returns the names without an adapter, in input order.
+func UnknownResolvers(resolvers []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, resolver := range resolvers {
+		if resolver == "" || seen[resolver] {
+			continue
+		}
+		seen[resolver] = true
+		if _, ok := ByID(resolver); !ok {
+			out = append(out, resolver)
+		}
+	}
+	return out
+}
+
+// UnknownRegistries returns the names that are not a declared publish target.
+func UnknownRegistries(registries []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, name := range registries {
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		if _, ok := EcosystemForTarget(name); !ok {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // VersionSyncerFor resolves the per-package version syncer of a resolver.
