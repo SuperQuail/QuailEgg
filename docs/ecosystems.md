@@ -45,15 +45,33 @@
    }
    ```
 
-   版本来自 tag 的生态（目前是 Go）额外实现可选接口 `ecosystem.TagVersioner`：`CurrentVersion` 从 git tag 推导当前版本，`CheckVersion` 校验下一个版本（Go 的 v2+ 需要 `/vN` module 路径）。清单里有版本的生态不需要实现它。
+   `Spec()` 是唯一的静态能力声明：
 
-   `Spec()` 返回 `ecosystem.Spec{ID, Language, Manifests, Publishable, BuildRequired, WorkflowSetup, WorkflowEnv, Tools}`；`WorkflowSetup` 与 `WorkflowEnv` 分别用包内的 `workflow-setup.yml`（YAML 序列项）和 `workflow-env.yml`（YAML 映射）通过 `//go:embed` 提供，均从第 0 列开始；`Publisher()` 返回本生态的发布实现，并实现 `Publisher` 的 `Name/Precheck/Build/Publish`，不需要构建的生态 `Build` 返回 nil。
+   | 字段 | 作用 |
+   | --- | --- |
+   | `ID` / `Language` / `Manifests` | 标识、展示名、检测清单 |
+   | `PublishTargets` | 发布目标（`npm` / `pypi` / `crates` / `go`）；`qegg init` 用它推断 `[publish].registries` 和工作流凭证 |
+   | `TagPrefix` | 版本来自 tag 时要求的前缀（Go 为 `v`）；`plan` 用它告警，空表示不限 |
+   | `WorkflowSetup` / `WorkflowEnv` | 生成的 Actions 工作流里注入的 setup 步骤与凭证，分别来自包内 `workflow-setup.yml` / `workflow-env.yml`（第 0 列起，`//go:embed`） |
+   | `Tools` | `qegg check` 需要的可执行文件，提示文案在 `tool.<name>.*` |
 
-3. 在 `internal/ecosystem/registry/registry.go` 的 `All()` 里加一行，例如 `npm.New()`。
+   按需实现可选接口，核心代码只通过 registry 查询，不按生态名分支：
+
+   - `TagVersioner`：版本来自 git tag 时实现 `CurrentVersion` / `CheckVersion`（Go 的 v2+ 需要 `/vN` module 路径）。清单里有版本的生态不需要实现。
+   - `InitAdvisor`：`DefaultVerifyCommands(root)`，`qegg init` 写进 `[verify].commands` 的默认命令。混合生态仓库会按 resolver 排序去重收集。
+   - `VersionSyncer`：同步兄弟依赖 pin 与 lockfile（Cargo workspace、uv workspace）。
+   - `VersionStyle`：版本拼写与 tag 拼写不同时实现（Python 的 PEP 440）。
+   - `Publisher`：`Name/Precheck/Build/Publish`；不需要构建的生态 `Build` 返回 nil。
+
+   Go 的差异全部落在这张表里：版本来自 tag → `TagVersioner`；tag 必须 `v` → `Spec.TagPrefix`；清单没有版本 → `SetVersion` 空实现；发布即 push tag → `Publisher` 空实现；多包共享版本由现有的“多包 + tag-versioned”通用规则拒绝。核心代码没有 `if resolver == "go"`。
+
+   `config.Validate` 只做 schema 校验；未知 resolver/registry、shared 与 tag-versioned 冲突等跨生态规则由 `qegg init` / `plan` / `check` 通过 registry 判断。
+
+3. 在 `internal/ecosystem/registry/registry.go` 的 `All()` 里加一行，例如 `npm.New()`；需要的能力查询（`PublishTargetsFor`、`EcosystemForTarget`、`DefaultVerifyCommands`、`VersionSyncerFor` 等）已经在 registry 里。
 
 4. 在 `internal/ecosystem/testdata/` 加一份 fixture，并在子包内写测试；用 `internal/ecosystem/ecosystemtest` 的 `Fixture` 复制 fixture，避免测试改写仓库里的文件。
 
-5. 更新本文件的生态表格与 `docs/architecture.md` 的目录树；README 的功能列表按需同步。
+5. 更新本文件的生态表格与 `docs/architecture.md` 的目录树；README 的功能列表按需同步。核心代码里不要出现 `config.Resolver*` 或生态名字面量，`internal/ecosystem/registry/policy_test.go` 会检查；确需临时例外要写进 allowlist 并注明原因。
 
 ## Go 的边界
 

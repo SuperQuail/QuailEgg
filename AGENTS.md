@@ -46,7 +46,9 @@ The docs site is a separate pnpm project: `cd site && pnpm install`, then
 Dependency direction is `cmd -> cli -> app -> release -> {state, verify, registry,
 github, changes, changelog, config, semver, platform}`. Ecosystem sub-packages may
 depend on `ecosystem` only; `platform/*` and `i18n` are leaves and must not depend
-upwards. Details in `docs/architecture.md`.
+upwards. Core packages (`app`, `release`, `scaffold`) must not name an ecosystem:
+ask `ecosystem/registry` for the capability. `internal/ecosystem/registry/policy_test.go`
+guards this. Details in `docs/architecture.md`.
 
 A Go file stays under 1000 lines. User-visible strings live only in
 `internal/i18n/locales/{en,zh}.toml`; a test guards that.
