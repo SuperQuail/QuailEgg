@@ -43,11 +43,17 @@ func hookRepo(t *testing.T, verifyCommand string) string {
 	run("init", "-q")
 	run("config", "user.email", "hook@example.com")
 	run("config", "user.name", "hook")
-	config := "schema_version = 1\n[verify]\ncommands = [\"" + verifyCommand + "\"]\ntimeout = \"1m\"\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
+	config := "schema_version = 1\n[changes]\ndir = \".changes\"\nscope = [\"src\"]\n\n[verify]\ncommands = [\"" + verifyCommand + "\"]\ntimeout = \"1m\"\n\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
 	writeHookFile(t, filepath.Join(dir, ".quailegg.toml"), config)
 	writeHookFile(t, filepath.Join(dir, ".changes", "change.md"), "---\ntype: feat\npackages:\n  demo: patch\n---\n\nA change.\n")
 	run("add", "-A")
 	return dir
+}
+
+func stageHookSource(t *testing.T, dir string) {
+	t.Helper()
+	writeHookFile(t, filepath.Join(dir, "src", "demo.js"), "export const demo = 1\n")
+	hookGit(t, dir, "add", "-A")
 }
 
 func TestHookPreCommitRunsVerification(t *testing.T) {
@@ -55,6 +61,7 @@ func TestHookPreCommitRunsVerification(t *testing.T) {
 		t.Fatalf("i18n.Init: %v", err)
 	}
 	dir := hookRepo(t, "exit 1")
+	stageHookSource(t, dir)
 	a, err := New(dir, "", ui.Discard())
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -70,6 +77,7 @@ func TestHookPreCommitPassesWithPassingVerification(t *testing.T) {
 		t.Fatalf("i18n.Init: %v", err)
 	}
 	dir := hookRepo(t, "exit 0")
+	stageHookSource(t, dir)
 	a, err := New(dir, "", ui.Discard())
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -176,5 +184,35 @@ func TestHookPreCommitSkipsRecordRuleOutsideDefaultBranch(t *testing.T) {
 	}
 	if err := a.HookPreCommit(context.Background()); err != nil {
 		t.Fatalf("a feature branch must be allowed to commit: %v", err)
+	}
+}
+
+func TestHookPreCommitSkipsVerificationWithoutScopedFiles(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRepo(t, "exit 1")
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err != nil {
+		t.Fatalf("a commit without scoped files must skip verification: %v", err)
+	}
+}
+
+func TestHookPreCommitSkipsVerificationForDocsOnly(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRepo(t, "exit 1")
+	writeHookFile(t, filepath.Join(dir, "README.md"), "# demo\n")
+	hookGit(t, dir, "add", "-A")
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err != nil {
+		t.Fatalf("a docs-only commit must skip verification: %v", err)
 	}
 }

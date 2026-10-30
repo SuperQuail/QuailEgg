@@ -12,7 +12,7 @@
 "cmd.resume.short" = "Resume the last interrupted release"
 "cmd.status.short" = "Show release status"
 "cmd.hook.short" = "git hook entry points"
-"cmd.hook.pre_commit.short" = "Validate that staged changes include a change record"
+"cmd.hook.pre_commit.short" = "Validate staged changes and run scope-gated verification"
 "cmd.lang.short" = "Show or set the CLI language"
 "cmd.pre.short" = "Enter, leave or show the prerelease channel"
 "cmd.version.short" = "Print the qegg version"
@@ -98,6 +98,7 @@
 "check.fix.missing_record" = "run qegg commit to create a .changes record"
 "hook.missing_record" = "no change record staged under %s; create one with qegg commit"
 "hook.verify_failed" = "pre-commit verification failed: %s. Fix it, or skip the hook with git commit --no-verify"
+"hook.verify_skipped" = "no release-scoped files staged; skipping the pre-commit verification commands"
 "hook.branch_skip" = "commits outside the default branch do not need a change record; the pull request check enforces one before merge"
 "hook.fork_skip" = "this clone points at %s, not the project repository %s; the change record rule is skipped here"
 

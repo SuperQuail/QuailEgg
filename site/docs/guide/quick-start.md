@@ -30,7 +30,7 @@ qegg init
 | --- | --- |
 | `.quailegg.toml` | 配置文件 |
 | `.changes/README.md` | 变更记录目录与说明 |
-| `.git/hooks/pre-commit` | 提交前检查变更记录并运行校验命令 |
+| `.git/hooks/pre-commit` | 提交前检查变更记录，scope 内有改动时运行校验命令 |
 | `.github/workflows/qegg-*.yml` | PR 检查、自动发版、状态查询三个工作流 |
 
 在 CI 或脚本里可以跳过交互：

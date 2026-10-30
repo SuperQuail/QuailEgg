@@ -16,7 +16,8 @@ import (
 )
 
 // HookPreCommit enforces the change record rule and then runs the verification
-// commands, so a failing test blocks the commit.
+// commands when the commit touches release-scoped files, so a failing test
+// blocks the commit.
 func (a *App) HookPreCommit(ctx context.Context) error {
 	staged, err := a.Git.StagedNames(ctx)
 	if err != nil {
@@ -26,7 +27,22 @@ func (a *App) HookPreCommit(ctx context.Context) error {
 		return err
 	}
 	execx.SanitizeGitHookEnv()
+	if len(a.Cfg.Verify.Commands) == 0 {
+		return nil
+	}
+	if !a.touchesScope(staged) {
+		a.UI.Info("%s", i18n.T("hook.verify_skipped"))
+		return nil
+	}
 	return a.verifyBeforeCommit(ctx)
+}
+
+// touchesScope reports whether the staged files include anything the release
+// pipeline watches. Managed files and change records never count, so
+// documentation-only or record-only commits skip the verification commands.
+func (a *App) touchesScope(staged []string) bool {
+	ignore := scaffold.ManagedPaths(a.Cfg.Changes.Dir)
+	return changes.TouchesScope(staged, a.Cfg.Changes.Dir, a.Cfg.Changes.Scope, ignore)
 }
 
 // checkRecordRule enforces the record rule only where it is knowable: the
