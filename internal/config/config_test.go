@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -194,6 +195,149 @@ func TestValidateRejectsReleaseBranchEqualToDefault(t *testing.T) {
 	cfg.Release.Branch = cfg.Project.DefaultBranch
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected a validation error")
+	}
+}
+
+func TestAssetsCommandsAndFiles(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[packages.sc2translater]
+path = "."
+resolver = "rust"
+
+[release.assets]
+enabled = true
+commands = ["pnpm -C ui build", "cargo tauri build"]
+files = ["target/release/bundle/**/*.msi"]
+`)
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	assets := cfg.Release.Assets
+	if !assets.Requested() {
+		t.Fatal("commands and files must request assets")
+	}
+	if len(assets.Commands) != 2 || len(assets.Files) != 1 {
+		t.Fatalf("assets = %+v", assets)
+	}
+}
+
+func TestAssetsCommandsNeedFiles(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[release.assets]
+commands = ["make release"]
+`)
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for commands without files")
+	}
+}
+
+func TestAssetsFilesCannotEscape(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[release.assets]
+files = ["../outside.zip"]
+`)
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a glob outside the repository")
+	}
+}
+
+func TestAssetsNeedSharedScopeForSeveralPackages(t *testing.T) {
+	body := `schema_version = 1
+
+[packages.a]
+path = "a"
+resolver = "rust"
+
+[packages.b]
+path = "b"
+resolver = "npm"
+
+[release.assets]
+files = ["dist/**"]
+`
+	if _, err := LoadFile(writeConfig(t, body)); err == nil {
+		t.Fatal("expected an error in a package scoped multi-package repository")
+	}
+	shared := strings.Replace(body, "[release.assets]", "[release]\nversion_scope = \"shared\"\n\n[release.assets]", 1)
+	if _, err := LoadFile(writeConfig(t, shared)); err != nil {
+		t.Fatalf("shared scope must allow assets: %v", err)
+	}
+}
+
+func TestWorkflowConfig(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[release.workflow]
+mode = "managed"
+runner = "windows-latest"
+timeout_minutes = 30
+steps = ["pnpm -C ui install --frozen-lockfile"]
+
+[[release.build]]
+name = "windows"
+runner = "windows-latest"
+steps = ["pnpm -C ui build", "cargo tauri build"]
+artifacts = ["target/release/bundle/msi/*.msi"]
+
+[[release.build]]
+name = "macos"
+artifacts = ["target/release/bundle/dmg/*.dmg"]
+`)
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	workflow := cfg.Release.Workflow
+	if workflow.Mode != WorkflowManaged || workflow.Runner != "windows-latest" || workflow.TimeoutMinutes != 30 {
+		t.Fatalf("workflow = %+v", workflow)
+	}
+	if len(workflow.Steps) != 1 || len(cfg.Release.Build) != 2 {
+		t.Fatalf("workflow steps or build jobs missing: %+v", cfg.Release)
+	}
+	mac := cfg.Release.Build[1]
+	if mac.Runner != "windows-latest" || mac.TimeoutMinutes != 30 {
+		t.Fatalf("build defaults were not applied: %+v", mac)
+	}
+}
+
+func TestWorkflowDefaults(t *testing.T) {
+	cfg, err := LoadFile(writeConfig(t, "schema_version = 1\n"))
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if cfg.Release.Workflow.Mode != WorkflowManaged || cfg.Release.Workflow.Runner != DefaultWorkflowRunner || cfg.Release.Workflow.TimeoutMinutes != 60 {
+		t.Fatalf("workflow defaults = %+v", cfg.Release.Workflow)
+	}
+}
+
+func TestWorkflowRejectsExternalBuildJobs(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[release.workflow]
+mode = "external"
+
+[[release.build]]
+name = "windows"
+artifacts = ["dist/*.msi"]
+`)
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for build jobs in external mode")
+	}
+}
+
+func TestWorkflowRejectsBadBuildName(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[[release.build]]
+name = "windows build"
+artifacts = ["dist/*.msi"]
+`)
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a build job name with a space")
 	}
 }
 

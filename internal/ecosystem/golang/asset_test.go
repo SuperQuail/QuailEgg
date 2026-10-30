@@ -1,10 +1,12 @@
-package assets
+package golang
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 )
 
 func writeAssetFile(t *testing.T, path, content string) {
@@ -22,26 +24,17 @@ func writeMain(t *testing.T, root, dir string) {
 	writeAssetFile(t, filepath.Join(root, filepath.FromSlash(dir), "main.go"), "package main\n\nfunc main() {}\n")
 }
 
-func withEnabled() Options {
-	enabled := true
-	return Options{Enabled: &enabled}
+func planAssets(t *testing.T, root string, opts ecosystem.AssetOptions) (*ecosystem.AssetPlan, []string, error) {
+	t.Helper()
+	return (driver{}).PlanAssets(root, ecosystem.Package{Name: "demo", Path: ".", Resolver: "golang"}, opts)
 }
 
-func TestDetectOffByDefault(t *testing.T) {
+func TestPlanAssetsCmdMain(t *testing.T) {
 	root := t.TempDir()
 	writeMain(t, root, "cmd/demo")
-	plan, warnings, err := Detect(root, Options{})
-	if err != nil || plan != nil || len(warnings) != 0 {
-		t.Fatalf("assets must be off by default: plan=%+v warnings=%v err=%v", plan, warnings, err)
-	}
-}
-
-func TestDetectCmdMain(t *testing.T) {
-	root := t.TempDir()
-	writeMain(t, root, "cmd/demo")
-	plan, warnings, err := Detect(root, withEnabled())
+	plan, warnings, err := planAssets(t, root, ecosystem.AssetOptions{})
 	if err != nil {
-		t.Fatalf("Detect: %v", err)
+		t.Fatalf("PlanAssets: %v", err)
 	}
 	if len(warnings) != 0 {
 		t.Fatalf("unexpected warnings: %v", warnings)
@@ -57,12 +50,12 @@ func TestDetectCmdMain(t *testing.T) {
 	}
 }
 
-func TestDetectRootMain(t *testing.T) {
+func TestPlanAssetsRootMain(t *testing.T) {
 	root := t.TempDir()
 	writeAssetFile(t, filepath.Join(root, "main.go"), "package main\n\nfunc main() {}\n")
-	plan, _, err := Detect(root, withEnabled())
+	plan, _, err := planAssets(t, root, ecosystem.AssetOptions{})
 	if err != nil {
-		t.Fatalf("Detect: %v", err)
+		t.Fatalf("PlanAssets: %v", err)
 	}
 	if plan == nil || plan.Main != "." {
 		t.Fatalf("unexpected plan: %+v", plan)
@@ -72,37 +65,25 @@ func TestDetectRootMain(t *testing.T) {
 	}
 }
 
-func TestDetectSettingsEnableAssets(t *testing.T) {
-	root := t.TempDir()
-	writeMain(t, root, "cmd/demo")
-	plan, _, err := Detect(root, Options{Targets: []string{"linux/amd64"}})
-	if err != nil {
-		t.Fatalf("Detect: %v", err)
-	}
-	if plan == nil || len(plan.Targets) != 1 {
-		t.Fatalf("writing an asset setting must enable assets: %+v", plan)
-	}
-}
-
-func TestDetectLibraryHasNoAssets(t *testing.T) {
+func TestPlanAssetsLibraryHasNoAssets(t *testing.T) {
 	root := t.TempDir()
 	writeAssetFile(t, filepath.Join(root, "demo.go"), "package demo\n\nfunc Demo() {}\n")
-	plan, warnings, err := Detect(root, withEnabled())
+	plan, warnings, err := planAssets(t, root, ecosystem.AssetOptions{})
 	if err != nil {
-		t.Fatalf("Detect: %v", err)
+		t.Fatalf("PlanAssets: %v", err)
 	}
 	if plan != nil || len(warnings) != 0 {
 		t.Fatalf("unexpected result: plan=%+v warnings=%v", plan, warnings)
 	}
 }
 
-func TestDetectMultipleMainsAuto(t *testing.T) {
+func TestPlanAssetsMultipleMainsWarns(t *testing.T) {
 	root := t.TempDir()
 	writeMain(t, root, "cmd/one")
 	writeMain(t, root, "cmd/two")
-	plan, warnings, err := Detect(root, Options{Targets: []string{"linux/amd64"}})
+	plan, warnings, err := planAssets(t, root, ecosystem.AssetOptions{Targets: []string{"linux/amd64"}})
 	if err != nil {
-		t.Fatalf("Detect: %v", err)
+		t.Fatalf("PlanAssets: %v", err)
 	}
 	if plan != nil {
 		t.Fatalf("expected no assets, got %+v", plan)
@@ -112,36 +93,17 @@ func TestDetectMultipleMainsAuto(t *testing.T) {
 	}
 }
 
-func TestDetectMultipleMainsExplicit(t *testing.T) {
-	root := t.TempDir()
-	writeMain(t, root, "cmd/one")
-	writeMain(t, root, "cmd/two")
-	if _, _, err := Detect(root, withEnabled()); err == nil {
-		t.Fatal("expected an error when assets are forced with several mains")
-	}
-}
-
-func TestDetectDisabled(t *testing.T) {
+func TestPlanAssetsExplicitMainMissing(t *testing.T) {
 	root := t.TempDir()
 	writeMain(t, root, "cmd/demo")
-	disabled := false
-	plan, warnings, err := Detect(root, Options{Enabled: &disabled, Targets: []string{"linux/amd64"}})
-	if err != nil || plan != nil || len(warnings) != 0 {
-		t.Fatalf("unexpected result: plan=%+v warnings=%v err=%v", plan, warnings, err)
-	}
-}
-
-func TestDetectExplicitMainMissing(t *testing.T) {
-	root := t.TempDir()
-	writeMain(t, root, "cmd/demo")
-	if _, _, err := Detect(root, Options{Main: "cmd/missing"}); err == nil {
+	if _, _, err := planAssets(t, root, ecosystem.AssetOptions{Main: "cmd/missing"}); err == nil {
 		t.Fatal("expected an error for a missing main package")
 	}
 }
 
-func TestDetectMainCannotEscape(t *testing.T) {
+func TestPlanAssetsMainCannotEscape(t *testing.T) {
 	root := t.TempDir()
-	if _, _, err := Detect(root, Options{Main: "../outside"}); err == nil {
+	if _, _, err := planAssets(t, root, ecosystem.AssetOptions{Main: "../outside"}); err == nil {
 		t.Fatal("expected an error for a path outside the repository")
 	}
 }
@@ -163,27 +125,20 @@ func TestParseTargets(t *testing.T) {
 	}
 }
 
-func TestExpandLdflags(t *testing.T) {
-	expanded := expand([]string{"-X main.version={{version}}", "-X main.tag={{tag}}"}, "v1.2.3")
-	if expanded[0] != "-X main.version=1.2.3" || expanded[1] != "-X main.tag=v1.2.3" {
-		t.Fatalf("unexpected ldflags: %v", expanded)
-	}
-}
-
 func TestUnknownPlaceholderRejected(t *testing.T) {
 	root := t.TempDir()
 	writeMain(t, root, "cmd/demo")
-	if _, _, err := Detect(root, Options{Ldflags: []string{"-X main.commit={{commit}}"}}); err == nil {
+	if _, _, err := planAssets(t, root, ecosystem.AssetOptions{Ldflags: []string{"-X main.commit={{commit}}"}}); err == nil {
 		t.Fatal("expected an error for an unknown placeholder")
 	}
 }
 
-func TestDetectExplicitName(t *testing.T) {
+func TestPlanAssetsExplicitName(t *testing.T) {
 	root := t.TempDir()
 	writeMain(t, root, "cmd/demo")
-	plan, _, err := Detect(root, Options{Name: "custom"})
+	plan, _, err := planAssets(t, root, ecosystem.AssetOptions{Name: "custom"})
 	if err != nil {
-		t.Fatalf("Detect: %v", err)
+		t.Fatalf("PlanAssets: %v", err)
 	}
 	if plan == nil || plan.Name != "custom" {
 		t.Fatalf("unexpected plan: %+v", plan)

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -89,16 +90,70 @@ type Release struct {
 	// Environment is the GitHub Actions environment of the release job.
 	Environment string `toml:"environment"`
 	Assets      Assets `toml:"assets"`
+	// Workflow configures the generated GitHub Actions release workflow.
+	Workflow Workflow `toml:"workflow"`
+	// Build lists the per-platform builds of the managed workflow.
+	Build []BuildJob `toml:"build"`
 }
 
-// Assets configures the binaries attached to a GitHub release. Only Go modules
-// are supported for now; an empty section keeps the automatic defaults.
+// Workflow modes.
+const (
+	// WorkflowManaged renders the release workflow from qegg init.
+	WorkflowManaged = "managed"
+	// WorkflowExternal leaves the release workflow to the repository.
+	WorkflowExternal = "external"
+)
+
+// DefaultWorkflowRunner is the runner the release job uses.
+const DefaultWorkflowRunner = "ubuntu-latest"
+
+// Workflow configures the generated release workflow.
+type Workflow struct {
+	// Mode is "managed" (qegg renders the workflow) or "external" (the
+	// repository keeps its own workflow and qegg generates nothing).
+	Mode string `toml:"mode"`
+	// Runner is the runner of the release job itself.
+	Runner string `toml:"runner"`
+	// TimeoutMinutes limits the release job.
+	TimeoutMinutes int `toml:"timeout_minutes"`
+	// Steps run in the release job before qegg release starts.
+	Steps []string `toml:"steps"`
+}
+
+// BuildJob is one platform build of the managed workflow. The generated job
+// runs Steps on Runner, uploads Artifacts and hands them to the release job,
+// which attaches them to the GitHub Release.
+type BuildJob struct {
+	Name           string   `toml:"name"`
+	Runner         string   `toml:"runner"`
+	TimeoutMinutes int      `toml:"timeout_minutes"`
+	Steps          []string `toml:"steps"`
+	Artifacts      []string `toml:"artifacts"`
+}
+
+// Assets configures the files attached to a GitHub release. A Go module is
+// built by its ecosystem; commands and files attach the output of a custom
+// build instead. An empty section keeps asset handling off.
 type Assets struct {
 	Enabled *bool    `toml:"enabled"`
 	Name    string   `toml:"name"`
 	Main    string   `toml:"main"`
 	Targets []string `toml:"targets"`
 	Ldflags []string `toml:"ldflags"`
+	// Commands run in the repository root before the assets are collected.
+	Commands []string `toml:"commands"`
+	// Files are globs relative to the repository root. Writing files switches
+	// from the ecosystem build to collecting what the commands produced.
+	Files []string `toml:"files"`
+}
+
+// Requested reports whether the section turns asset handling on. An explicit
+// enabled value wins; otherwise any setting turns it on.
+func (a Assets) Requested() bool {
+	if a.Enabled != nil {
+		return *a.Enabled
+	}
+	return a.Name != "" || a.Main != "" || len(a.Targets) > 0 || len(a.Ldflags) > 0 || len(a.Commands) > 0 || len(a.Files) > 0
 }
 
 // Version configures files outside the package manifests that carry the
@@ -152,6 +207,11 @@ func Default() *Config {
 			GitHubRelease: true,
 			CommitMessage: "chore(release): v{{version}}",
 			VersionScope:  VersionScopePackage,
+			Workflow: Workflow{
+				Mode:           WorkflowManaged,
+				Runner:         DefaultWorkflowRunner,
+				TimeoutMinutes: 60,
+			},
 		},
 		Changes:  Changes{Dir: ".changes"},
 		Verify:   Verify{Timeout: "15m", FailFast: true},
@@ -217,6 +277,23 @@ func (c *Config) applyDefaults() {
 	if c.Release.VersionScope == "" {
 		c.Release.VersionScope = d.Release.VersionScope
 	}
+	if c.Release.Workflow.Mode == "" {
+		c.Release.Workflow.Mode = d.Release.Workflow.Mode
+	}
+	if c.Release.Workflow.Runner == "" {
+		c.Release.Workflow.Runner = d.Release.Workflow.Runner
+	}
+	if c.Release.Workflow.TimeoutMinutes == 0 {
+		c.Release.Workflow.TimeoutMinutes = d.Release.Workflow.TimeoutMinutes
+	}
+	for i := range c.Release.Build {
+		if c.Release.Build[i].Runner == "" {
+			c.Release.Build[i].Runner = c.Release.Workflow.Runner
+		}
+		if c.Release.Build[i].TimeoutMinutes == 0 {
+			c.Release.Build[i].TimeoutMinutes = c.Release.Workflow.TimeoutMinutes
+		}
+	}
 	if c.Changes.Dir == "" {
 		c.Changes.Dir = d.Changes.Dir
 	}
@@ -264,11 +341,14 @@ func (c *Config) Validate() error {
 	if len(c.Version.File) > 0 && len(c.Packages) > 1 && c.Release.VersionScope != VersionScopeShared {
 		return errors.New("version.file needs release.version_scope = \"shared\" once several packages are registered")
 	}
-	if len(c.Packages) > 1 {
-		assets := c.Release.Assets
-		if assets.Enabled != nil || assets.Name != "" || assets.Main != "" || len(assets.Targets) > 0 || len(assets.Ldflags) > 0 {
-			return errors.New("release.assets does not support multi-package repositories")
-		}
+	if len(c.Packages) > 1 && c.Release.VersionScope != VersionScopeShared && c.Release.Assets.Requested() {
+		return errors.New("release.assets needs release.version_scope = \"shared\" once several packages are registered")
+	}
+	if err := c.Release.Workflow.validate(c.Release.Build); err != nil {
+		return err
+	}
+	if len(c.Release.Build) > 0 && len(c.Packages) > 1 && c.Release.VersionScope != VersionScopeShared {
+		return errors.New("release.build needs release.version_scope = \"shared\" once several packages are registered")
 	}
 	if c.Project.Repo != "" && strings.Count(c.Project.Repo, "/") < 2 {
 		return fmt.Errorf("project.repo %q must look like host/owner/name", c.Project.Repo)
@@ -325,6 +405,86 @@ func (a Assets) validate() error {
 		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
 			return fmt.Errorf("release.assets.targets contains invalid target %q", target)
 		}
+	}
+	for _, pattern := range a.Files {
+		if err := validateGlob("release.assets.files", pattern); err != nil {
+			return err
+		}
+	}
+	if len(a.Commands) > 0 && len(a.Files) == 0 {
+		return errors.New("release.assets.commands needs at least one release.assets.files pattern")
+	}
+	for _, command := range a.Commands {
+		if strings.TrimSpace(command) == "" {
+			return errors.New("release.assets.commands must not contain an empty command")
+		}
+	}
+	return nil
+}
+
+// buildJobNameRE allows the characters GitHub accepts in a job id.
+var buildJobNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
+
+// validate checks the workflow settings that do not need the filesystem.
+func (w Workflow) validate(builds []BuildJob) error {
+	switch w.Mode {
+	case WorkflowManaged, WorkflowExternal:
+	default:
+		return fmt.Errorf("release.workflow.mode must be %q or %q, got %q", WorkflowManaged, WorkflowExternal, w.Mode)
+	}
+	if strings.TrimSpace(w.Runner) == "" {
+		return errors.New("release.workflow.runner must not be empty")
+	}
+	if w.TimeoutMinutes < 1 || w.TimeoutMinutes > 1440 {
+		return fmt.Errorf("release.workflow.timeout_minutes %d must be between 1 and 1440", w.TimeoutMinutes)
+	}
+	for _, step := range w.Steps {
+		if strings.TrimSpace(step) == "" {
+			return errors.New("release.workflow.steps must not contain an empty step")
+		}
+	}
+	if len(builds) > 0 && w.Mode != WorkflowManaged {
+		return errors.New("release.build needs release.workflow.mode = \"managed\"")
+	}
+	seen := make(map[string]bool, len(builds))
+	for i, job := range builds {
+		name := strings.TrimSpace(job.Name)
+		if name == "" {
+			return fmt.Errorf("release.build[%d].name must not be empty", i)
+		}
+		if !buildJobNameRE.MatchString(name) {
+			return fmt.Errorf("release.build[%d].name %q may only use letters, digits, dashes and underscores", i, job.Name)
+		}
+		key := strings.ToLower(name)
+		if seen[key] {
+			return fmt.Errorf("release.build[%d].name %q is used twice", i, job.Name)
+		}
+		seen[key] = true
+		if strings.TrimSpace(job.Runner) == "" {
+			return fmt.Errorf("release.build[%d].runner must not be empty", i)
+		}
+		if len(job.Artifacts) == 0 {
+			return fmt.Errorf("release.build[%d].artifacts must not be empty", i)
+		}
+		for _, artifact := range job.Artifacts {
+			if err := validateGlob(fmt.Sprintf("release.build[%d].artifacts", i), artifact); err != nil {
+				return err
+			}
+		}
+		for _, step := range job.Steps {
+			if strings.TrimSpace(step) == "" {
+				return fmt.Errorf("release.build[%d].steps must not contain an empty step", i)
+			}
+		}
+	}
+	return nil
+}
+
+// validateGlob rejects a configured glob that leaves the repository.
+func validateGlob(section, pattern string) error {
+	clean := path.Clean(filepath.ToSlash(strings.TrimSpace(pattern)))
+	if clean == "." || path.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
+		return fmt.Errorf("%s %q must stay inside the repository", section, pattern)
 	}
 	return nil
 }

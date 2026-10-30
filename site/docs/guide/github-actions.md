@@ -19,6 +19,38 @@ release 工作流只在下列路径变化时运行：`.changes/**`、`.quailegg.
 
 不需要 status 工作流时用 `--no-status-workflow`，完全不生成工作流用 `--no-workflows`。
 
+## 自定义发布工作流
+
+生成的 `qegg-release.yml` 默认在 `ubuntu-latest` 上跑一个 release job。`[release.workflow]` 可以换 runner、超时和 release job 的前置步骤：
+
+```toml
+[release.workflow]
+runner = "ubuntu-latest"
+timeout_minutes = 60
+steps = ["pnpm -C ui install --frozen-lockfile"]
+```
+
+`[[release.build]]` 增加按平台的构建 job（见 [发布资产](assets)）：每个 job 跑 checkout、setup-go、各生态 setup 和你的 `steps`，再把 `artifacts` 上传；release job 下载全部产物后执行 `qegg release --yes --assets-dir .quailegg/assets/downloaded`。
+
+```toml
+[[release.build]]
+name = "windows"
+runner = "windows-latest"
+steps = ["pnpm -C ui build", "cargo tauri build"]
+artifacts = ["target/release/bundle/msi/*.msi"]
+```
+
+## 外部工作流
+
+不想让 qegg 生成发布工作流时：
+
+```toml
+[release.workflow]
+mode = "external"
+```
+
+`qegg init` 只生成 PR 与 status 工作流，`qegg-release.yml` 由仓库自己维护；发版时调用 `qegg release --yes`（多平台产物用 `--assets-dir` 交给 qegg 上传）。
+
 ## 生态与凭证
 
 工作流只包含项目实际使用的生态：优先看 `[publish].registries`，其次看各包的 `resolver`。只发 npm 的项目不会出现 Python 的步骤与凭证。

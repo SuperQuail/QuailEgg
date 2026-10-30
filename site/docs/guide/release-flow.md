@@ -49,7 +49,7 @@ mode = "commit"
 | push | 推送分支与 tag |
 | github-release | 创建 GitHub Release，已存在则跳过 |
 
-资产在 publish 之前构建，构建失败就不会发布或打 tag。
+资产在 publish 之前构建，构建失败就不会发布或打 tag。来源有三种：Go 生态交叉编译、`[release.assets].commands` + `files` 收集，或者 CI 里各平台 job 构建后通过 `--assets-dir` 交给 qegg 上传。
 
 ## 预发布（alpha / beta / rc）
 
@@ -76,6 +76,7 @@ git push
 qegg release --dry-run                                   # 只打印计划
 qegg release --no-publish --no-push --no-github-release  # 只在本地提交与打 tag
 qegg release --skip-verify --allow-dirty                 # 跳过校验、允许脏工作区
+qegg release --assets-dir ./dist                         # 上传已构建好的目录，不再本地构建
 ```
 
 ## 中断与续跑

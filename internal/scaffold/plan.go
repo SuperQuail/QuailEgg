@@ -35,6 +35,8 @@ type Options struct {
 	Force           bool
 	Packages        map[string]config.Package
 	VersionFiles    []config.VersionFile
+	Workflow        config.Workflow
+	Build           []config.BuildJob
 	Existing        *config.Config
 	ExistingContent []byte
 }
@@ -148,6 +150,9 @@ func Build(opts Options) (*Plan, error) {
 	}
 	plan.Files = append(plan.Files, gitignore)
 
+	if opts.WithWorkflows && opts.Workflow.Mode == config.WorkflowExternal {
+		plan.Warnings = append(plan.Warnings, i18n.T("init.warn_external_workflow"))
+	}
 	if opts.Existing == nil {
 		plan.Warnings = append(plan.Warnings, i18n.T("init.warn_new_config"))
 	}

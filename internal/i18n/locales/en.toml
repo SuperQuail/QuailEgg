@@ -55,6 +55,7 @@
 "flag.no_github_release" = "do not create a GitHub Release"
 "flag.no_publish" = "do not publish to a registry"
 "flag.no_assets" = "do not build or upload release assets"
+"flag.assets_dir" = "attach prebuilt files from this directory instead of building assets"
 "flag.offline" = "skip registry queries"
 "flag.ci" = "check PR changes for a missing change record"
 
@@ -90,6 +91,7 @@
 "init.done" = "initialised; next step: qegg commit"
 "init.warn_new_config" = "created a new configuration; commit it together with the generated files"
 "init.warn_latest_qegg" = "generated workflows install qegg@latest; rerun qegg init --qegg-version vX.Y.Z after the first release to pin it"
+"init.warn_external_workflow" = "release.workflow.mode = \"external\"; qegg leaves .github/workflows/qegg-release.yml to you"
 
 # --- check ------------------------------------------------------------------
 "check.summary" = "ecosystem: %s  package: %s  version: %s"
@@ -205,6 +207,13 @@
 "release.err.assets_ambiguous" = "several Go main packages found, set release.assets.main"
 "release.err.assets_placeholder" = "unknown placeholder %s in release.assets.ldflags"
 "release.err.assets_runner" = "the command runner cannot set environment variables"
+"release.err.assets_files" = "release.assets.files %q must stay inside the repository"
+"release.err.assets_commands_without_files" = "release.assets.commands needs at least one release.assets.files pattern"
+"release.err.assets_empty_command" = "release.assets.commands must not contain an empty command"
+"release.err.assets_no_match" = "release.assets.files matched no file: %s"
+"release.err.assets_duplicate" = "two release assets are named %s"
+"release.err.assets_command" = "release.assets.commands failed: %s"
+"release.err.assets_multi_package" = "release.assets needs one package or release.version_scope = \"shared\""
 "release.err.assets_gh" = "gh CLI is required to upload release assets"
 "release.err.version_inherited" = "packages %s and %s inherit their version from the workspace; set release.version_scope = \"shared\""
 "release.err.version_file_ambiguous" = "version files need one release version; this release bumps several versions"

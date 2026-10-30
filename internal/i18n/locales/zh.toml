@@ -55,6 +55,7 @@
 "flag.no_github_release" = "不创建 GitHub Release"
 "flag.no_publish" = "不发布到 registry"
 "flag.no_assets" = "不构建也不上传发布资产"
+"flag.assets_dir" = "直接上传该目录里已构建好的文件，不再本地构建产物"
 "flag.offline" = "跳过 registry 查询"
 "flag.ci" = "按 PR 差异检查是否缺少变更记录"
 
@@ -90,6 +91,7 @@
 "init.done" = "初始化完成，下一步：qegg commit"
 "init.warn_new_config" = "已创建新配置，请与生成的文件一起提交"
 "init.warn_latest_qegg" = "生成的工作流安装 qegg@latest；首个版本发布后请用 qegg init --qegg-version vX.Y.Z 固定版本"
+"init.warn_external_workflow" = "release.workflow.mode = \"external\"；.github/workflows/qegg-release.yml 由你自己维护"
 
 # --- check ------------------------------------------------------------------
 "check.summary" = "生态: %s  包: %s  版本: %s"
@@ -205,6 +207,13 @@
 "release.err.assets_ambiguous" = "发现多个 Go main 包，请设置 release.assets.main"
 "release.err.assets_placeholder" = "release.assets.ldflags 中有未知占位符 %s"
 "release.err.assets_runner" = "命令执行器不支持设置环境变量"
+"release.err.assets_files" = "release.assets.files %q 必须位于仓库内"
+"release.err.assets_commands_without_files" = "release.assets.commands 需要至少一个 release.assets.files 匹配模式"
+"release.err.assets_empty_command" = "release.assets.commands 不能包含空命令"
+"release.err.assets_no_match" = "release.assets.files 没有匹配到任何文件：%s"
+"release.err.assets_duplicate" = "两个发布产物的名字都是 %s"
+"release.err.assets_command" = "release.assets.commands 执行失败：%s"
+"release.err.assets_multi_package" = "release.assets 需要单包仓库，或 release.version_scope = \"shared\""
 "release.err.assets_gh" = "上传发布资产需要 gh CLI"
 "release.err.version_inherited" = "包 %s 和 %s 继承了 workspace 版本；请把 release.version_scope 设为 \"shared\""
 "release.err.version_file_ambiguous" = "版本文件要求只有一个发布版本，本次发布有多个版本"

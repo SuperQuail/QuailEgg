@@ -82,6 +82,29 @@ version_scope = "shared"   # package（默认）| shared
 environment = "pypi"       # 渲染进发布 workflow 的 environment
 ```
 
+## Tauri / 跨生态同版本
+
+Tauri 仓库通常是「Rust crates + 前端 + `src-tauri`」共用一个应用版本。发现只扫仓库根目录，Rust workspace 会被自动登记，前端 `ui/` 需要手写一条包配置：
+
+```toml
+[release]
+version_scope = "shared"
+
+[packages."sc2translater-ui"]
+path = "ui"
+resolver = "npm"
+publish = false
+
+[[version.file]]
+path = "src-tauri/tauri.conf.json"
+format = "json"
+key = "version"
+```
+
+shared 允许跨生态，但 tag 拼写必须一致；Python 的预发布是 PEP 440 拼写，不能和其他生态共享预发布。`qegg init` 会自动登记 `tauri.conf.json`，版本阶段把它和清单一起改写，`qegg check` 会检查漂移。
+
+多平台安装包用 `[[release.build]]`，见 [GitHub Actions](github-actions) 与 [发布资产](assets)。
+
 ## 凭证
 
 发布凭证不写进配置，统一走环境变量或 CI Secrets：

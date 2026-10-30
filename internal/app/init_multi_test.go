@@ -357,3 +357,47 @@ func TestInferRegistriesSkipsPrivatePackages(t *testing.T) {
 		t.Fatalf("inferRegistries = %v, want only crates", got)
 	}
 }
+
+// TestInitHonorsExternalWorkflow keeps the repository's own release workflow.
+func TestInitHonorsExternalWorkflow(t *testing.T) {
+	dir := newInitRepo(t)
+	cfg := `schema_version = 1
+
+[project]
+default_branch = "main"
+repo = "github.com/acme/demo"
+
+[release]
+mode = "pr"
+branch = "release"
+
+[release.workflow]
+mode = "external"
+
+[packages.solo]
+path = "."
+resolver = "rust"
+`
+	writeInitFiles(t, dir, map[string]string{".quailegg.toml": cfg, "Cargo.toml": "[package]\nname = \"solo\"\nversion = \"0.1.0\"\n"})
+	plan, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: true,
+		QeggVersion:   "latest",
+	})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	for _, file := range plan.Files {
+		if strings.HasSuffix(file.Path, "qegg-release.yml") {
+			t.Fatalf("external mode generated %s", file.Path)
+		}
+	}
+	found := false
+	for _, warning := range plan.Warnings {
+		if strings.Contains(warning, "external") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected an external workflow warning, got %v", plan.Warnings)
+	}
+}

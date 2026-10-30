@@ -136,6 +136,40 @@ type VersionSyncer interface {
 	SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []Package) ([]string, error)
 }
 
+// AssetTarget is one os/arch pair of an asset plan an ecosystem builds.
+type AssetTarget struct {
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
+}
+
+// String renders the target as os/arch.
+func (t AssetTarget) String() string { return t.OS + "/" + t.Arch }
+
+// AssetOptions configures asset planning for one package.
+type AssetOptions struct {
+	Name    string
+	Main    string
+	Targets []string
+	Ldflags []string
+}
+
+// AssetPlan describes the assets an ecosystem builds itself.
+type AssetPlan struct {
+	Name    string
+	Main    string
+	Targets []AssetTarget
+	Ldflags []string
+}
+
+// AssetPlanner is implemented by ecosystems whose release assets qegg builds
+// itself (Go cross-compiles the main package). Ecosystems without a planner
+// attach assets through [release.assets] commands and files instead.
+type AssetPlanner interface {
+	// PlanAssets resolves the assets of pkg. A nil plan means the package has
+	// nothing to attach; warnings are non-fatal.
+	PlanAssets(root string, pkg Package, opts AssetOptions) (*AssetPlan, []string, error)
+}
+
 // VersionFile describes one file outside the package manifests that may carry
 // the package version. Path is relative to the package directory and uses
 // forward slashes.

@@ -32,12 +32,14 @@ var artifacts = []artifact{
 		Enabled: func(opts Options) bool { return opts.WithHook },
 	},
 	{
-		ID:      "workflow-release",
-		Source:  "github/workflows/qegg-release.yml.tmpl",
-		Dest:    ".github/workflows/qegg-release.yml",
-		Perm:    0o644,
-		Reason:  "release workflow",
-		Enabled: func(opts Options) bool { return opts.WithWorkflows },
+		ID:     "workflow-release",
+		Source: "github/workflows/qegg-release.yml.tmpl",
+		Dest:   ".github/workflows/qegg-release.yml",
+		Perm:   0o644,
+		Reason: "release workflow",
+		Enabled: func(opts Options) bool {
+			return opts.WithWorkflows && opts.Workflow.Mode != config.WorkflowExternal
+		},
 	},
 	{
 		ID:      "workflow-pr",
@@ -78,8 +80,18 @@ type view struct {
 	Options
 	EcosystemSetups []string
 	EcosystemEnvs   []string
+	BuildJobs       []buildJobView
 	ReleasePaths    []string
 	HookNote        string
+}
+
+// buildJobView is one platform build rendered into the release workflow.
+type buildJobView struct {
+	ID        string
+	Runner    string
+	Timeout   int
+	Steps     []string
+	Artifacts []string
 }
 
 // newView collects the template data for one plan.
@@ -88,6 +100,15 @@ func newView(opts Options) view {
 		Options:      opts,
 		ReleasePaths: releasePaths(opts),
 		HookNote:     i18n.T("scaffold.hook_note"),
+	}
+	for _, job := range opts.Build {
+		data.BuildJobs = append(data.BuildJobs, buildJobView{
+			ID:        job.Name,
+			Runner:    job.Runner,
+			Timeout:   job.TimeoutMinutes,
+			Steps:     job.Steps,
+			Artifacts: job.Artifacts,
+		})
 	}
 	for _, id := range workflowEcosystems(opts) {
 		spec, ok := registry.SpecFor(id)

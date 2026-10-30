@@ -194,6 +194,12 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if existing != nil && existing.Release.Branch != "" {
 		releaseBranch = existing.Release.Branch
 	}
+	workflow := config.Default().Release.Workflow
+	var buildJobs []config.BuildJob
+	if existing != nil {
+		workflow = existing.Release.Workflow
+		buildJobs = existing.Release.Build
+	}
 
 	version := opts.QeggVersion
 	if version == "" {
@@ -223,6 +229,8 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		Force:           opts.Force,
 		Packages:        packages,
 		VersionFiles:    versionFiles,
+		Workflow:        workflow,
+		Build:           buildJobs,
 		Existing:        existing,
 		ExistingContent: existingContent,
 	})

@@ -62,13 +62,14 @@
    - `VersionSyncer`：同步兄弟依赖 pin 与 lockfile（Cargo workspace、uv workspace）。
    - `VersionStyle`：版本拼写与 tag 拼写不同时实现（Python 的 PEP 440）。
    - `VersionFileAdvisor`：清单之外还有文件承载版本时实现（Tauri 的 `tauri.conf.json`）。返回的只是候选路径，`qegg init` 会先确认文件里是字面量版本才写进 `[[version.file]]`。
+   - `AssetPlanner`：`PlanAssets` 规划生态自己构建的发布资产（Go 交叉编译 main 包）。返回 nil 表示这个包没有可构建的资产；没有实现该接口的生态改用 `[release.assets].commands` + `files`。
    - `Publisher`：`Name/Precheck/Build/Publish`；不需要构建的生态 `Build` 返回 nil。
 
-   Go 的差异全部落在这张表里：版本来自 tag → `TagVersioner`；tag 必须 `v` → `Spec.TagPrefix`；清单没有版本 → `SetVersion` 空实现；发布即 push tag → `Publisher` 空实现；多包共享版本由现有的“多包 + tag-versioned”通用规则拒绝。核心代码没有 `if resolver == "go"`。
+   Go 的差异全部落在这张表里：版本来自 tag → `TagVersioner`；tag 必须 `v` → `Spec.TagPrefix`；清单没有版本 → `SetVersion` 空实现；发布即 push tag → `Publisher` 空实现；资产由 Go 交叉编译 → `AssetPlanner`；多包共享版本由现有的“多包 + tag-versioned”通用规则拒绝。核心代码没有 `if resolver == "go"`。
 
    `config.Validate` 只做 schema 校验（含 `[[version.file]]` 的路径与 scope 组合）；未知 resolver/registry、shared 与 tag-versioned 冲突等跨生态规则由 `qegg init` / `plan` / `check` 通过 registry 判断。
 
-3. 在 `internal/ecosystem/registry/registry.go` 的 `All()` 里加一行，例如 `npm.New()`；需要的能力查询（`PublishTargetsFor`、`EcosystemForTarget`、`DefaultVerifyCommands`、`VersionSyncerFor` 等）已经在 registry 里。
+3. 在 `internal/ecosystem/registry/registry.go` 的 `All()` 里加一行，例如 `npm.New()`；需要的能力查询（`PublishTargetsFor`、`EcosystemForTarget`、`DefaultVerifyCommands`、`VersionSyncerFor`、`AssetPlannerFor`、`VersionFileCandidates` 等）已经在 registry 里。
 
 4. 在 `internal/ecosystem/testdata/` 加一份 fixture，并在子包内写测试；用 `internal/ecosystem/ecosystemtest` 的 `Fixture` 复制 fixture，避免测试改写仓库里的文件。
 
@@ -122,7 +123,7 @@ key = "version"
 - `version_scope = "package"`（默认）：每个包按自己的变更记录独立 bump、独立 tag、独立 GitHub Release。tag 由 `[git] tag_format` 决定，默认 `{{slug}}-v{{version}}`（如 `core-v1.2.3`）；变更日志按 `<!-- qegg:release core@1.2.3 -->` 分段，标题为 `## core v1.2.3 - 日期`。
 - `version_scope = "shared"`：所有包共用一个版本、一个 tag（沿用 `tag_prefix`），一次发布全部包；没有记录的包也同步版本。要求所有包当前版本一致，但可以跨生态（Tauri 的 Rust crates 与前端共用应用版本）；tag 拼写必须一致，因此带 PEP 440 拼写的 Python 包在预发布时不能与其他生态共享版本。
 
-发布顺序按清单里声明的依赖和 `depends-on` 排序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块与 `[release.assets]` 不支持多包仓库。
+发布顺序按清单里声明的依赖和 `depends-on` 排序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块不支持多包仓库；`[release.assets]` 与 `[[release.build]]` 要求单包仓库或 `shared` scope（一个 GitHub Release 只挂一个版本）。
 
 Python 的预发布沿用仓库里的拼写（`2.0.2-a14`），tag 与 PyPI 使用 PEP 440 形式（`2.0.2a14`），由适配器转换。
 
@@ -139,16 +140,25 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 - `[package]` 里的 `publish = false`，或 `publish = ["..."]` 且不含 `crates-io`，都会被当作不发布；`qegg init` 会把它写进 `[packages.*].publish`。
 - 一个仓库只支持根目录的一个 workspace，嵌套 workspace 不识别。
 
-## 发布资产（Go）
+## 发布资产
 
-Go 适配器还负责发布资产：release 层新增 `internal/release/assets`，在 publish 之前交叉编译 main 包、打包并上传到 GitHub Release。发布资产默认关闭，需要在 `[release.assets]` 里写任意字段或 `enabled = true` 才会启用。
+发布资产在 publish 之前准备，构建失败就不会发布或打 tag。默认关闭，需要在 `[release.assets]` 里写任意字段或 `enabled = true` 才会启用。来源有三种：
 
-- 默认目标：linux/amd64、linux/arm64、darwin/amd64、darwin/arm64、windows/amd64；`CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false`
-- 产物：`<name>_<version>_<os>_<arch>.tar.gz`（Windows 为 `.zip`）与 `checksums.txt`，输出到 `.quailegg/assets/<tag>/`，不进版本库
-- 版本默认通过 `-ldflags -X main.version={{version}}` 注入；占位符只支持 `{{version}}` 与 `{{tag}}`
-- 多个 main 包时自动模式告警并禁用，需要 `[release.assets].main` 指定；库项目不构建
+1. **生态自己构建**：Go 通过 `AssetPlanner` 规划 main 包矩阵，`internal/release/assets` 负责交叉编译、打包与校验和。默认目标 linux/amd64、linux/arm64、darwin/amd64、darwin/arm64、windows/amd64；产物是 `<name>_<version>_<os>_<arch>.tar.gz`（Windows 为 `.zip`）与 `checksums.txt`，输出到 `.quailegg/assets/<tag>/`，不进版本库。多个 main 包时自动模式告警并禁用，需要 `[release.assets].main` 指定；库项目不构建。
+2. **自定义构建**：`commands` 在仓库根目录执行（支持 `{{version}}` / `{{tag}}` 占位符，注入 `QEGG_VERSION`、`QEGG_TAG`），`files` 按仓库相对 glob（`**` 可用）收集产物。写入 `files` 后不再走生态构建；`commands` 必须与 `files` 一起使用。同名产物直接报错。
+3. **CI 预构建**：`qegg release --assets-dir <dir>` 直接收集目录里的文件，不再本地构建。managed 工作流的 `[[release.build]]` 各平台 job 用它把安装包交给 release job 上传。
+
 - `--no-assets` 跳过；GitHub Release 关闭时只构建不上传
 - 上传依赖 `gh`，`--clobber` 保证重跑幂等
+
+## 发布工作流
+
+`qegg init` 生成 `qegg-release.yml`、`qegg-pr.yml`、`qegg-status.yml`。release 工作流的内容由 `[release.workflow]` 和 `[[release.build]]` 决定：
+
+- `[release.workflow]`：`mode`（`managed` / `external`）、`runner`、`timeout_minutes`、`steps`（release job 的前置 shell 步骤）
+- `[[release.build]]`：每平台一个构建 job，`name` / `runner` / `timeout_minutes` / `steps` / `artifacts`；job 固定跑 checkout、setup-go、各生态 setup，再跑自定义步骤并上传 `qegg-assets-<name>`
+- release job `needs` 全部构建 job，下载 artifact 到 `.quailegg/assets/downloaded`，执行 `qegg release --yes --assets-dir ...`
+- `mode = "external"` 时不生成 `qegg-release.yml`，只生成 PR 与 status 工作流；发布工作流由仓库自己维护，仍需调用 `qegg release --yes`
 
 | 配置 | 默认 |
 | --- | --- |
