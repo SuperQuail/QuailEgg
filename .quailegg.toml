@@ -10,7 +10,7 @@ tag_prefix = "v"
 remote = "origin"
 
 [release]
-mode = "commit"
+mode = "pr"
 github_release = true
 commit_message = "chore(release): v{{version}}"
 
