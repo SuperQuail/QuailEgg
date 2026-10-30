@@ -1,84 +1,166 @@
 # 发布资产
 
-发布时可以把构建产物（二进制、安装包等）连同校验和上传到 GitHub Release。
+除了发布软件包，QuailEgg 还可以把二进制文件、安装包等上传到 GitHub Release，并生成 `checksums.txt`。
 
-## 两种来源
+这里的“发布资产”指 Release 附件，与 npm、PyPI 或 crates.io 上的软件包发布分别配置。
 
-- Go 包：qegg 调用生态自带的交叉编译；
-- 其他项目（包括 Tauri）：在 `[release.assets].commands` 里写构建命令，用 `files` 收集产物。
+## 如何选择构建方式
 
-## 启用
+`[release.assets]` 和 `[[release.build]]` 都能为 GitHub Release 准备附件，但构建发生的位置不同：前者让 `qegg release` 在当前机器上构建或收集文件，后者让生成的 GitHub Actions 工作流先启动独立的构建 job，再把产物交给发布进程。
 
-发布资产默认关闭。写入任意字段或 `enabled = true` 即启用：
+| 对比项 | `[release.assets]` | `[[release.build]]` |
+| --- | --- | --- |
+| 配置什么 | 当前发布进程如何构建或收集附件 | 工作流中有哪些独立构建 job |
+| 在哪里运行 | 执行 `qegg release` 的机器，本地或 CI 均可 | 各构建 job 的 runner，可分别使用 Windows、macOS、Linux |
+| 何时运行 | 实际发布阶段，在软件包发布之前 | release job 开始之前 |
+| 如何构建 | Go 交叉编译，或 `commands` 自定义命令 | `steps` 或 `yaml` |
+| 如何选择文件 | `files` 匹配当前机器上的文件；Go 模式自动生成归档 | `artifacts` 指定各 job 上传到 Actions 的文件 |
+| 如何配置多个平台 | Go 使用 `targets` 在当前机器交叉编译 | 重复添加 `[[release.build]]`，为各 job 指定 runner |
+| 本地执行发布时 | 会按资产配置构建或收集 | 不会启动这些 CI job，需要另行准备产物 |
+
+例如，一个不依赖 CGO 的 Go 程序通常可以在 Linux 上一次构建多个平台，使用 `[release.assets]` 即可。Tauri 安装包需要各平台的工具链时，更适合用 `[[release.build]]`，分别在 Windows、macOS 等 runner 上构建。
+
+如果已有流水线负责构建，也可以直接用 `--assets-dir` 提供产物目录，无需让 QuailEgg 再构建一次。
+
+### 两者如何配合
+
+配置 `[[release.build]]` 后，生成的工作流会按下面的顺序执行：
+
+```text
+各构建 job 执行 steps 或 yaml
+    ↓
+按 artifacts 上传文件到 GitHub Actions
+    ↓
+release job 下载所有产物
+    ↓
+qegg release --assets-dir <下载目录>
+    ↓
+收集文件、生成校验和、上传到 GitHub Release
+```
+
+这个流程不要求同时写 `[release.assets]`，也不需要在 `files` 中再次列出 `artifacts`。`artifacts` 用于在 Actions job 之间传递文件，真正的 Release 附件仍由 QuailEgg 上传。
+
+如果同时配置了两者，生成的工作流传入的 `--assets-dir` 会优先使用预构建产物，跳过 `[release.assets].commands`、`files` 和 Go 交叉编译设置。本地不带 `--assets-dir` 运行时，才会按 `[release.assets]` 构建或收集文件。
+
+`[[release.build]]` 只适用于 `managed` 工作流，且不能与 `[release.assets].enabled = false` 同时配置。修改构建 job 后，需要重新运行 `qegg init --force` 才能更新生成的工作流。
+
+## 选择产物来源
+
+| 方式 | 适用情况 | 入口 |
+| --- | --- | --- |
+| Go 交叉编译 | 不依赖 CGO 的 Go 命令行程序 | `[release.assets]` |
+| 自定义构建与收集 | 构建命令可以在 release job 中执行 | `commands` 与 `files` |
+| 上传预构建产物 | 各平台分别构建，或已有构建流水线 | `[[release.build]]` 自动传入，或手动指定 `--assets-dir` |
+
+普通配置默认不启用资产。添加资产字段或设置 `enabled = true` 后启用；显式设置 `enabled = false` 则关闭。`--assets-dir` 可以直接指定预构建产物。
+
+多包仓库使用资产时需要 `version_scope = "shared"`，以便为本次发布确定同一个版本和标签。
+
+## Go 交叉编译
+
+对于只有一个 main 包的 Go 项目，可以先使用默认设置：
 
 ```toml
 [release.assets]
 enabled = true
 ```
 
-## Go 默认行为
+默认构建五个平台：
 
-- 目标平台：`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`、`windows/amd64`
-- 构建参数：`CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false`
-- 版本注入：`-ldflags -X main.version={{version}}`
-- 产物：`<name>_<version>_<os>_<arch>.tar.gz`（Windows 为 `.zip`）与 `checksums.txt`
-- 输出目录：`.quailegg/assets/<tag>/`，不进版本库
+- `linux/amd64`、`linux/arm64`。
+- `darwin/amd64`、`darwin/arm64`。
+- `windows/amd64`。
 
-`cmd/` 下有多个 main 包时，自动模式会告警并禁用资产，需要显式设置 `main`。库项目不会构建。
+构建使用 `CGO_ENABLED=0`、`-trimpath` 和 `-buildvcs=false`，并通过 `-X main.version={{version}}` 注入版本。程序需要定义可写入的 `main.version` 字符串变量，或配置自己的 `ldflags`。
 
-## 自定义构建
+需要指定程序入口或平台时：
 
 ```toml
 [release.assets]
 enabled = true
-commands = [
-  "pnpm -C ui install --frozen-lockfile",
-  "pnpm -C ui build",
-  "cargo tauri build",
-]
-files = [
-  "target/release/bundle/msi/*.msi",
-  "target/release/bundle/nsis/*.exe",
-]
+name = "my-app"
+main = "./cmd/my-app"
+targets = ["linux/amd64", "windows/amd64"]
+ldflags = ["-X main.version={{version}}"]
 ```
 
-- `commands` 在仓库根目录执行，`{{version}}` / `{{tag}}` 会被替换，环境变量里有 `QEGG_VERSION`、`QEGG_TAG`；
-- `files` 是仓库相对 glob，`**` 可跨目录；匹配到的文件复制到 `.quailegg/assets/<tag>/`，同名文件直接报错；
-- 自动生成 `checksums.txt`，上传时排在最后；
-- 写入 `files` 后不再走 Go 交叉编译；`commands` 必须和 `files` 一起使用。
+Unix 平台生成 `.tar.gz`，Windows 生成 `.zip`，文件名包含名称、版本、系统和架构。输出位于 `.quailegg/assets/<tag>/`，不提交到仓库。
 
-## 多平台构建
+如果发现多个 main 包，自动探测会提示并跳过构建，需要显式指定 `main`。库项目没有可执行入口时不会构建资产。
 
-Tauri 这类项目需要各平台自己构建（macOS 的 dmg 只能在 macOS 上打）。用 `[[release.build]]` 让生成的工作流按平台跑：
+## 自定义构建与收集
+
+如果项目有自己的打包命令，可以让 QuailEgg 执行它，再收集生成的文件。下面假设 `npm run package` 会把压缩包写到 `dist/`：
+
+```toml
+[release.assets]
+enabled = true
+commands = ["npm ci", "npm run package"]
+files = ["dist/*.zip", "dist/*.tar.gz"]
+```
+
+`commands` 在仓库根目录运行，支持 `{{version}}`、`{{tag}}` 占位符，并通过 `QEGG_VERSION`、`QEGG_TAG` 提供版本信息。
+
+`files` 是仓库相对 glob，支持跨目录的 `**`。匹配的文件会被复制到资产输出目录，并生成校验和。已经通过其他步骤构建的文件，也可以只配置 `files`，省略 `commands`。
+
+注意两项配置约束：
+
+- 配置 `commands` 时必须同时提供 `files`。
+- `files` 不能与 Go 构建字段 `main`、`targets`、`ldflags` 混用。
+
+## 多平台原生构建
+
+依赖操作系统工具链的应用通常要在各平台分别构建。例如，Rust 二进制可以配置两个 job：
 
 ```toml
 [[release.build]]
 name = "windows"
 runner = "windows-latest"
-steps = ["pnpm -C ui install --frozen-lockfile", "pnpm -C ui build", "cargo tauri build"]
-artifacts = ["target/release/bundle/msi/*.msi"]
+steps = ["cargo build --release --bin my-app"]
+artifacts = ["target/release/my-app.exe"]
 
 [[release.build]]
-name = "macos"
-runner = "macos-latest"
-steps = ["pnpm -C ui install --frozen-lockfile", "pnpm -C ui build", "cargo tauri build"]
-artifacts = ["target/release/bundle/dmg/*.dmg"]
+name = "linux"
+runner = "ubuntu-latest"
+steps = ["cargo build --release --bin my-app"]
+artifacts = ["target/release/my-app"]
 ```
 
-生成的 release job 会下载全部 artifact 到 `.quailegg/assets/downloaded`，然后执行：
+示例假设项目已经登记 Rust 包，且二进制名为 `my-app`。构建 job 使用当前工作流检出的提交；采用 PR 模式时，实际发布发生在版本提交合并之后。
+
+在 `commit` 模式中，这些 job 先于 release job 的版本提升执行。如果产物内嵌版本号，需要自行安排版本注入，或改用版本提升后执行的 `[release.assets].commands`。预构建产物应与最终发布版本一致。
+
+QuailEgg 会把各 job 的产物下载到 release job，再传给 `--assets-dir`。Tauri 等项目可以采用相同方式，但需要补齐前端工具、系统依赖、签名凭证和实际产物路径。
+
+构建 job 的 `yaml` 接管范围与普通前置步骤不同，详细写法见[GitHub Actions](./github-actions#自定义构建-job-的-yaml)。
+
+## 上传已经构建好的目录
+
+已有构建流水线时，可以直接提供产物目录：
 
 ```bash
-qegg release --yes --assets-dir .quailegg/assets/downloaded
+qegg release --yes --assets-dir ./dist
 ```
 
-手写工作流时也可以用同一个参数，把任何已构建好的目录交给 qegg 上传。
+QuailEgg 会收集该目录中的文件，生成校验和，并在发布阶段上传。这个选项替代本地资产构建，但不会跳过版本准备、软件包发布等其他步骤；具体执行阶段仍由当前发布状态决定。
 
-需要 `uses:` 自定义 action 时，把 `steps` 换成 `yaml`（两者互斥），见 [GitHub Actions](github-actions#自定义-actionyaml)。只上传文件：目录（例如 macOS 的 `.app`）下载后会被拆平，应该上传 dmg / msi / deb / AppImage。
+::: warning 输入目录与输出目录分开
+不要把 `.quailegg/assets/<tag>/` 作为输入目录。QuailEgg 会重建这个输出目录，输入产物应放在 `dist/` 等单独位置。
+:::
 
-多包仓库需要 `version_scope = "shared"`：一个 GitHub Release 只能挂一个版本的资产；有 `[[release.build]]` 时也不能把 `[release.assets].enabled` 设为 `false`。
+## 文件名与目录
 
-## 跳过与上传
+收集产物时会按文件名放到同一层级。不同子目录里有同名文件会报错，因此多平台产物应在名字里包含平台信息。
 
-- `qegg release --no-assets` 跳过构建与上传；
-- `github_release = false` 时只构建不上传；
-- 上传依赖 `gh`，使用 `--clobber`，重跑会覆盖同名资产。
+目录本身不会作为一个附件上传。例如，macOS 的 `.app` 是目录，应先打包为 `.zip` 或 `.dmg`；需要保留可执行权限的程序也建议先归档。
+
+生成的 `checksums.txt` 会最后上传。重新上传同名资产时会覆盖已有附件，所以续跑应使用对应版本的产物。
+
+## 跳过构建或上传
+
+- `qegg release --no-assets` 同时跳过资产构建与上传。
+- `github_release = false` 或 `--no-github-release` 跳过上传，但仍可能构建资产。
+- 上传需要可用的 `gh` 和 GitHub 凭证。
+- 使用 `[[release.build]]` 时，不能配置 `[release.assets].enabled = false`。
+
+字段定义见[配置项参考](../reference/config)，中断后的处理见[发布流程](./release-flow#中断后如何继续)。

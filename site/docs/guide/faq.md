@@ -1,79 +1,156 @@
-# 常见问题
+# 问题排查
 
-## init 提示没有远程仓库
+遇到问题时，先区分是本地提交检查、准备版本，还是实际发布失败。下面按常见现象说明检查方法。
 
-`qegg init` 需要仓库已经配置远程，因为仓库身份（`[project] repo`）要写进配置，hook 靠它识别 fork 克隆：
+`qegg check` 用于检查配置和工具，`qegg plan` 用于查看接下来的操作，`qegg status` 用于查看当前发布状态。它们不会替你发布软件包。
+
+## 初始化提示没有远程仓库
+
+运行 `git remote -v`，确认配置的 remote 存在。默认使用 `origin`：
 
 ```bash
-git remote add origin https://github.com/you/project
+git remote add origin https://github.com/you/project.git
 qegg init
 ```
 
-## fork 里提交不会被 hook 拦
+已经有远程时，不要重复添加；检查地址是否正确，或用 `qegg init --remote <name>` 指定其他 remote。
 
-设计如此。记录规则只在项目仓库的默认分支上强制；fork 克隆和普通分支的提交放行，合并前的 PR 检查会要求一条能正常解析的记录。
+初始化需要远程身份来记录 `[project].repo`，本地 hook 据此识别项目克隆和 fork 克隆。
 
-## 发布 PR 上的检查是红的或一直等待批准
+## 找不到 qegg
 
-发布 PR 由 `github-actions[bot]` 用 `GITHUB_TOKEN` 创建，GitHub 不会为这类 PR 正常启动检查，run 可能停在 `action_required` 或直接启动失败。`qegg-pr` 会跳过 release 分支；不要把这条检查设为必需。
-
-## 只改了文档，为什么没有触发发布
-
-release 工作流只在发布相关路径变化时运行（`.changes/**`、配置文件、marker、`CHANGELOG.md` 与生态清单）。只改文档的推送会被跳过，这是预期行为。
-
-## 怎么发 alpha / beta
+先尝试 `qegg version`。如果命令不存在，请检查 Go 的安装目录：
 
 ```bash
-qegg pre alpha     # 写入 .quailegg/pre-release.lock
-git add .quailegg/pre-release.lock
-git commit -m "chore: start alpha"
-git push
-qegg pre exit      # 毕业：下一次发布回到稳定版
+go env GOBIN
+go env GOPATH
 ```
+
+`GOBIN` 非空时，将该目录加入 `PATH`；为空时，使用 `GOPATH` 下的 `bin`。终端可以找到命令，但 Git hook 找不到时，也需要检查提交所用应用的 `PATH`。
 
 ## 提交被 hook 拒绝
 
-两种原因：
+先看错误属于哪一项：
 
-1. 暂存区改动了 `[changes].scope` 内的文件却没有变更记录：用 `qegg commit` 生成一条，或确认改动确实不需要发版后用 `git commit --no-verify`；
-2. 暂存区有 scope 内的改动，且 `[verify].commands` 执行失败：先修复命令再提交。scope 之外的提交（文档、site、CI）不会运行校验命令。
+| 现象 | 检查方法 |
+| --- | --- |
+| 缺少变更记录 | 用 `git diff --cached --name-only` 查看暂存文件是否命中 `[changes].scope`，再为对应改动生成记录 |
+| 记录解析失败 | 检查包名、升级级别和 front matter，运行 `qegg check` |
+| 校验命令失败 | 单独运行 `qegg verify`，修复失败的命令后再提交 |
 
-如果提示找不到 `qegg`，确认 `$(go env GOPATH)/bin` 在 `PATH` 中。
+`qegg commit` 不会替你暂存代码。先暂存代码，再运行它，才能让记录与代码进入同一次提交。
+
+如果改动长期不需要发布，应调整合理的 scope，而不是把跳过 hook 当作日常流程。
+
+## fork 或普通分支上为什么仍会运行校验
+
+普通分支和 fork 克隆只跳过本地的**记录强制检查**。暂存文件命中 scope 时，`[verify].commands` 仍会执行，失败也会阻止提交。
+
+功能 PR 合并前，CI 会按整个 PR 的差异检查记录。详细条件见[变更记录](./change-records#提交前会检查什么)。
+
+## 只改了文档，为什么仍需要记录或运行测试
+
+文档是否需要记录取决于 `[changes].scope`，不是文件扩展名。`scope = []` 表示整个仓库，文档也包含在内。
+
+如果只希望源码改动触发检查，可以设置源码目录。工具管理的配置、工作流和记录另有排除规则。
 
 ## 提示工作区不干净
 
-`qegg release` 要求工作区干净。先提交或暂存改动，或者加 `--allow-dirty`。
+先查看：
 
-## 提示只能在某分支发版
+```bash
+git status --short
+```
 
-发版只能在 `[project].default_branch` 上执行。切到主分支后再运行。
+已经暂存但尚未提交的文件，仍然属于未完成的改动。确认这些改动后提交；如果暂时不需要，可以用 Git stash 保存，再检查工作区状态。
 
-## 清单版本与计划不一致
+`--allow-dirty` 会放宽检查，不会替你保存或隔离改动。正常发布建议从已提交、已确认的版本开始。
 
-计划生成后有人手动改了 `package.json` 等清单里的版本。重新运行 `qegg plan`。
+## 提示只能在指定分支发布
 
-## CI 无法创建发布 PR
+检查 `[project].default_branch` 与当前分支是否一致。PR 模式和 CI 的版本准备阶段会检查这个条件。
 
-在 Settings → Actions → General 中勾选允许 GitHub Actions 创建和批准 PR，或在本地以 pr 模式运行 `qegg release`。
+本地 `commit` 模式的行为与 CI 不完全相同，因此不要依赖本地演练结果判断 CI 是否允许从某个分支发布。
+
+## 清单版本或额外版本文件不一致
+
+先用 `qegg check` 查看具体文件，再检查是否有人手动修改了清单、额外 JSON 版本或发布标记。
+
+共享版本要求所有登记包的当前版本一致。`qegg plan` 可以重新展示计划，但不会自动修复文件中的版本差异。
+
+如果是发布 PR 中生成内容有误，应修正主分支上的来源配置或记录，再让流程重新准备发布 PR。不要通过手改标签来绕过不一致。
+
+## 合并功能 PR 后没有创建发布 PR
+
+依次检查：
+
+1. 主分支是否已经包含生成的发布工作流。
+2. 这次推送是否命中了工作流的发布路径。
+3. 是否有真正参与版本提升的记录。
+4. Actions 是否允许创建 PR，工作流日志是否有权限或工具错误。
+
+只有 `release: false` 的记录不会产生新版本。只有普通文档变化时，也可能不命中发布路径。
+
+## 发布 PR 被必需检查阻止
+
+生成的 PR 检查会跳过发布分支。请检查分支保护是否要求发布 PR 等待这项检查，并结合工作流日志确定实际失败原因。
+
+发布 PR 的版本准备会执行配置的校验；它合并后才进入实际发布阶段。具体行为见[GitHub Actions](./github-actions#发布-pr-的检查)。
 
 ## 发布卡在 push
 
-分支保护不允许 `GITHUB_TOKEN` 推送。调整保护规则，或在本地运行 `qegg release --yes`。
+查看日志中的失败目标是分支还是标签，再检查凭证权限、远程地址和仓库保护规则。
+
+`commit` 模式需要推送版本提交和标签；PR 模式需要推送发布分支和标签。更换运行位置本身不会解决权限问题，应先修复权限或流程配置，再继续发布。
+
+## 发布中断后该重新运行什么
+
+修复失败原因后，先看状态，再续跑：
+
+```bash
+qegg status
+qegg resume
+```
+
+`resume` 根据当前状态重新规划，不会自动恢复上次的命令行选项。使用预构建产物时，需要再次提供目录：
+
+```bash
+qegg resume --assets-dir ./dist
+```
+
+如果从新的 CI runner 继续，需要检出正确的发布提交，并重新准备构建产物和凭证。详见[中断后如何继续](./release-flow#中断后如何继续)。
+
+## 退出预发布后，CI 为什么还在发布 alpha
+
+`qegg pre exit` 只修改本地渠道状态。请确认已经提交并推送 `.quailegg/pre-release.lock` 的删除，而不只是执行了本地命令。
+
+完整操作见[预发布](./prereleases#发布稳定版)。
 
 ## Go 大版本升级报错
 
-v2 及以上需要 `/vN` module 路径。先修改 `go.mod` 与 import，再发版。
+v2 及以上需要在 module 路径中使用 `/vN`。先调整 `go.mod`、相关 import 和登记的包名，再用 `qegg plan` 检查。QuailEgg 不会自动改写这些引用。
 
-## `qegg status` 显示未发布
+## status 显示未发布或未知
 
-Go 模块代理在 push tag 后首次 `go get` 时才会缓存版本，这与 tag 是否存在无关。
-
-## 切换界面语言
+`qegg status` 的标签状态来自本地仓库，registry 状态来自网络查询。先确认已经获取标签，并检查查询是否可用：
 
 ```bash
-qegg lang zh      # 保存到用户配置
-qegg --lang en plan
-QEGG_LANG=zh qegg plan
+git fetch --tags
+qegg status
+qegg status --offline
 ```
 
-优先级依次是 `--lang`、`QEGG_LANG`、用户配置，默认英文。
+`--offline` 不查询 registry，因此对应结果可能是未知。网络失败也可能导致未知。
+
+对于 Go，模块代理尚未缓存某个版本时，registry 查询可能显示不存在；这不等于远程 Git 标签不存在，需要分别检查。
+
+## 切换界面与更新日志语言
+
+```bash
+qegg lang zh
+qegg --lang en plan
+```
+
+语言优先级是 `--lang`、`QEGG_LANG`、用户配置，默认英文。语言设置属于当前用户，不保存在项目配置中。
+
+更新日志的分组标题也使用运行时语言。希望 CI 生成英文标题时，可在工作流中固定 `QEGG_LANG=en`；变更记录正文仍按原文写入。

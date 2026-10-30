@@ -1,92 +1,126 @@
 # 发布流程
 
+QuailEgg 将一次发布分成“准备版本”和“发布”两个阶段。理解这个区别后，你就能判断一次运行为什么只创建了 PR，以及中断后应该继续哪一步。
+
 ## 两个阶段
 
-一次发布分成两个阶段：
+**准备版本**会执行校验、更新包版本和更新日志，再创建版本提交。提交中包含 `.quailegg/release.json`，记录接下来要发布的内容。
 
-1. 提升版本：校验、写回版本号、更新 CHANGELOG、提交，并写入发布标记 `.quailegg/release.json`。
-2. 发布：构建资产（如有）、发布到 registry、打 tag、推送、创建 GitHub Release。
+**发布**会读取标记，构建发布资产、发布软件包、创建并推送标签，最后创建 GitHub Release。
 
-`qegg plan` 会告诉你当前处于哪个阶段，以及接下来要执行的步骤。
+`qegg plan` 会根据当前仓库状态显示所处阶段和接下来的步骤。没有待发布变化时，不会创建新版本。
 
-## pr 模式（默认）
+## 发布 PR 模式
+
+默认的 `pr` 模式将两个阶段放在两次运行中：
 
 ```text
-合并功能 PR ──► qegg release ──► 发布 PR（版本 + CHANGELOG + 标记）
-                                    │
-                               人工评审、合并
-                                    ▼
-                              qegg release ──► publish / tag / push / Release
+合并功能 PR
+    │
+    ▼
+准备版本，创建或更新发布 PR
+    │
+    ▼
+检查版本号与更新日志，合并发布 PR
+    │
+    ▼
+发布软件包、推送标签、创建 GitHub Release
 ```
 
-第一次运行只完成"提升版本"，结果以 PR 的形式推到 `[release].branch`（默认 `release`）。
+第一次运行会从主分支创建或重建发布分支，把版本提交推送到该分支，再创建发布 PR。分支名由 `[release].branch` 指定，默认为 `release`。
 
-release 分支是生成物：每次有改动推送到主分支，CI 都从最新提交重建它并强推，所以发布 PR 始终包含当时**所有**待发记录，多个功能 PR 共用同一个版本，PR 号不变、正文原地刷新。发布 PR 合并后，主分支上出现发布标记，下一次运行进入"发布"阶段。
+后续有发布相关改动合并到主分支时，工作流会重新汇总所有待发布记录，刷新同一个发布 PR。因此，多个功能 PR 可以进入同一个版本。
 
-适合需要人工把关版本号和 changelog 的项目。
+::: tip 发布分支由 QuailEgg 管理
+每次准备版本都会重建并强制推送发布分支。请在功能分支修改代码和记录，避免把手工修改直接提交到发布分支。
+:::
 
-## commit 模式
+发布 PR 合并后，主分支上的发布标记会让下一次运行进入发布阶段。使用生成的 GitHub Actions 工作流时，这两次运行会自动触发。
+
+## 直接提交模式
 
 ```toml
 [release]
 mode = "commit"
 ```
 
-一次运行完成全部步骤：校验、提升版本、更新 CHANGELOG、提交、发布、打 tag、推送、创建 Release。没有人工评审环节，qegg 会对此给出提醒。
+`commit` 模式会在一次运行中完成两个阶段：准备版本后立即发布，不再等待发布 PR 的评审。
 
-## 步骤与安全检查
+它适合已经通过其他方式确认发布内容的项目。使用前，先运行 `qegg plan` 检查版本和记录，并确认工作流有推送版本提交的权限。
 
-| 步骤 | 说明 |
-| --- | --- |
-| preflight | 检查分支、工作区是否干净、包与清单版本是否与计划一致 |
-| verify | 执行 `[verify].commands` |
-| bump | 写回各包清单的版本号 |
-| changelog | 更新 `CHANGELOG.md` 并消费变更记录 |
-| commit | 按 `commit_message` 提交 |
-| assets | 构建发布资产（仅在启用时） |
-| publish | 发布到 registry，版本已存在则跳过 |
-| tag | 创建 tag，已存在且指向 HEAD 则跳过 |
-| push | 推送分支与 tag |
-| github-release | 创建 GitHub Release，已存在则跳过 |
+## 执行顺序
 
-资产在 publish 之前构建，构建失败就不会发布或打 tag。来源有三种：Go 生态交叉编译、`[release.assets].commands` + `files` 收集，或者 CI 里各平台 job 构建后通过 `--assets-dir` 交给 qegg 上传。
+| 阶段 | 步骤 | 作用 |
+| --- | --- | --- |
+| 准备版本 | preflight | 检查工作区和适用的分支条件 |
+| 准备版本 | verify | 执行 `[verify].commands` |
+| 准备版本 | bump | 更新包清单及额外版本文件，检查版本与计划是否一致 |
+| 准备版本 | changelog | 稳定版更新 `CHANGELOG.md`，删除已收录的记录 |
+| 准备版本 | commit | 提交版本变化和发布标记 |
+| 发布 | preflight | 检查发布标记与计划是否一致 |
+| 发布 | assets | 构建或收集发布资产，未启用时跳过 |
+| 发布 | publish | 构建并发布软件包，目标版本已存在时跳过 |
+| 发布 | tag | 创建标签；同名标签存在时检查其指向 |
+| 发布 | push | 推送标签；`commit` 模式同时推送分支 |
+| 发布 | github-release | 创建 GitHub Release 并上传资产 |
 
-## 预发布（alpha / beta / rc）
+PR 模式还会准备发布分支、创建 PR，并在发布后同步仍然存在的发布分支。这些步骤由 QuailEgg 处理。
 
-预发布用 `qegg pre` 开启，渠道状态写入要提交的 `.quailegg/pre-release.lock`：
+发布资产在软件包发布前构建。预发布会保留变更记录，也不会改写更新日志，详见[预发布](./prereleases)。
+
+## 在本地预览和演练
+
+只想查看计划时，使用：
 
 ```bash
-qegg pre alpha
-git add .quailegg/pre-release.lock
-git commit -m "chore: start alpha releases"
-git push
+qegg plan
+qegg release --dry-run
 ```
 
-- 版本 = 最后一个稳定版本按记录算出目标，再加 `-<channel>.<n>`；
-- 同一渠道连续发布时 `n` 递增，目标基线变大时从 1 重新开始；
-- 预发布**不消费变更记录、也不写 `CHANGELOG.md`**，记录留到稳定版一起发布；
-- `qegg pre exit` 之后的下一次发布是同一基线的稳定版（`0.5.0-alpha.2` → `0.5.0`），会一次性写 CHANGELOG 并消费记录；
-- GitHub Release 标记为 Pre-release 且不会成为 Latest；npm 发布到同名 dist-tag（`alpha`/`beta`/`rc`），不会覆盖 `latest`；Python 保留 `2.0.2-a14` 的写法，tag 与 PyPI 用 `2.0.2a14`。
+这两个命令都不会执行发布。
 
-## 本地调试发布
-
-以下参数可以组合，用来在本地演练：
+如果需要实际运行版本更新、构建和标签步骤，建议在临时克隆中使用 `commit` 模式，并运行：
 
 ```bash
-qegg release --dry-run                                   # 只打印计划
-qegg release --no-publish --no-push --no-github-release  # 只在本地提交与打 tag
-qegg release --skip-verify --allow-dirty                 # 跳过校验、允许脏工作区
-qegg release --assets-dir ./dist                         # 上传已构建好的目录，不再本地构建
+qegg release --yes --no-publish --no-push --no-github-release
 ```
 
-## 中断与续跑
+这会修改本地文件、创建提交和标签，只是跳过软件包发布、推送与 GitHub Release。若也不需要构建资产，再加 `--no-assets`。
 
-每次运行的状态保存在 `.quailegg/state/`（不进版本库）。网络抖动、凭证过期导致发布中断后：
+::: warning 参数会改变执行范围
+`--no-push` 只控制推送，不会自动禁止软件包发布。`--allow-dirty` 和 `--skip-verify` 分别放宽工作区检查与校验命令，不是预览选项。
+:::
+
+PR 模式的第一次运行仍然以准备发布 PR 为目标，因此本地演练时需要明确区分模式。各参数的含义见[命令行参考](../reference/cli#qegg-release)。
+
+## 中断后如何继续
+
+先修复失败原因，例如恢复网络、补充凭证或修复构建命令，再运行：
 
 ```bash
+qegg status
 qegg resume
 ```
 
-qegg 会读取最近一次运行，跳过已完成的步骤继续执行。由于 publish、tag、Release 都会先检查目标是否已存在，重复执行是安全的。
+`resume` 会展示最近一次本地运行的信息，然后根据**当前仓库、发布标记和发布目标的状态**重新生成计划并执行。它不依赖历史记录逐项跳过步骤。
 
-`qegg status` 可以查看当前版本、tag 与 registry 上的发布情况，`--offline` 跳过 registry 查询。
+已经存在的软件包版本会跳过发布；已存在的标签会检查指向；已创建的 GitHub Release 会保留，资产可以重新上传。自定义构建命令也可能再次执行，因此应能重复运行。
+
+续跑时，请重新提供仍然需要的选项。例如，之前上传的是预构建产物：
+
+```bash
+qegg resume --assets-dir ./dist
+```
+
+本地运行记录位于 `.quailegg/state/`，不会提交到仓库。在新的 CI runner 上，应先检出对应的发布提交，再根据仓库状态继续执行，而不是依赖另一个 runner 的本地记录。
+
+## 确认发布结果
+
+`qegg status` 会显示版本、标签、待发布记录和 registry 查询结果：
+
+```bash
+qegg status
+qegg status --offline
+```
+
+`--offline` 跳过 registry 查询，适合网络不可用时检查本地状态。更多诊断方法见[问题排查](./faq)。

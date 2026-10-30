@@ -1,28 +1,54 @@
 # 简介
 
-QuailEgg（命令名 `qegg`）是一个自动发版工具。改动合并到主分支后，它汇总 `.changes/` 里的变更记录，计算下一个版本号，更新 `CHANGELOG.md`，发布软件包，并创建 Git Tag 与 GitHub Release。
+QuailEgg（命令名 `qegg`）是一个由变更记录驱动的自动发布工具。你在提交改动时写下“这次改了什么、应该提升哪个版本”，QuailEgg 会在发布时汇总这些记录，更新版本号和更新日志，再发布软件包、推送 Git 标签并创建 GitHub Release。
 
-## 它解决什么问题
+它支持 npm、PyPI、crates.io 和 Go 模块，也可以为应用上传二进制文件和安装包。
 
-手动发版通常要记住一串步骤：改版本号、整理 changelog、打 tag、推送、发 registry、写 Release 说明。任何一步漏掉或失败都会留下不一致的状态。
+## 从一条记录开始
 
-QuailEgg 把"这次改了什么、该升哪一级"前移到写代码的时候：
+假设你的包当前是 `1.2.3`，这次为缓存增加了过期时间配置。你可以为它写一条记录：
 
-- 每个改动附一条 Markdown 记录，写清类型、影响的包和升级级别；
-- 发版时，qegg 根据所有待发记录算出版本，生成 changelog，按固定顺序执行发布；
-- 每一步的结果都持久化，失败后可以安全续跑。
+```markdown title=".changes/cache-expiry.md"
+---
+type: feat
+scope: cache
+packages:
+  my-package: minor
+---
 
-如果你用过 [Changesets](https://github.com/changesets/changesets)，会觉得很熟悉。区别在于 QuailEgg 不局限于 JavaScript，同一套流程覆盖 npm、PyPI、crates.io 与 Go module。
+Allow users to configure cache expiration.
+```
 
-## 核心概念
+这里的 `minor` 表示这是一项向后兼容的新功能。运行 `qegg plan` 后，你会看到下一个版本是 `1.3.0`；记录正文会成为更新日志中的一条说明。
 
-- 变更记录：`.changes/` 下的一个 Markdown 文件，描述一次改动。详见 [变更记录](./change-records)。
-- 发布计划：qegg 从待发记录推导出的版本变化与步骤清单，可以用 `qegg plan` 随时预览。
-- 发布标记：`.quailegg/release.json`，记录"已经提升版本、等待发布"的版本，用来衔接 pr 模式的两个阶段。
-- 发布方式：`pr`（默认）先开发布 PR，合并后再发布；`commit` 直接提交版本并发布。详见 [发布流程](./release-flow)。
-- 预发布：`qegg pre alpha|beta|rc|exit` 在稳定版之前发 alpha/beta/rc，渠道状态写在提交进仓库的 `.quailegg/pre-release.lock`。
+你也可以用 `qegg commit` 生成记录，暂时不需要记住所有字段。后面的[变更记录](./change-records)会介绍它们的具体用途。
 
-## 下一步
+## 一次发布是怎样完成的
 
-- 想马上用起来，看 [快速上手](./quick-start)。
-- 想了解每个命令与参数，看 [命令行参考](../reference/cli)。
+默认情况下，QuailEgg 使用发布 PR 来准备新版本：
+
+1. 你在功能 PR 中提交代码和变更记录。
+2. 功能 PR 合并后，工作流汇总待发布记录，创建或更新发布 PR。
+3. 你检查版本号和更新日志，合并发布 PR。
+4. 工作流发布软件包，推送标签并创建 GitHub Release。
+
+因此，功能 PR 合并后并不会立即发布软件包。发布 PR 为你保留了一次检查发布内容的机会。如果项目希望直接发布，也可以选择 `commit` 模式。两种方式的区别见[发布流程](./release-flow)。
+
+## 你会遇到的几个概念
+
+| 概念 | 含义 |
+| --- | --- |
+| 变更记录 | 默认放在 `.changes/` 下，描述改动及其版本升级级别 |
+| 发布计划 | 根据待发布记录计算的版本、受影响的包和执行步骤，用 `qegg plan` 查看 |
+| 发布标记 | 提交到仓库的 `.quailegg/release.json`，记录已准备好、等待发布的版本 |
+| 运行记录 | 保存在本地 `.quailegg/state/`，用于查看执行过程，不提交到仓库 |
+| 预发布渠道 | 在稳定版之前发布 `alpha`、`beta` 或 `rc` 版本 |
+
+发布标记让准备版本和实际发布可以在两次工作流中完成。发生中断时，QuailEgg 会根据仓库和发布目标的状态重新判断接下来要做什么。
+
+## 选择接下来的阅读路径
+
+- **第一次使用**：从[快速上手](./quick-start)开始，为一个已有项目接入发布流程。
+- **想了解日常用法**：继续阅读[变更记录](./change-records)和[发布流程](./release-flow)。
+- **维护多个包或应用**：查看[多包仓库](./monorepos)、[多语言生态](./ecosystems)和[发布资产](./assets)。
+- **查找具体选项**：直接使用[命令行参考](../reference/cli)和[配置项参考](../reference/config)。

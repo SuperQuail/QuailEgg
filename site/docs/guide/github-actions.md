@@ -1,121 +1,167 @@
 # GitHub Actions
 
-`qegg init` 默认生成三个工作流，都安装与生成时相同版本的 qegg。
+`qegg init` 可以生成 GitHub Actions 工作流，让检查和发布随 PR 合并自动进行。本页先介绍默认流程，再说明如何添加项目自己的安装、构建和发布设置。
 
-| 工作流 | 触发 | 作用 |
+## 默认生成的工作流
+
+| 工作流 | 触发方式 | 用途 |
 | --- | --- | --- |
-| `qegg-pr.yml` | 向主分支发起 PR（release 分支除外） | `qegg check --ci` 检查记录是否缺失，并把发布计划评论到 PR |
-| `qegg-release.yml` | 推送到主分支（仅发布相关路径变化时）、手动触发 | `qegg release --yes` |
-| `qegg-status.yml` | 手动触发 | `qegg status --json` |
+| `qegg-pr.yml` | 向主分支发起或更新功能 PR | 检查变更记录，并评论发布计划 |
+| `qegg-release.yml` | 主分支上的发布相关路径发生变化，或手动触发 | 运行 `qegg release --yes` |
+| `qegg-status.yml` | 手动触发 | 输出 `qegg status --json` |
 
-## 触发路径
+默认 PR 模式会先创建发布 PR，合并后再发布。流程见[发布流程](./release-flow)。
 
-release 工作流只在下列路径变化时运行：`.changes/**`、`.quailegg.toml`、`.quailegg/pre-release.lock`、`.quailegg/release.json`、`CHANGELOG.md`，以及各生态清单（`package.json`、`pyproject.toml`、`Cargo.toml`、`go.mod`）。只改文档的推送不会重建发布 PR。
+如果不需要状态查询工作流，初始化时加 `--no-status-workflow`；完全不生成工作流则使用 `--no-workflows`。
 
-## 发布 PR
+## 首次接入需要做什么
 
-- pr 模式每次推送主分支都会重建 `release` 分支并强推，同一个发布 PR 被原地刷新，多个功能合并共用一个版本；
-- 发布 PR 由 `github-actions[bot]` 用 `GITHUB_TOKEN` 创建，GitHub 不会为它正常启动检查：PR 上可能出现 `action_required`，或一个 0 job 的启动失败 run。`qegg-pr` 会跳过 release 分支（`if: github.head_ref != 'release'`），不要把这条检查设为必需；验证由发布阶段那次 run 负责。
+将生成的配置和工作流提交到主分支，然后完成以下设置：
 
-不需要 status 工作流时用 `--no-status-workflow`，完全不生成工作流用 `--no-workflows`。
+1. 在仓库的 **Settings → Secrets and variables → Actions** 中添加发布凭证。
+2. 使用 PR 模式时，在 **Settings → Actions → General → Workflow permissions** 中允许 Actions 创建 PR。
+3. 检查分支保护是否允许所选发布模式完成推送和合并。
+4. 如果校验依赖已经安装的依赖包，为 release job 添加安装步骤。
 
-## 自定义发布工作流
+### 发布凭证
 
-生成的 `qegg-release.yml` 默认在 `ubuntu-latest` 上跑一个 release job。`[release.workflow]` 可以换 runner、超时和 release job 的前置步骤：
+| 发布目标 | 仓库 Secret | 传入发布进程的变量 |
+| --- | --- | --- |
+| npm | `NPM_TOKEN` | `NODE_AUTH_TOKEN` |
+| PyPI（uv） | `UV_PUBLISH_TOKEN` | `UV_PUBLISH_TOKEN` |
+| crates.io | `CARGO_REGISTRY_TOKEN` | `CARGO_REGISTRY_TOKEN` |
+| Go 模块 | 不需要 registry 凭证 | 通过 Git 标签发布 |
+
+GitHub PR 与 Release 使用 Actions 自动提供的 `GITHUB_TOKEN`。生成的发布工作流声明了写入仓库内容和 PR 的权限，但组织策略与分支保护仍可能限制具体操作。
+
+设置了 `[release].environment` 时，release job 会使用对应的 GitHub Actions environment。请确认凭证位于该 job 可以访问的位置。
+
+### 安装项目依赖
+
+生成的工作流会安装 Go、QuailEgg 和所需生态的工具链，但不会替你完成所有项目依赖安装。例如，校验命令使用 `npm test` 时，可以配置：
+
+```toml
+[release.workflow]
+steps = ["npm ci"]
+```
+
+这里假设项目已经提交 `package-lock.json`。pnpm、Python 或其他项目应换成自己的安装命令，并准备相应工具。
+
+## 哪些改动会触发发布
+
+生成的发布工作流会监听：
+
+- 变更记录目录，默认是 `.changes/**`。
+- `.quailegg.toml`、预发布渠道锁文件和发布标记。
+- `CHANGELOG.md`。
+- 已登记包对应的清单路径。
+
+因此，只有文档变化、又没有改动这些路径时，不会启动发布。修改包路径、记录目录等配置后，需要重新生成工作流，才能更新路径过滤规则。
+
+工作流还会跳过 `github-actions[bot]` 发起的运行，避免生成的版本提交循环触发。
+
+## 发布 PR 的检查
+
+发布 PR 由自动化账号创建，并由 QuailEgg 管理。生成的 `qegg-pr` 检查会跳过配置的发布分支；请不要要求这个发布 PR 等待一项被跳过的检查。
+
+功能 PR 的记录检查发生在合并前。发布 PR 中的版本变化会在准备版本时经过配置的校验；合并后，发布阶段继续检查标记和发布状态。
+
+如果发布 PR 被仓库的必需检查或审批规则阻止，请查看具体规则和 workflow 日志。不要仅凭一项缺失的检查判断软件包已经发布。
+
+## 定制 release job
+
+`[release.workflow]` 可以修改 runner、超时和 `qegg release` 之前的步骤：
 
 ```toml
 [release.workflow]
 runner = "ubuntu-latest"
 timeout_minutes = 60
-steps = ["pnpm -C ui install --frozen-lockfile"]
+steps = ["npm ci"]
 ```
 
-`[[release.build]]` 增加按平台的构建 job（见 [发布资产](assets)）：每个 job 跑 checkout、setup-go、各生态 setup 和你的 `steps`，再把 `artifacts` 上传；release job 下载全部产物后执行 `qegg release --yes --assets-dir .quailegg/assets/downloaded`。
+需要调用 action 时，用 `yaml` 代替 `steps`：
+
+```toml
+[release.workflow]
+yaml = """
+- name: Install dependencies
+  run: npm ci
+"""
+```
+
+这里的 `yaml` 只替换**自定义前置步骤**。release job 中内置的 checkout、工具链安装、QuailEgg 安装和最终发布步骤仍会保留。
+
+`steps` 与 `yaml` 不能同时设置。shell 步骤的变量可以写在 `env` 中；使用 `yaml` 时，把 `env:` 写进 YAML 步骤。
+
+## 多平台构建 job
+
+`[release.assets]` 配置的是 `qegg release` 在当前机器上的资产构建与收集；`[[release.build]]` 配置的是发布之前独立运行的 CI job。只有后者可以为各 job 分别选择 runner。如何选择与同时配置时的优先级，见[发布资产](./assets#如何选择构建方式)。
+
+需要在各个平台原生构建的程序，可以用 `[[release.build]]` 增加构建 job。下面假设 Rust 项目有一个名为 `my-app` 的二进制：
 
 ```toml
 [[release.build]]
 name = "windows"
 runner = "windows-latest"
-steps = ["pnpm -C ui build", "cargo tauri build"]
-artifacts = ["target/release/bundle/msi/*.msi"]
+steps = ["cargo build --release --bin my-app"]
+artifacts = ["target/release/my-app.exe"]
 ```
 
-### 自定义 action（`yaml`）
+shell 模式下，QuailEgg 会添加 checkout、setup-go 和项目生态的 setup，然后执行 `steps` 并上传匹配的文件。
 
-需要 `uses:`（`pnpm/action-setup`、固定 rust 版本、`tauri-action` 等）时，用 `yaml` 代替 `steps`，两者互斥。`yaml` 模式完全接管 steps：qegg 不再自动加 checkout / setup-go / 生态 setup，只保留 artifact 上传，所以 `checkout` 和工具链要自己写。
+release job 会等待构建完成，下载全部产物，再执行：
+
+```bash
+qegg release --yes --assets-dir .quailegg/assets/downloaded
+```
+
+因此，只使用 `[[release.build]]` 就可以把产物交给 QuailEgg 上传，不必再配置 `[release.assets].commands` 或 `files`。传入 `--assets-dir` 时，也不会再次执行这两项配置。
+
+产物收集、文件命名和共享版本要求见[发布资产](./assets)。
+
+### 自定义构建 job 的 YAML
+
+与 release job 的前置步骤不同，`[[release.build]].yaml` 会接管该构建 job 的全部自定义步骤。你需要自行写 checkout、工具链和构建；QuailEgg 只补上 artifact 上传。
 
 ```toml
 [[release.build]]
-name = "macos-arm"
-runner = "macos-latest"
-timeout_minutes = 60
+name = "linux"
+runner = "ubuntu-latest"
 yaml = """
 - uses: actions/checkout@v4
   with: { fetch-depth: 0 }
-- uses: pnpm/action-setup@v4
-  with: { version: 11 }
-- uses: actions/setup-node@v4
-  with: { node-version: 22, cache: pnpm, cache-dependency-path: ui/pnpm-lock.yaml }
-- uses: dtolnay/rust-toolchain@master
-  with: { toolchain: "1.94.0", targets: aarch64-apple-darwin }
-- run: pnpm --dir ui install --frozen-lockfile
-- run: pnpm --dir ui build
-- run: pnpm --dir ui tauri build --target aarch64-apple-darwin
+- uses: dtolnay/rust-toolchain@stable
+- run: cargo build --release --bin my-app
 """
-artifacts = ["target/release/bundle/**/*"]
+artifacts = ["target/release/my-app"]
 ```
 
-shell `steps` 需要环境变量时用 `env`（`yaml` 模式请在块内写 `env:`）：
+每个构建 job 必须指定 `steps` 或 `yaml` 之一，并提供 `artifacts`。只要使用了 `[[release.build]]`，就不能显式关闭发布资产。
 
-```toml
-[[release.build]]
-name = "windows"
-runner = "windows-latest"
-env = { TAURI_SIGNING_PRIVATE_KEY = "${{ secrets.TAURI_KEY }}" }
-steps = ["pnpm -C ui tauri build"]
-artifacts = ["target/release/bundle/msi/*.msi"]
-```
+## 自行维护发布工作流
 
-`tauri-action` 默认会自己创建 GitHub Release 并上传安装包，会和 qegg 的 tag + Release 步骤重复。managed 模式建议只用 `tauri build` 构建、产物交给 qegg；要让 `tauri-action` 自己发 Release，就用下面的 `external` 模式。
-
-## 外部工作流
-
-不想让 qegg 生成发布工作流时：
+已有发布流水线的项目可以设置：
 
 ```toml
 [release.workflow]
 mode = "external"
 ```
 
-`qegg init` 只生成 PR 与 status 工作流，`qegg-release.yml` 由仓库自己维护；发版时调用 `qegg release --yes`（多平台产物用 `--assets-dir` 交给 qegg 上传）。
+之后 `qegg init` 不再生成发布工作流，仍可生成 PR 和状态查询工作流。已经存在的发布工作流不会被自动删除，需要自行检查并接管。
 
-## 生态与凭证
+外部工作流负责检出代码、安装工具、准备依赖和凭证，再调用 `qegg release --yes`。预构建产物通过 `--assets-dir` 传入。`[[release.build]]` 只用于 `managed` 模式。
 
-工作流只包含项目实际使用的生态：优先看 `[publish].registries`，其次看各包的 `resolver`。只发 npm 的项目不会出现 Python 的步骤与凭证。
+如果使用其他 action 构建安装包，应明确由谁管理标签和 GitHub Release，避免两个发布流程重复创建同一个版本。
 
-在仓库 Settings → Secrets 中添加对应 Secret：
+## 重新生成与升级
 
-| 生态 | Secret |
-| --- | --- |
-| npm | `NPM_TOKEN` |
-| Python | `UV_PUBLISH_TOKEN` |
-| Rust | `CARGO_REGISTRY_TOKEN` |
-| Go | 无需凭证 |
-
-`GITHUB_TOKEN` 由 Actions 自动提供。
-
-## 仓库设置
-
-- pr 模式需要在 Settings → Actions → General 中允许 GitHub Actions 创建 PR；
-- 分支保护规则需要允许 `GITHUB_TOKEN` 推送到主分支，否则发布会卡在 push 步骤；
-- 发布工作流跳过 `github-actions[bot]` 自己的推送，避免循环触发。
-
-## 固定 qegg 版本
-
-生成的工作流固定使用某个已发布版本，例如 `go install ...@v0.2.0`。升级时重新生成：
+修改工作流相关配置后，先查看预期差异：
 
 ```bash
-qegg init --force --qegg-version v0.3.0
+qegg init --dry-run --force
+qegg init --force
 ```
 
-版本落后是安全的，只是工具链滞后。
+生成的工作流通常固定使用生成时的已发布 QuailEgg 版本。升级本地工具后，可以重新生成，或用 `--qegg-version` 指定一个已发布版本。
+
+请检查并提交生成文件的差异。如果使用开发构建或显式指定 `latest`，生成的安装命令可能不固定版本；运行初始化时会提示这一点。

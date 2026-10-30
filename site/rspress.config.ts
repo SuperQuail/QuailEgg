@@ -38,12 +38,24 @@ export default defineConfig({
           ],
         },
         {
-          text: '深入',
+          text: '自动化',
           items: [
             { text: 'GitHub Actions', link: '/guide/github-actions' },
+          ],
+        },
+        {
+          text: '进阶',
+          items: [
+            { text: '预发布', link: '/guide/prereleases' },
+            { text: '多包仓库', link: '/guide/monorepos' },
             { text: '多语言生态', link: '/guide/ecosystems' },
             { text: '发布资产', link: '/guide/assets' },
-            { text: '常见问题', link: '/guide/faq' },
+          ],
+        },
+        {
+          text: '帮助',
+          items: [
+            { text: '问题排查', link: '/guide/faq' },
           ],
         },
       ],
