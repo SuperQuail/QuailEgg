@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -47,8 +46,6 @@ type pyProject struct {
 		} `toml:"uv"`
 	} `toml:"tool"`
 }
-
-var releaseVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func (d driver) Detect(root string) ([]ecosystem.Package, error) {
 	rootManifest := filepath.Join(root, "pyproject.toml")
@@ -145,8 +142,8 @@ func toPackage(root, dir string, doc *pyProject) (ecosystem.Package, bool, error
 	if version == "" {
 		return ecosystem.Package{}, false, fmt.Errorf("%s: cannot determine package version", path)
 	}
-	if !releaseVersion.MatchString(version) {
-		return ecosystem.Package{}, false, fmt.Errorf("%s: version %q is not X.Y.Z (PEP 440 pre-release versions are not supported in v0.1)", path, version)
+	if _, _, _, _, ok := parsePythonVersion(version); !ok {
+		return ecosystem.Package{}, false, fmt.Errorf("%s: version %q is not X.Y.Z or a PEP 440 prerelease", path, version)
 	}
 	deps := []string{}
 	if doc.Project != nil {

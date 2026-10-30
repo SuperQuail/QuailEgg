@@ -123,7 +123,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		}
 	}
 
-	tag := semver.Tag(d.Cfg.Git.TagPrefix, target.Version)
+	tag := tagName(d.Cfg, target.Resolver, target.Version)
 	tagExists, err := d.Git.TagExists(ctx, tag)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	markerTag := ""
 	markerTagExists := false
 	if relMarker != nil && relMarker.Version != "" {
-		markerTag = semver.Tag(d.Cfg.Git.TagPrefix, relMarker.Version)
+		markerTag = tagName(d.Cfg, target.Resolver, relMarker.Version)
 		markerTagExists, err = d.Git.TagExists(ctx, markerTag)
 		if err != nil {
 			return nil, err
@@ -144,6 +144,16 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	pre, err := state.LoadPreRelease(d.Root)
 	if err != nil {
 		return nil, err
+	}
+	if pre != nil && pre.Version != "" {
+		if _, channel, _, ok := registry.SplitPrereleaseVersion(target.Resolver, pre.Version); !ok || channel != pre.Channel {
+			return nil, errors.New(i18n.Tf("release.err.prerelease_lock_mismatch", pre.Version, pre.Channel))
+		}
+	}
+	if pre == nil {
+		if _, _, _, ok := registry.SplitPrereleaseVersion(target.Resolver, target.Version); ok {
+			plan.Warnings = append(plan.Warnings, i18n.T("release.warn.prerelease_unlocked"))
+		}
 	}
 	previousTag := func() {
 		if tagExists {
@@ -161,14 +171,11 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		plan.HasChanges = false
 		plan.Channel = relMarker.Channel
 		if plan.Channel == "" {
-			if _, channel, _, ok := semver.SplitPrerelease(relMarker.Version); ok {
+			if _, channel, _, ok := registry.SplitPrereleaseVersion(target.Resolver, relMarker.Version); ok {
 				plan.Channel = channel
 			}
 		}
 	case pre != nil:
-		if target.Resolver == config.ResolverPython {
-			return nil, errors.New(i18n.T("release.err.prerelease_unsupported"))
-		}
 		plan.Channel = pre.Channel
 		switch {
 		case len(consumed) == 0:
@@ -180,13 +187,13 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 			if !bump.Valid() {
 				return nil, errors.New("no releasing packages found in the staged change records")
 			}
-			base, counter, found := channelRelease(tags, d.Cfg.Git.TagPrefix, pre.Channel)
+			base, counter, found := channelRelease(tags, d.Cfg.Git.TagPrefix, target.Resolver, pre.Channel)
 			if !found && pre.Version != "" {
-				if lockBase, _, lockCounter, ok := semver.SplitPrerelease(pre.Version); ok {
+				if lockBase, _, lockCounter, ok := registry.SplitPrereleaseVersion(target.Resolver, pre.Version); ok {
 					base, counter, found = lockBase, lockCounter, true
 				}
 			}
-			next, err := semver.Next(stableBaseVersion(tags, d.Cfg.Git.TagPrefix, target.Version), bump)
+			next, err := semver.Next(stableBaseVersion(tags, d.Cfg.Git.TagPrefix, target.Resolver, target.Version), bump)
 			if err != nil {
 				return nil, err
 			}
@@ -198,7 +205,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 					counterNext = counter + 1
 				}
 			}
-			nextVersion, err := semver.Prerelease(baseVersion, pre.Channel, counterNext)
+			nextVersion, err := registry.PrereleaseVersion(target.Resolver, baseVersion, pre.Channel, counterNext)
 			if err != nil {
 				return nil, err
 			}
@@ -215,7 +222,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		if len(consumed) > 0 {
 			if recordBump := changes.NextBump(consumed); recordBump.Valid() {
 				bump = string(recordBump)
-				next, err := semver.Next(stableBaseVersion(tags, d.Cfg.Git.TagPrefix, target.Version), recordBump)
+				next, err := semver.Next(stableBaseVersion(tags, d.Cfg.Git.TagPrefix, target.Resolver, target.Version), recordBump)
 				if err != nil {
 					return nil, err
 				}

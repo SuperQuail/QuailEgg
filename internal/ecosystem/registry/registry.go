@@ -15,6 +15,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/python"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/rust"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
+	"github.com/SuperQuail/QuailEgg/internal/semver"
 )
 
 // All returns the supported ecosystems.
@@ -40,6 +41,40 @@ func Specs() []ecosystem.Spec {
 		out = append(out, eco.Spec())
 	}
 	return out
+}
+
+// VersionStyleFor resolves the version spelling of a resolver.
+func VersionStyleFor(resolver string) (ecosystem.VersionStyle, bool) {
+	eco, ok := ByID(resolver)
+	if !ok {
+		return nil, false
+	}
+	style, ok := eco.(ecosystem.VersionStyle)
+	return style, ok
+}
+
+// PrereleaseVersion renders a prerelease version in the resolver's spelling.
+func PrereleaseVersion(resolver, base, channel string, counter int) (string, error) {
+	if style, ok := VersionStyleFor(resolver); ok {
+		return style.Prerelease(base, channel, counter)
+	}
+	return semver.Prerelease(base, channel, counter)
+}
+
+// SplitPrereleaseVersion parses a version in the resolver's spelling.
+func SplitPrereleaseVersion(resolver, version string) (base, channel string, counter int, ok bool) {
+	if style, ok := VersionStyleFor(resolver); ok {
+		return style.SplitPrerelease(version)
+	}
+	return semver.SplitPrerelease(version)
+}
+
+// TagVersion converts a manifest version into the version a tag carries.
+func TagVersion(resolver, version string) string {
+	if style, ok := VersionStyleFor(resolver); ok {
+		return style.TagVersion(version)
+	}
+	return version
 }
 
 // SpecFor resolves a specification by identifier.

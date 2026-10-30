@@ -109,4 +109,3 @@ qegg pre exit       # 退出渠道，下一次发布回到稳定版
 - 预发布**不消费变更记录、也不写 `CHANGELOG.md`**，记录留到稳定版一起发布；只有新增记录才会产生下一个预发布号，避免空转发。
 - `qegg pre exit` 之后的下一次发布是同一基线的稳定版（`0.5.0-alpha.2` → `0.5.0`），会一次性写 CHANGELOG 并消费记录。
 - GitHub Release 标成 Pre-release 且不会成为 Latest；npm 发布到同名的 dist-tag（`alpha` / `beta` / `rc`），不会覆盖 `latest`。
-- Python 包暂不支持预发布，计划阶段会直接报错；Go 与 crates 不需要额外处理。

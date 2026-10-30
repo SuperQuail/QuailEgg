@@ -27,6 +27,7 @@ func TestDetectVariants(t *testing.T) {
 		{"python-poetry", "poetry-demo", "2.1.0"},
 		{"python-hatch-dynamic", "hatch-demo", "0.9.0"},
 		{"python-setuptools-dynamic", "setuptools-demo", "3.2.1"},
+		{"python-prerelease", "prerelease-demo", "2.0.2-a14"},
 	}
 	for _, tc := range cases {
 		root := ecosystemtest.Fixture(t, tc.fixture)

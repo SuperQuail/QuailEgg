@@ -47,7 +47,7 @@ func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
 		if version, err := registry.CurrentVersion(ctx, a.Run, a.Root, primary, a.Cfg.Git.TagPrefix); err == nil {
 			primary.Version = version
 		}
-		tag := semver.Tag(a.Cfg.Git.TagPrefix, primary.Version)
+		tag := semver.Tag(a.Cfg.Git.TagPrefix, registry.TagVersion(primary.Resolver, primary.Version))
 		report.Tag = tag
 		exists, err := a.Git.TagExists(ctx, tag)
 		if err == nil {

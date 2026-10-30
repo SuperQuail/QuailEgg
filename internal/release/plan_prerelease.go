@@ -17,20 +17,25 @@ import (
 // It combines the newest stable tag with the current manifest version, but only
 // when that manifest version is stable: a manifest that already carries a
 // prerelease part points at the line being built, not at its base.
-func stableBaseVersion(tags []string, prefix, current string) string {
+func stableBaseVersion(tags []string, prefix, resolver, current string) string {
 	best := "0.0.0"
 	for _, tag := range tags {
 		value := strings.TrimPrefix(strings.TrimSpace(tag), prefix)
-		if value == "" || semver.IsPrerelease(value) {
+		if value == "" {
+			continue
+		}
+		if _, _, _, prerelease := registry.SplitPrereleaseVersion(resolver, value); prerelease {
 			continue
 		}
 		if cmp, err := semver.Compare(value, best); err == nil && cmp > 0 {
 			best = value
 		}
 	}
-	if current != "" && !semver.IsPrerelease(current) {
-		if cmp, err := semver.Compare(current, best); err == nil && cmp > 0 {
-			best = current
+	if current != "" {
+		if _, _, _, prerelease := registry.SplitPrereleaseVersion(resolver, current); !prerelease {
+			if cmp, err := semver.Compare(current, best); err == nil && cmp > 0 {
+				best = current
+			}
 		}
 	}
 	return best
@@ -38,11 +43,11 @@ func stableBaseVersion(tags []string, prefix, current string) string {
 
 // channelRelease returns the base version and counter of the newest release
 // in a prerelease channel.
-func channelRelease(tags []string, prefix, channel string) (string, int, bool) {
+func channelRelease(tags []string, prefix, resolver, channel string) (string, int, bool) {
 	base, counter, found := "", 0, false
 	for _, tag := range tags {
 		value := strings.TrimPrefix(strings.TrimSpace(tag), prefix)
-		candidateBase, candidateChannel, candidateCounter, ok := semver.SplitPrerelease(value)
+		candidateBase, candidateChannel, candidateCounter, ok := registry.SplitPrereleaseVersion(resolver, value)
 		if !ok || candidateChannel != channel {
 			continue
 		}
@@ -105,6 +110,6 @@ func versionPlan(ctx context.Context, d *Deps, plan *Plan, pkgName string, targe
 		Manifest: target.Manifest,
 	}}
 	plan.Changes = planned
-	plan.Tag = semver.Tag(d.Cfg.Git.TagPrefix, next)
+	plan.Tag = tagName(d.Cfg, target.Resolver, next)
 	return nil
 }

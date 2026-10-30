@@ -68,8 +68,8 @@ func (p *PreRelease) Validate() error {
 	if p.Version == "" {
 		return nil
 	}
-	if _, channel, _, ok := semver.SplitPrerelease(p.Version); !ok || channel != p.Channel {
-		return fmt.Errorf("version %q is not a %s prerelease", p.Version, p.Channel)
+	if _, err := semver.Parse(p.Version); err != nil {
+		return fmt.Errorf("version %q is not a valid version: %w", p.Version, err)
 	}
 	return nil
 }

@@ -171,7 +171,7 @@ func (e *executor) githubRelease(ctx context.Context) error {
 	if !ok {
 		notes = "Release v" + e.plan.Version.Next
 	}
-	title := "v" + e.plan.Version.Next
+	title := e.plan.Tag
 	err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, e.plan.Tag, title, notes, e.plan.Channel != "")
 	if errors.Is(err, github.ErrExists) {
 		e.d.UI.Info("%s", i18n.Tf("release.msg.release_exists", title))
