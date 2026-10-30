@@ -18,9 +18,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+[[- range .BuildJobs ]]
+  build-[[ .ID ]]:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: [[ .Runner ]]
+    timeout-minutes: [[ .Timeout ]]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26', cache: true }
+[[- range $.EcosystemSetups ]]
+[[ indent 6 . ]]
+[[- end ]]
+[[- range .Steps ]]
+      - run: [[ shquote . ]]
+[[- end ]]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qegg-assets-[[ .ID ]]
+          if-no-files-found: error
+          path: |
+[[- range .Artifacts ]]
+            [[ . ]]
+[[- end ]]
+[[- end ]]
   release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+[[- if .BuildJobs ]]
+    needs:
+[[- range .BuildJobs ]]
+      - build-[[ .ID ]]
+[[- end ]]
+[[- end ]]
+    runs-on: [[ .Workflow.Runner ]]
+    timeout-minutes: [[ .Workflow.TimeoutMinutes ]]
 [[- if .Environment ]]
     environment: [[ .Environment ]]
 [[- end ]]
@@ -39,8 +70,20 @@ jobs:
 [[- end ]]
       - name: Install qegg
         run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@[[ .QeggVersion ]]
+[[- range .Workflow.Steps ]]
+      - run: [[ shquote . ]]
+[[- end ]]
+[[- if .BuildJobs ]]
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qegg-assets-*
+          path: .quailegg/assets/downloaded
+      - name: Release
+        run: qegg release --yes --assets-dir .quailegg/assets/downloaded
+[[- else ]]
       - name: Release
         run: qegg release --yes
+[[- end ]]
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 [[- range .EcosystemEnvs ]]
