@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.6.1",
-  "created_at": "2026-10-30T03:47:20.194766153Z",
+  "version": "0.7.0",
+  "created_at": "2026-10-30T08:09:40.10391935Z",
   "mode": "pr",
-  "fingerprint": "sha256:c580814c65f0372908671ecb706217d7984a6b16473c9cad1c80d048f8caae9a",
+  "fingerprint": "sha256:df14a02c6510fa2a42fa5ac430ea666bc25dd5d46a74dd42a041df7430e81d6a",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-30T03:47:20.194766954Z"
+    "at": "2026-10-30T08:09:40.103923616Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.6.0",
-      "next": "0.6.1",
-      "bump": "patch",
-      "tag": "v0.6.1",
+      "current": "0.6.1",
+      "next": "0.7.0",
+      "bump": "minor",
+      "tag": "v0.7.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.6.1",
-      "tag": "v0.6.1",
-      "previous_tag": "v0.6.0",
+      "version": "0.7.0",
+      "tag": "v0.7.0",
+      "previous_tag": "v0.6.1",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,18 +41,63 @@
   ],
   "changes": [
     {
-      "file": ".changes/skip-empty-preview.md",
-      "type": "fix",
-      "scope": "ci",
+      "file": ".changes/declare-ecosystem-capabilities.md",
+      "type": "refactor",
+      "scope": "ecosystem",
       "bump": "patch",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Skip the plan comment when there is nothing to release, so documentation-only pull requests pass.",
-      "commit": "26a7b976d1e5905561484884c017fde9a0954c0a",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/26a7b976d1e5905561484884c017fde9a0954c0a",
-      "pull_number": 7,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/7",
+      "body": "Drive init and release planning from declared ecosystem capabilities.",
+      "commit": "3c7fab54726b27a65353e8fa016a1f61152f966b",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/3c7fab54726b27a65353e8fa016a1f61152f966b",
+      "pull_number": 11,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/11",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/inspect-configured-packages.md",
+      "type": "feat",
+      "scope": "ecosystem",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Read release packages from their configured paths, so standalone nested projects can join the release.",
+      "commit": "5075f9cade0368621185bd92c1765338557f967d",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/5075f9cade0368621185bd92c1765338557f967d",
+      "pull_number": 12,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/12",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/support-cargo-workspaces.md",
+      "type": "fix",
+      "scope": "ecosystem",
+      "bump": "patch",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Release Cargo workspaces that inherit their version from the workspace root.",
+      "commit": "f20ff316ad79022556d7a75f001a5d340d2c3831",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/f20ff316ad79022556d7a75f001a5d340d2c3831",
+      "pull_number": 9,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/9",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/sync-version-files.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Release a multi-language workspace from one version, keeping every file that carries it in sync.",
+      "commit": "1a1110f90e63ea02a5de6a172dfdb79e91f9d96d",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/1a1110f90e63ea02a5de6a172dfdb79e91f9d96d",
+      "pull_number": 13,
+      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/13",
       "author": "Wsrsq"
     }
   ]
