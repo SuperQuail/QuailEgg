@@ -109,6 +109,86 @@ func TestLegacyLanguageKeyAccepted(t *testing.T) {
 	}
 }
 
+// A shared release can cover packages from different ecosystems: a Tauri app
+// keeps its Rust crates and its frontend on one version.
+func TestSharedScopeAllowsMixedResolvers(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[release]
+version_scope = "shared"
+
+[packages."sc2translater-ui"]
+path = "ui"
+resolver = "npm"
+
+[packages.sc2translater]
+path = "src-tauri"
+resolver = "rust"
+`)
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if cfg.Release.VersionScope != VersionScopeShared {
+		t.Fatalf("version scope = %q", cfg.Release.VersionScope)
+	}
+}
+
+func TestVersionFileConfig(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[packages.sc2translater]
+path = "src-tauri"
+resolver = "rust"
+
+[[version.file]]
+path = "src-tauri/tauri.conf.json"
+format = "json"
+key = "version"
+`)
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if len(cfg.Version.File) != 1 {
+		t.Fatalf("version files = %+v", cfg.Version.File)
+	}
+	file := cfg.Version.File[0]
+	if file.Path != "src-tauri/tauri.conf.json" || file.Format != "json" || file.Key != "version" {
+		t.Fatalf("version file = %+v", file)
+	}
+}
+
+func TestVersionFileNeedsSharedScopeWithSeveralPackages(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[packages.a]
+path = "a"
+resolver = "rust"
+
+[packages.b]
+path = "b"
+resolver = "npm"
+
+[[version.file]]
+path = "app.json"
+`)
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a version file in a package scoped repository")
+	}
+}
+
+func TestVersionFileCannotEscape(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[[version.file]]
+path = "../outside.json"
+`)
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a version file outside the repository")
+	}
+}
+
 func TestValidateRejectsReleaseBranchEqualToDefault(t *testing.T) {
 	cfg := Default()
 	cfg.Release.Branch = cfg.Project.DefaultBranch

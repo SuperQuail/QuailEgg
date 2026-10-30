@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"path"
 	"sort"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
 	"github.com/SuperQuail/QuailEgg/internal/scaffold"
+	"github.com/SuperQuail/QuailEgg/internal/semver"
 	"path/filepath"
 )
 
@@ -102,6 +104,12 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 				return nil, errors.New(i18n.Tf("init.err.shared_tag_versioned", name))
 			}
 		}
+	}
+	// A version file carries one version, so it is only registered when the
+	// release has exactly one: a single package or a shared scope.
+	var versionFiles []config.VersionFile
+	if len(packages) <= 1 || versionScope == config.VersionScopeShared {
+		versionFiles = suggestedVersionFiles(root, packages, existing)
 	}
 	environment := opts.Environment
 	if environment == "" && existing != nil {
@@ -214,6 +222,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		AddPackages:     opts.AddPackages,
 		Force:           opts.Force,
 		Packages:        packages,
+		VersionFiles:    versionFiles,
 		Existing:        existing,
 		ExistingContent: existingContent,
 	})
@@ -251,9 +260,10 @@ func detectRemoteRepo(ctx context.Context, root, remote string, existing *config
 	return id, "", nil
 }
 
-// uniformVersions reports whether every detected package has the same
-// manifest version under one resolver, which is what shared versioning needs.
-// Ecosystems whose version comes from tags never qualify.
+// uniformVersions reports whether every detected package has the same manifest
+// version, which is what shared versioning needs. The packages may come from
+// different ecosystems: a Tauri app keeps its Rust crates and its frontend on
+// one version. Ecosystems whose version comes from tags never qualify.
 func uniformVersions(detected []ecosystem.Package) bool {
 	if len(detected) < 2 {
 		return false
@@ -263,11 +273,47 @@ func uniformVersions(detected []ecosystem.Package) bool {
 		return false
 	}
 	for _, pkg := range detected[1:] {
-		if pkg.Version != first.Version || pkg.Resolver != first.Resolver {
+		if pkg.Version != first.Version || registry.IsTagVersioned(pkg.Resolver) {
 			return false
 		}
 	}
 	return true
+}
+
+// suggestedVersionFiles lists the extra version files the ecosystems know about.
+// Paths the configuration already lists are skipped, and so are files that do
+// not hold a literal version yet (Tauri may take it from Cargo instead).
+func suggestedVersionFiles(root string, packages map[string]config.Package, existing *config.Config) []config.VersionFile {
+	known := map[string]bool{}
+	if existing != nil {
+		for _, file := range existing.Version.File {
+			if rel, err := file.RepoPath(); err == nil {
+				known[rel] = true
+			}
+		}
+	}
+	var out []config.VersionFile
+	for _, name := range sortedPackageNames(packages) {
+		pkg := packages[name]
+		candidates := registry.VersionFileCandidates(root, ecosystem.Package{Name: name, Path: pkg.Path, Resolver: pkg.Resolver})
+		for _, candidate := range candidates {
+			rel := path.Clean(path.Join(pkg.Path, filepath.ToSlash(candidate.Path)))
+			if known[rel] {
+				continue
+			}
+			file := config.VersionFile{Path: rel, Format: candidate.Format, Key: candidate.Key}
+			value, err := file.Read(root)
+			if err != nil {
+				continue
+			}
+			if _, err := semver.Parse(value); err != nil {
+				continue
+			}
+			known[rel] = true
+			out = append(out, file)
+		}
+	}
+	return out
 }
 
 // inferRegistries maps the configured packages to publish targets.

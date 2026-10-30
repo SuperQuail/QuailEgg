@@ -67,6 +67,16 @@ func renderConfig(opts Options, packages map[string]config.Package) []byte {
 			b.WriteString("depends-on = " + stringSlice(pkg.DependsOn) + "\n")
 		}
 	}
+	for _, file := range opts.VersionFiles {
+		b.WriteString("\n[[version.file]]\n")
+		b.WriteString("path = " + strconv.Quote(file.Path) + "\n")
+		if file.Format != "" {
+			b.WriteString("format = " + strconv.Quote(file.Format) + "\n")
+		}
+		if file.Key != "" {
+			b.WriteString("key = " + strconv.Quote(file.Key) + "\n")
+		}
+	}
 	return []byte(b.String())
 }
 
@@ -115,6 +125,27 @@ func MergePackages(existing []byte, opts Options, packages map[string]config.Pac
 		return existing
 	}
 	return []byte(strings.TrimRight(text, "\n") + "\n" + additions.String())
+}
+
+// MergeVersionFiles appends the [[version.file]] tables an existing
+// configuration does not carry yet. Callers pass only new files, so a hand
+// edited configuration keeps every version file it already lists.
+func MergeVersionFiles(existing []byte, files []config.VersionFile) []byte {
+	if len(files) == 0 {
+		return existing
+	}
+	var additions strings.Builder
+	for _, file := range files {
+		additions.WriteString("\n[[version.file]]\n")
+		additions.WriteString("path = " + strconv.Quote(file.Path) + "\n")
+		if file.Format != "" {
+			additions.WriteString("format = " + strconv.Quote(file.Format) + "\n")
+		}
+		if file.Key != "" {
+			additions.WriteString("key = " + strconv.Quote(file.Key) + "\n")
+		}
+	}
+	return []byte(strings.TrimRight(string(existing), "\n") + "\n" + additions.String())
 }
 
 // projectRepoLine matches an existing project.repo assignment.

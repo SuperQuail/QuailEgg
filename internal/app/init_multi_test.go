@@ -308,6 +308,45 @@ func TestInitKeepsPrivatePackageOutOfRegistries(t *testing.T) {
 	}
 }
 
+// A Tauri app keeps the released version in tauri.conf.json as well. init
+// registers that file so the release writes it together with the manifest.
+func TestInitRegistersTauriVersionFile(t *testing.T) {
+	dir := newInitRepo(t)
+	writeInitFiles(t, dir, map[string]string{
+		"Cargo.toml":                "[package]\nname = \"sc2translater\"\nversion = \"0.1.0\"\n",
+		"src-tauri/tauri.conf.json": "{\n  \"productName\": \"SC2Translater\",\n  \"version\": \"0.1.0\"\n}\n",
+	})
+	opts := InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   true,
+		QeggVersion:   "latest",
+	}
+	if _, err := Init(context.Background(), dir, ui.Discard(), opts); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	configPath := filepath.Join(dir, ".quailegg.toml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "[[version.file]]") || !strings.Contains(text, `path = "src-tauri/tauri.conf.json"`) {
+		t.Fatalf("the tauri configuration was not registered:\n%s", text)
+	}
+	// Running init again keeps the file registered exactly once.
+	if _, err := Init(context.Background(), dir, ui.Discard(), opts); err != nil {
+		t.Fatalf("second Init: %v", err)
+	}
+	data, err = os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count := strings.Count(string(data), "[[version.file]]"); count != 1 {
+		t.Fatalf("the configuration lists the version file %d times:\n%s", count, data)
+	}
+}
+
 func TestInferRegistriesSkipsPrivatePackages(t *testing.T) {
 	publish := false
 	packages := map[string]config.Package{

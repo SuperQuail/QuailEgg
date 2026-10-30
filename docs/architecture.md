@@ -30,6 +30,7 @@ internal/
     ui/                    # 输出打印
   i18n/
     locales/               # en.toml / zh.toml
+  versionfile/             # 清单之外版本文件的读写（JSON 原位替换，保留其余字节）
   config/ semver/ tui/
 test/e2e/                  # 端到端测试
 ```
@@ -43,7 +44,7 @@ cmd/qegg ──► cli ──► app ──► release ──► {release/state,
                      └► {git, changes, changelog, verify}
 
 ecosystem/registry ──► ecosystem ◄── {npm, python, rust, golang}
-platform/* 与 i18n 为叶子；不得反向依赖。
+platform/*、i18n 与 versionfile 为叶子；不得反向依赖。config 只依赖 versionfile 的类型定义，读写实现由 release/app 调用。
 ```
 
 核心包（`app`、`release`、`scaffold`）不得出现 `config.Resolver*` 或生态名字面量；生态相关的判断一律走 `ecosystem/registry` 的能力查询，守卫测试见 `internal/ecosystem/registry/policy_test.go`。
@@ -55,7 +56,7 @@ cli 直接引用 release、scaffold、changelog、semver、tui、config 与 ecos
 ## SOLID 落点
 
 - **SRP**：每个子命令一个文件；发布计划、执行器、版本阶段、发布阶段、marker、本地状态各自一个文件；TUI 每个向导一个文件。
-- **OCP**：新增生态只需实现 `ecosystem.Ecosystem`（`Spec/Detect/SetVersion/Publisher`）并在 `registry.All()` 里加一行。静态能力（`PublishTargets`、`TagPrefix`、`Manifests`、`Tools`、工作流片段）放在 `Spec`；动态行为用可选接口：`TagVersioner`（版本来自 tag）、`InitAdvisor`（init 默认校验命令）、`Inspector`（按配置路径读取一个包）、`VersionSyncer`（兄弟 pin/lockfile）、`VersionStyle`（版本拼写）。`plan`/`check`/`status` 只读配置里的包并调用 `Inspector`；`Detect` 只服务 `qegg init` 的建议与未登记警告。核心代码只通过 `ecosystem/registry` 查询能力，不判断生态名；`ecosystem/registry/policy_test.go` 会扫描核心代码里的 `config.Resolver*` 与生态名字面量。工具检查与工作流模板都由 `Spec` 驱动，新工具只需补 `tool.<name>.*` 文案。
+- **OCP**：新增生态只需实现 `ecosystem.Ecosystem`（`Spec/Detect/SetVersion/Publisher`）并在 `registry.All()` 里加一行。静态能力（`PublishTargets`、`TagPrefix`、`Manifests`、`Tools`、工作流片段）放在 `Spec`；动态行为用可选接口：`TagVersioner`（版本来自 tag）、`InitAdvisor`（init 默认校验命令）、`Inspector`（按配置路径读取一个包）、`VersionSyncer`（兄弟 pin/lockfile）、`VersionStyle`（版本拼写）、`VersionFileAdvisor`（清单之外的版本文件候选）。`plan`/`check`/`status` 只读配置里的包并调用 `Inspector`；`Detect` 只服务 `qegg init` 的建议与未登记警告。核心代码只通过 `ecosystem/registry` 查询能力，不判断生态名；`ecosystem/registry/policy_test.go` 会扫描核心代码里的 `config.Resolver*` 与生态名字面量。工具检查与工作流模板都由 `Spec` 驱动，新工具只需补 `tool.<name>.*` 文案。
 - **LSP**：三个 `Publisher` 适配器遵守同一套 Precheck/Build/Publish 语义（不需要构建的生态 Build 返回 nil）。
 - **ISP**：`release.GitOps` 只包含执行器真正用到的 11 个方法；`execx.Runner` 只有 Run。
 - **DIP**：`release.Deps` 依赖 `GitOps` 接口而非具体 `*git.Repo`；`cli.Runtime` 按需构造 `*ui.Printer` 与 `*app.App`，子命令不自行创建依赖。

@@ -135,3 +135,21 @@ type Inspector interface {
 type VersionSyncer interface {
 	SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []Package) ([]string, error)
 }
+
+// VersionFile describes one file outside the package manifests that may carry
+// the package version. Path is relative to the package directory and uses
+// forward slashes.
+type VersionFile struct {
+	Path   string
+	Format string
+	Key    string
+}
+
+// VersionFileAdvisor is implemented by ecosystems that know of files outside
+// the package manifest that carry the version, such as Tauri's tauri.conf.json.
+// A candidate is a guess: qegg init verifies that the file holds a literal
+// version before adding it to the configuration.
+type VersionFileAdvisor interface {
+	// VersionFileCandidates lists the files that may carry pkg's version.
+	VersionFileCandidates(root string, pkg Package) []VersionFile
+}

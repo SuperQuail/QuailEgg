@@ -180,6 +180,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 
 	plan.Steps = stepsFor(plan.Phase, d.Cfg.Release.Mode, plan.Assets != nil)
 	plan.Warnings = append(plan.Warnings, packageWarnings(registered, detected)...)
+	plan.Warnings = append(plan.Warnings, versionFileWarnings(d.Root, d.Cfg.Version.File, plan.Version.Current)...)
 	if len(targets) == 1 && targets[0].tagVersioned() {
 		if spec, ok := registry.SpecFor(targets[0].pkg.Resolver); ok && spec.TagPrefix != "" && d.Cfg.Git.TagPrefix != spec.TagPrefix {
 			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.tag_prefix", spec.Language, spec.TagPrefix, d.Cfg.Git.TagPrefix))
@@ -251,11 +252,15 @@ func validateTargets(scope string, targets []target) error {
 	}
 	first := targets[0]
 	for _, t := range targets[1:] {
-		if t.pkg.Resolver != first.pkg.Resolver {
-			return errors.New(i18n.Tf("release.err.shared_resolver", first.pkg.Resolver, t.pkg.Resolver))
-		}
 		if t.pkg.Version != first.pkg.Version {
 			return errors.New(i18n.Tf("release.err.shared_version_mismatch", t.name, t.pkg.Version, first.name, first.pkg.Version))
+		}
+		// One tag carries the version of every package in the unit, so the
+		// ecosystems must spell that version the same way in a tag.
+		want := registry.TagVersion(t.pkg.Resolver, t.pkg.Version)
+		have := registry.TagVersion(first.pkg.Resolver, first.pkg.Version)
+		if want != have {
+			return errors.New(i18n.Tf("release.err.shared_tag_spelling", t.name, want, first.name, have))
 		}
 	}
 	return nil
