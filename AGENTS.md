@@ -191,9 +191,8 @@ Good and bad examples:
 ## Release
 
 - Two modes: `commit` (the release workflow commits on main) and `pr` (the
-  workflow opens a release PR). This repository currently uses `mode = "commit"`,
-  so any push to main carrying a record can trigger a release: push records only
-  when the change is ready to ship.
+  workflow opens a release PR). This repository uses `mode = "pr"`: a push to
+  main carrying a record opens a release PR, and merging that PR publishes.
 - Prereleases are switched with `qegg pre alpha|beta|rc|exit`; the channel lives
   in the committed `.quailegg/pre-release.lock`. A prerelease never writes
   `CHANGELOG.md` and never consumes change records; the stable release that
