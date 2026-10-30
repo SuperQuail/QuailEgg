@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/SuperQuail/QuailEgg/internal/changes"
 	"github.com/SuperQuail/QuailEgg/internal/config"
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
@@ -93,19 +94,6 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 			names = append(names, pkg.Name)
 		}
 	}
-	for _, name := range names {
-		pkg, ok := a.Cfg.Packages[name]
-		if !ok {
-			continue
-		}
-		if _, known := registry.ByID(pkg.Resolver); !known {
-			report.Problems = append(report.Problems, Problem{
-				Code:    "unknown-resolver",
-				Message: i18n.Tf("check.problem.unknown_resolver", name, pkg.Resolver),
-				Fix:     i18n.T("check.fix.unknown_resolver"),
-			})
-		}
-	}
 	if unknown := registry.UnknownRegistries(a.Cfg.Publish.Registries); len(unknown) > 0 {
 		report.Problems = append(report.Problems, Problem{
 			Code:    "unknown-registry",
@@ -115,13 +103,9 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 	}
 	seenTools := map[string]bool{}
 	for _, name := range names {
-		pkg, ok := a.findPackage(detected, name)
-		if !ok {
-			report.Problems = append(report.Problems, Problem{
-				Code:    "package-missing",
-				Message: i18n.Tf("check.problem.package_missing", name),
-				Fix:     i18n.T("check.fix.run_init"),
-			})
+		pkg, problem := a.inspectPackage(detected, name)
+		if problem != nil {
+			report.Problems = append(report.Problems, *problem)
 			continue
 		}
 		version, err := registry.CurrentVersion(ctx, a.Run, a.Root, pkg, a.Cfg.Git.TagPrefix)
@@ -299,4 +283,37 @@ func ciDiffRefs() (string, string) {
 		return "", ""
 	}
 	return event.PullRequest.Base.SHA, event.PullRequest.Head.SHA
+}
+
+// inspectPackage reads a configured package from its path. When the
+// configuration does not list the name it falls back to the detected package,
+// which keeps single-package repositories working without a config entry.
+func (a *App) inspectPackage(detected []ecosystem.Package, name string) (ecosystem.Package, *Problem) {
+	if cfg, ok := a.Cfg.Packages[name]; ok {
+		if _, known := registry.ByID(cfg.Resolver); !known {
+			return ecosystem.Package{}, &Problem{
+				Code:    "unknown-resolver",
+				Message: i18n.Tf("check.problem.unknown_resolver", name, cfg.Resolver),
+				Fix:     i18n.T("check.fix.unknown_resolver"),
+			}
+		}
+		pkg, err := registry.Inspect(a.Root, ecosystem.Package{Name: name, Path: cfg.Path, Resolver: cfg.Resolver})
+		if err != nil {
+			return ecosystem.Package{}, &Problem{
+				Code:    "inspect-failed",
+				Message: err.Error(),
+				Fix:     i18n.T("check.fix.inspect_failed"),
+			}
+		}
+		return pkg, nil
+	}
+	pkg, ok := a.findPackage(detected, name)
+	if !ok {
+		return ecosystem.Package{}, &Problem{
+			Code:    "package-missing",
+			Message: i18n.Tf("check.problem.package_missing", name),
+			Fix:     i18n.T("check.fix.run_init"),
+		}
+	}
+	return pkg, nil
 }

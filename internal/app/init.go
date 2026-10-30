@@ -275,7 +275,11 @@ func inferRegistries(packages map[string]config.Package) []string {
 	seen := map[string]bool{}
 	out := []string{}
 	for _, name := range sortedPackageNames(packages) {
-		for _, target := range registry.PublishTargetsFor(packages[name].Resolver) {
+		pkg := packages[name]
+		if pkg.Publish != nil && !*pkg.Publish {
+			continue
+		}
+		for _, target := range registry.PublishTargetsFor(pkg.Resolver) {
 			if target == "" || seen[target] {
 				continue
 			}

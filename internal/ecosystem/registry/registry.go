@@ -4,8 +4,11 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -14,6 +17,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/npm"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/python"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/rust"
+	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/semver"
 )
@@ -265,6 +269,78 @@ func DetectFor(root string, ids []string) ([]ecosystem.Package, error) {
 		packages = append(packages, found...)
 	}
 	return packages, nil
+}
+
+// Inspect reads one configured package from its directory. Unlike Detect it
+// never scans the repository, so a nested or standalone package works as soon
+// as it is registered in .quailegg.toml.
+func Inspect(root string, pkg ecosystem.Package) (ecosystem.Package, error) {
+	clean, err := cleanPackagePath(root, pkg.Path)
+	if err != nil {
+		return ecosystem.Package{}, errors.New(i18n.Tf("ecosystem.err.inspect_path", pkg.Name, pkg.Path))
+	}
+	input := pkg
+	input.Path = clean
+	eco, ok := ByID(pkg.Resolver)
+	if !ok {
+		return ecosystem.Package{}, fmt.Errorf("unsupported resolver %q for package %q", pkg.Resolver, pkg.Name)
+	}
+	inspector, ok := eco.(ecosystem.Inspector)
+	if !ok {
+		return ecosystem.Package{}, errors.New(i18n.Tf("ecosystem.err.inspect_resolver", pkg.Resolver))
+	}
+	inspected, err := inspector.Inspect(root, input)
+	if err != nil {
+		return ecosystem.Package{}, err
+	}
+	if inspected.Name != pkg.Name {
+		return ecosystem.Package{}, errors.New(i18n.Tf("ecosystem.err.inspect_name", pkg.Name, inspected.Manifest, inspected.Name))
+	}
+	if inspected.Path == "" {
+		inspected.Path = clean
+	}
+	if inspected.Resolver == "" {
+		inspected.Resolver = pkg.Resolver
+	}
+	return inspected, nil
+}
+
+// InspectAll reads every configured package and sorts them by path.
+func InspectAll(root string, pkgs []ecosystem.Package) ([]ecosystem.Package, error) {
+	out := make([]ecosystem.Package, 0, len(pkgs))
+	for _, pkg := range pkgs {
+		inspected, err := Inspect(root, pkg)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, inspected)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Path == out[j].Path {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Path < out[j].Path
+	})
+	return out, nil
+}
+
+// cleanPackagePath validates a configured package path and returns it in slash
+// form relative to the repository root.
+func cleanPackagePath(root, rel string) (string, error) {
+	rel = strings.TrimSpace(rel)
+	if rel == "" || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("invalid package path %q", rel)
+	}
+	clean := path.Clean(filepath.ToSlash(rel))
+	if clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", fmt.Errorf("package path %q escapes the repository", rel)
+	}
+	abs := filepath.Join(root, filepath.FromSlash(clean))
+	within, err := filepath.Rel(root, abs)
+	if err != nil || within == ".." || strings.HasPrefix(within, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("package path %q escapes the repository", rel)
+	}
+	return clean, nil
 }
 
 // IsTagVersioned reports whether the resolver derives its version from git

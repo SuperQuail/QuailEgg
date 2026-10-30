@@ -51,6 +51,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		return nil, err
 	}
 	registered := d.Cfg.Packages
+	var inspected []ecosystem.Package
 	if len(registered) == 0 {
 		if len(detected) != 1 {
 			return nil, fmt.Errorf("no packages registered; run qegg init (detected %d packages)", len(detected))
@@ -59,12 +60,18 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		registered = map[string]config.Package{
 			detected[0].Name: {Path: detected[0].Path, Resolver: detected[0].Resolver, Publish: &publishable},
 		}
+		inspected = []ecosystem.Package{detected[0]}
+	} else {
+		inspected, err = inspectConfigured(d.Root, registered)
+		if err != nil {
+			return nil, err
+		}
 	}
 	scope := d.Cfg.Release.VersionScope
 	if scope == "" {
 		scope = config.VersionScopePackage
 	}
-	targets, err := resolveTargets(ctx, d, detected, registered)
+	targets, err := resolveTargets(ctx, d, inspected, registered)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +173,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		return nil, err
 	}
 	if scope != config.VersionScopeShared {
-		if inherited := inheritedWorkspaceVersions(detected); len(inherited) > 1 {
+		if inherited := inheritedWorkspaceVersions(inspected); len(inherited) > 1 {
 			plan.Warnings = append(plan.Warnings, i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
 		}
 	}
@@ -192,18 +199,12 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	return plan, nil
 }
 
-func resolveTargets(ctx context.Context, d *Deps, detected []ecosystem.Package, registered map[string]config.Package) ([]target, error) {
-	names := make([]string, 0, len(registered))
-	for name := range registered {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	targets := make([]target, 0, len(names))
-	for _, name := range names {
-		pkgCfg := registered[name]
-		pkg, ok := findDetected(detected, name, pkgCfg.Path)
+func resolveTargets(ctx context.Context, d *Deps, inspected []ecosystem.Package, registered map[string]config.Package) ([]target, error) {
+	targets := make([]target, 0, len(inspected))
+	for _, pkg := range inspected {
+		pkgCfg, ok := registered[pkg.Name]
 		if !ok {
-			return nil, fmt.Errorf("package %q is registered but was not detected in the repository", name)
+			pkgCfg = config.Package{Path: pkg.Path, Resolver: pkg.Resolver}
 		}
 		publishable := pkg.Publish
 		if pkgCfg.Publish != nil {
@@ -214,9 +215,26 @@ func resolveTargets(ctx context.Context, d *Deps, detected []ecosystem.Package, 
 			return nil, err
 		}
 		pkg.Version = current
-		targets = append(targets, target{name: name, cfg: pkgCfg, pkg: pkg, publish: publishable})
+		targets = append(targets, target{name: pkg.Name, cfg: pkgCfg, pkg: pkg, publish: publishable})
 	}
+	sort.Slice(targets, func(i, j int) bool { return targets[i].name < targets[j].name })
 	return targets, nil
+}
+
+// inspectConfigured reads every configured package from its path. It is the
+// only source of package data once the configuration registers packages.
+func inspectConfigured(root string, registered map[string]config.Package) ([]ecosystem.Package, error) {
+	names := make([]string, 0, len(registered))
+	for name := range registered {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	inputs := make([]ecosystem.Package, 0, len(names))
+	for _, name := range names {
+		pkgCfg := registered[name]
+		inputs = append(inputs, ecosystem.Package{Name: name, Path: pkgCfg.Path, Resolver: pkgCfg.Resolver})
+	}
+	return registry.InspectAll(root, inputs)
 }
 
 func validateTargets(scope string, targets []target) error {
@@ -506,7 +524,7 @@ func applyUnits(ctx context.Context, d *Deps, plan *Plan, targets []target, unit
 	for _, t := range orderTargets(targets, d.Cfg.Packages) {
 		pkg := PackagePlan{
 			Name: t.name, Path: t.pkg.Path, Resolver: t.pkg.Resolver,
-			Publish: t.publish, Current: t.pkg.Version,
+			Publish: t.publish, Current: t.pkg.Version, Manifest: t.pkg.Manifest,
 		}
 		if release, ok := releaseByName[t.name]; ok {
 			pkg.Next = release.Version
@@ -891,23 +909,6 @@ func markerApplies(pending, current string, tagVersioned bool) bool {
 		return pending == current
 	}
 	return order >= 0
-}
-
-func findDetected(detected []ecosystem.Package, name, pkgPath string) (ecosystem.Package, bool) {
-	for _, pkg := range detected {
-		if pkg.Name == name {
-			return pkg, true
-		}
-	}
-	for _, pkg := range detected {
-		if pkg.Path == pkgPath {
-			return pkg, true
-		}
-	}
-	if len(detected) == 1 {
-		return detected[0], true
-	}
-	return ecosystem.Package{}, false
 }
 
 func changesDir(d *Deps) string {

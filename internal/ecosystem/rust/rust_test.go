@@ -3,6 +3,7 @@ package rust_test
 import (
 	"testing"
 
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/ecosystemtest"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/rust"
 )
@@ -44,5 +45,20 @@ func TestSetVersion(t *testing.T) {
 	}
 	if updated[0].Version != "0.3.0" {
 		t.Fatalf("version not updated: %+v", updated[0])
+	}
+}
+
+func TestInspectWorkspaceMember(t *testing.T) {
+	root := ecosystemtest.Fixture(t, "cargo-workspace")
+	inspector, ok := rust.New().(ecosystem.Inspector)
+	if !ok {
+		t.Fatal("rust adapter does not implement Inspector")
+	}
+	pkg, err := inspector.Inspect(root, ecosystem.Package{Name: "cw-core", Path: "crates/core", Resolver: "rust"})
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if pkg.Version != "0.4.0" || !pkg.Inherited || pkg.Manifest != "crates/core/Cargo.toml" {
+		t.Fatalf("unexpected package: %+v", pkg)
 	}
 }

@@ -3,6 +3,7 @@ package python_test
 import (
 	"testing"
 
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/ecosystemtest"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/python"
 )
@@ -91,5 +92,20 @@ func TestSetVersionDynamic(t *testing.T) {
 	}
 	if updated[0].Version != "1.0.0" {
 		t.Fatalf("version not updated: %+v", updated[0])
+	}
+}
+
+func TestInspectPackage(t *testing.T) {
+	root := ecosystemtest.Fixture(t, "python-pep621")
+	inspector, ok := python.New().(ecosystem.Inspector)
+	if !ok {
+		t.Fatal("python adapter does not implement Inspector")
+	}
+	pkg, err := inspector.Inspect(root, ecosystem.Package{Name: "pep-demo", Path: ".", Resolver: "python"})
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if pkg.Version != "1.0.0" || pkg.Manifest != "pyproject.toml" {
+		t.Fatalf("unexpected package: %+v", pkg)
 	}
 }

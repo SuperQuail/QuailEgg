@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SuperQuail/QuailEgg/internal/config"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
 )
@@ -271,5 +272,49 @@ func TestInitRejectsSharedTagVersioned(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "tag") {
 		t.Fatalf("err = %v, want a shared/tag-versioned error", err)
+	}
+}
+
+func TestInitKeepsPrivatePackageOutOfRegistries(t *testing.T) {
+	dir := newInitRepo(t)
+	cfg := "schema_version = 1\n\n[project]\ndefault_branch = \"main\"\n\n[release]\nmode = \"pr\"\nbranch = \"release\"\n\n[packages.\"ui-pkg\"]\npath = \"ui\"\nresolver = \"npm\"\npublish = false\n"
+	writeInitFiles(t, dir, map[string]string{
+		"ui-pkg.toml": cfg,
+		"Cargo.toml":  "[package]\nname = \"solo\"\nversion = \"0.1.0\"\n",
+	})
+	if err := os.Rename(filepath.Join(dir, "ui-pkg.toml"), filepath.Join(dir, ".quailegg.toml")); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: config")
+	if _, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   true,
+		QeggVersion:   "latest",
+	}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".quailegg.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if strings.Contains(text, `registries = ["crates", "npm"]`) || strings.Contains(text, `registries = ["npm"]`) {
+		t.Fatalf("a private package must not add npm to the registries:\n%s", text)
+	}
+	if !strings.Contains(text, `[packages."ui-pkg"]`) {
+		t.Fatalf("the private package was dropped:\n%s", text)
+	}
+}
+
+func TestInferRegistriesSkipsPrivatePackages(t *testing.T) {
+	publish := false
+	packages := map[string]config.Package{
+		"ui-pkg": {Path: "ui", Resolver: "npm", Publish: &publish},
+		"solo":   {Path: ".", Resolver: "rust"},
+	}
+	if got := inferRegistries(packages); len(got) != 1 || got[0] != "crates" {
+		t.Fatalf("inferRegistries = %v, want only crates", got)
 	}
 }

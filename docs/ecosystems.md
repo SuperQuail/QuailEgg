@@ -73,6 +73,28 @@
 
 5. 更新本文件的生态表格与 `docs/architecture.md` 的目录树；README 的功能列表按需同步。核心代码里不要出现 `config.Resolver*` 或生态名字面量，`internal/ecosystem/registry/policy_test.go` 会检查；确需临时例外要写进 allowlist 并注明原因。
 
+## 发现与解析
+
+qegg 把“包”分成两个阶段：
+
+- **发现**（`qegg init`）：`Detect` 只读根清单和根声明的 workspace，用来建议初始 `[packages.*]`；
+- **解析**（每次 plan/check/status/release）：不看发现结果，直接遍历配置里的包，按 `path` 调适配器的 `Inspect` 读取清单。
+
+因此没有被 workspace 声明、也不会被发现的独立子工程（例如 Tauri 的 `ui/`），只要手写一条包配置就能参与版本、变更记录和 scope：
+
+~~~toml
+[packages."sc2translater-ui"]
+path = "ui"
+resolver = "npm"
+publish = false
+~~~
+
+- 配置 key 必须和清单里的 name 一致，否则报错；
+- 路径必须是仓库相对路径、不能越界；清单缺失会报“manifest 不存在”，而不是“未检测到”；
+- 未登记但被发现的包仍然只是警告。
+
+各适配器都实现了 `Inspect`：npm 读 `package.json`、rust 读 `Cargo.toml`（继承版本回读根 workspace）、python 读 `pyproject.toml`、go 只接受根目录的 `go.mod`。
+
 ## Go 的边界
 
 - 只支持仓库根目录的 `go.mod`。子目录模块需要 `sub/vX.Y.Z` 形式的 tag，属于多包发布，v0.1 不支持；`go.work` 多模块仓库同理。

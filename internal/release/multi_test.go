@@ -559,3 +559,72 @@ func TestOrderTargetsHonoursConfiguredDependencies(t *testing.T) {
 		t.Fatalf("ordered = %v, want the configured dependency first", ordered)
 	}
 }
+
+func TestConfiguredPackageOutsideDetection(t *testing.T) {
+	execx.SanitizeGitHookEnv()
+	dir := t.TempDir()
+	gitRun(t, dir, "init", "-q")
+	gitRun(t, dir, "config", "user.email", "release@example.com")
+	gitRun(t, dir, "config", "user.name", "release")
+	if err := os.MkdirAll(filepath.Join(dir, "ui"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "{\n  \"name\": \"ui-pkg\",\n  \"version\": \"0.1.0\",\n  \"private\": true\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, "ui", "package.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".changes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".changes", "README.md"), []byte("# Change records\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	record := "---\ntype: fix\npackages:\n  ui-pkg: patch\n---\n\nFix a frontend bug.\n"
+	if err := os.WriteFile(filepath.Join(dir, ".changes", "ui-fix.md"), []byte(record), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "chore: initial")
+
+	repo, err := git.Open(context.Background(), dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("git.Open: %v", err)
+	}
+	publish := false
+	cfg := config.Default()
+	cfg.Packages = map[string]config.Package{
+		"ui-pkg": {Path: "ui", Resolver: "npm", Publish: &publish},
+	}
+	cfg.Release.Mode = config.ModeCommit
+	cfg.Release.GitHubRelease = false
+	cfg.Release.CommitMessage = "chore(release): bump versions"
+	cfg.Verify.Commands = nil
+	d := &Deps{
+		Root: dir,
+		Cfg:  cfg,
+		Git:  repo,
+		Run:  execx.OSRunner{},
+		UI:   ui.Discard(),
+		Now:  time.Now,
+		Options: Options{
+			SkipVerify: true, NoPublish: true, NoPush: true, NoGitHubRelease: true,
+		},
+	}
+	plan, err := Build(context.Background(), d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseVersion || len(plan.Packages) != 1 || plan.Packages[0].Current != "0.1.0" {
+		t.Fatalf("plan = %+v", plan)
+	}
+	if err := Run(context.Background(), d, plan); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "ui", "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "\"version\": \"0.1.1\"") {
+		t.Fatalf("nested package was not bumped:\n%s", data)
+	}
+}

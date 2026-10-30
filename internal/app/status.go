@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 
 	"github.com/SuperQuail/QuailEgg/internal/changes"
@@ -66,9 +67,9 @@ func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
 		}
 	}
 	for _, name := range names {
-		pkg, ok := a.findPackage(detected, name)
-		if !ok {
-			continue
+		pkg, problem := a.inspectPackage(detected, name)
+		if problem != nil {
+			return nil, errors.New(problem.Message)
 		}
 		if version, err := registry.CurrentVersion(ctx, a.Run, a.Root, pkg, a.Cfg.Git.TagPrefix); err == nil {
 			pkg.Version = version
