@@ -165,6 +165,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		return nil, err
 	}
 	if scope != config.VersionScopeShared {
+		plan.Warnings = append(plan.Warnings, sameManifestWarnings(targets)...)
 		if inherited := inheritedWorkspaceVersions(inspected); len(inherited) > 1 {
 			plan.Warnings = append(plan.Warnings, i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
 		}
@@ -195,7 +196,8 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 func resolveTargets(ctx context.Context, d *Deps, inspected []ecosystem.Package, registered map[string]config.Package) ([]target, error) {
 	targets := make([]target, 0, len(inspected))
 	for _, pkg := range inspected {
-		pkgCfg, ok := registered[pkg.Name]
+		identity := pkg.IdentityName()
+		pkgCfg, ok := registered[identity]
 		if !ok {
 			pkgCfg = config.Package{Path: pkg.Path, Resolver: pkg.Resolver}
 		}
@@ -208,7 +210,7 @@ func resolveTargets(ctx context.Context, d *Deps, inspected []ecosystem.Package,
 			return nil, err
 		}
 		pkg.Version = current
-		targets = append(targets, target{name: pkg.Name, cfg: pkgCfg, pkg: pkg, publish: publishable})
+		targets = append(targets, target{name: identity, cfg: pkgCfg, pkg: pkg, publish: publishable})
 	}
 	sort.Slice(targets, func(i, j int) bool { return targets[i].name < targets[j].name })
 	return targets, nil
@@ -225,7 +227,12 @@ func inspectConfigured(root string, registered map[string]config.Package) ([]eco
 	inputs := make([]ecosystem.Package, 0, len(names))
 	for _, name := range names {
 		pkgCfg := registered[name]
-		inputs = append(inputs, ecosystem.Package{Name: name, Path: pkgCfg.Path, Resolver: pkgCfg.Resolver})
+		inputs = append(inputs, ecosystem.Package{
+			Name:     config.ManifestNameOf(name, pkgCfg),
+			Identity: name,
+			Path:     pkgCfg.Path,
+			Resolver: pkgCfg.Resolver,
+		})
 	}
 	return registry.InspectAll(root, inputs)
 }
@@ -593,8 +600,12 @@ func orderTargets(targets []target, registered map[string]config.Package) []targ
 		return targets
 	}
 	index := make(map[string]int, len(targets))
+	manifestIndex := make(map[string]int, len(targets))
 	for i, t := range targets {
 		index[t.name] = i
+		if _, exists := manifestIndex[t.pkg.Name]; !exists {
+			manifestIndex[t.pkg.Name] = i
+		}
 	}
 	dependents := make([][]int, len(targets))
 	indegree := make([]int, len(targets))
@@ -604,7 +615,7 @@ func orderTargets(targets []target, registered map[string]config.Package) []targ
 			deps = append(deps, cfg.DependsOn...)
 		}
 		for _, dep := range deps {
-			i, ok := dependencyTarget(index, dep)
+			i, ok := dependencyTarget(index, manifestIndex, dep)
 			if !ok || i == j {
 				continue
 			}
@@ -642,12 +653,15 @@ func orderTargets(targets []target, registered map[string]config.Package) []targ
 
 // dependencyTarget resolves a dependency name to a target, tolerating the
 // dash/underscore spelling difference between crate names and code identifiers.
-func dependencyTarget(index map[string]int, name string) (int, bool) {
-	if i, ok := index[name]; ok {
-		return i, true
-	}
-	for _, candidate := range []string{strings.ReplaceAll(name, "_", "-"), strings.ReplaceAll(name, "-", "_")} {
+// Dependency names in manifests are manifest names, while depends-on entries in
+// the configuration are package identities.
+func dependencyTarget(index, manifestIndex map[string]int, name string) (int, bool) {
+	candidates := []string{name, strings.ReplaceAll(name, "_", "-"), strings.ReplaceAll(name, "-", "_")}
+	for _, candidate := range candidates {
 		if i, ok := index[candidate]; ok {
+			return i, true
+		}
+		if i, ok := manifestIndex[candidate]; ok {
 			return i, true
 		}
 	}
@@ -867,14 +881,43 @@ func markerChanges(changes []state.MarkerChange) []ChangePlan {
 }
 
 func packageWarnings(registered map[string]config.Package, detected []ecosystem.Package) []string {
+	known := make(map[string]bool, len(registered))
+	for key, pkg := range registered {
+		known[config.ManifestNameOf(key, pkg)] = true
+	}
 	var warnings []string
 	for _, pkg := range detected {
-		if _, ok := registered[pkg.Name]; !ok {
+		if !known[pkg.Name] {
 			warnings = append(warnings, i18n.Tf("release.warn.unregistered_package", pkg.Name))
 		}
 	}
 	sort.Strings(warnings)
 	return warnings
+}
+
+// sameManifestWarnings reports packages that share a manifest name but do not
+// share one version; those repositories usually want shared versioning.
+func sameManifestWarnings(targets []target) []string {
+	if len(targets) < 2 {
+		return nil
+	}
+	groups := map[string][]string{}
+	for _, t := range targets {
+		groups[t.pkg.Name] = append(groups[t.pkg.Name], t.name)
+	}
+	var names []string
+	for _, identities := range groups {
+		if len(identities) < 2 {
+			continue
+		}
+		sort.Strings(identities)
+		names = append(names, strings.Join(identities, ", "))
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	sort.Strings(names)
+	return []string{i18n.Tf("release.warn.same_manifest_names", strings.Join(names, "; "))}
 }
 
 var pullRequestNumberRE = regexp.MustCompile(`\(#(\d+)\)`)

@@ -21,6 +21,19 @@ type Package struct {
 	Publish   bool
 	Manifest  string // slash separated, relative to the repository root
 	Deps      []string
+	// Identity is the configuration key qegg uses for the package. It is empty
+	// for packages returned by detection; configured packages carry it so the
+	// release plan can tell two manifests with the same name apart.
+	Identity string
+}
+
+// IdentityName returns the configured key, or the manifest name for detected
+// packages that have no configuration entry.
+func (p Package) IdentityName() string {
+	if p.Identity != "" {
+		return p.Identity
+	}
+	return p.Name
 }
 
 // Tool describes an external command required by an ecosystem. The purpose
@@ -186,4 +199,44 @@ type VersionFile struct {
 type VersionFileAdvisor interface {
 	// VersionFileCandidates lists the files that may carry pkg's version.
 	VersionFileCandidates(root string, pkg Package) []VersionFile
+}
+
+// ManifestScan is the outcome of parsing one manifest found by a bounded
+// repository scan. A manifest outside the ecosystem's own workspace detection
+// may still describe a package qegg can manage.
+type ManifestScan struct {
+	Package Package
+	// OK reports that the manifest defines a package qegg can manage.
+	OK bool
+	// Reason names why the manifest cannot be managed yet. It is a stable
+	// machine identifier; user-facing text is derived from it.
+	Reason string
+	// Detail optionally explains the reason in the user's language.
+	Detail string
+}
+
+// Manifest scanning reasons. The values are stable identifiers used by the
+// scan output and must not be translated.
+const (
+	// ScanReasonNestedGo marks a Go module below the repository root.
+	ScanReasonNestedGo = "nested_go_unsupported"
+	// ScanReasonNestedWorkspace marks a Cargo member of a nested workspace.
+	ScanReasonNestedWorkspace = "nested_workspace_unsupported"
+	// ScanReasonWorkspaceVersion marks a member that inherits a missing
+	// workspace version.
+	ScanReasonWorkspaceVersion = "workspace_version_missing"
+)
+
+// ManifestScanner parses one manifest file found by the bounded repository
+// scan. pkg carries Path (repository-relative, slash separated), Manifest and
+// Resolver; Name and Version may be empty.
+type ManifestScanner interface {
+	ScanManifest(root string, pkg Package) (ManifestScan, error)
+}
+
+// PublishAdvisor is implemented by ecosystems that can tell application
+// packages apart from library packages when qegg init suggests whether to
+// publish. Returning pkg.Publish unchanged keeps the manifest decision.
+type PublishAdvisor interface {
+	DefaultPublish(root string, pkg Package) bool
 }

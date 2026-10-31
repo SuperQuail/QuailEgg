@@ -118,7 +118,7 @@ func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
 // findPackage resolves a registered package name against the detected packages.
 func (a *App) findPackage(detected []ecosystem.Package, name string) (ecosystem.Package, bool) {
 	for _, pkg := range detected {
-		if pkg.Name == name {
+		if pkg.IdentityName() == name || pkg.Name == name {
 			return pkg, true
 		}
 	}
@@ -126,6 +126,7 @@ func (a *App) findPackage(detected []ecosystem.Package, name string) (ecosystem.
 	if ok {
 		for _, pkg := range detected {
 			if pkg.Path == pkgCfg.Path {
+				pkg.Identity = name
 				return pkg, true
 			}
 		}

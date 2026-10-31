@@ -12,22 +12,24 @@ packages/
 
 ## 登记包
 
-`qegg init` 可以识别 npm/pnpm、uv 和 Cargo workspace。已登记的包保存在配置中：
+`qegg init` 可以识别 npm/pnpm、uv 和 Cargo workspace，并额外扫描根目录下最多三层目录内的包清单。`qegg scan` 可以在初始化前查看候选和不可登记的原因。已登记的包保存在配置中：
 
 ```toml
-[packages."@acme/core"]
+[packages."npm@acme/core"]
+name = "@acme/core"
 path = "packages/core"
 resolver = "npm"
 
-[packages."@acme/cli"]
+[packages."npm@acme/cli"]
+name = "@acme/cli"
 path = "packages/cli"
 resolver = "npm"
-depends-on = ["@acme/core"]
+depends-on = ["npm@acme/core"]
 ```
 
-包名应与对应清单一致，路径相对于仓库根目录。`depends-on` 可以补充包之间的依赖关系，发布时先处理被依赖的包。
+表名是包的身份键：新配置使用 `<resolver>@<清单名>`，并用 `name` 记录真实清单名；旧式清单名键仍然有效。路径相对于仓库根目录。`depends-on` 可以补充包之间的依赖关系（写身份键），发布时先处理被依赖的包。
 
-增加 workspace 成员后，可以再次运行 `qegg init` 补充登记，再检查配置差异。没有被自动发现的包需要显式登记；`qegg plan` 和 `qegg check` 会按配置中的路径读取这些包。
+增加 workspace 成员后，可以再次运行 `qegg init` 补充登记，再检查配置差异。默认会登记全部可登记的候选；只想登记其中一部分时用 `qegg init --packages` 指定（值取自 `qegg scan` 的 `id`）。超过三层且没有 workspace 声明的包仍需显式写入配置；`qegg plan` 和 `qegg check` 会按配置中的路径读取这些包。
 
 ## 选择版本策略
 
@@ -74,13 +76,13 @@ version_scope = "shared"
 
 ```bash
 git add -A
-qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages @acme/core:minor,@acme/cli:patch
+qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages npm@acme/core:minor,npm@acme/cli:patch
 ```
 
 也可以把包拆成两个参数：
 
 ```bash
-qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages @acme/core:minor --packages @acme/cli:patch
+qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages npm@acme/core:minor --packages npm@acme/cli:patch
 ```
 
 在独立版本模式下，如果调用方也需要发布新版本，请在记录中明确列出它。声明 `depends-on` 用于安排发布顺序，不等于自动为依赖方创建升级记录。
@@ -92,7 +94,8 @@ qegg commit --no-input -m "feat: support configurable expiration" --body "Allow 
 仓库可能包含内部工具或应用前端，它们需要跟随版本变化，但不需要发布到 registry：
 
 ```toml
-[packages.internal-tools]
+[packages."npm@internal-tools"]
+name = "internal-tools"
 path = "tools"
 resolver = "npm"
 publish = false
@@ -108,12 +111,14 @@ Tauri 应用常见的结构是 Rust 后端与前端共用一个应用版本。�
 [release]
 version_scope = "shared"
 
-[packages.app-core]
+[packages."rust@app-core"]
+name = "app-core"
 path = "src-tauri"
 resolver = "rust"
 publish = false
 
-[packages.app-ui]
+[packages."npm@app-ui"]
+name = "app-ui"
 path = "ui"
 resolver = "npm"
 publish = false
@@ -124,7 +129,7 @@ format = "json"
 key = "version"
 ```
 
-这里假设两个清单中的包名分别是 `app-core` 和 `app-ui`，并且它们与 JSON 文件的版本已经一致。前端位于嵌套目录、又不属于已识别的 workspace 时，需要显式登记。
+这里假设两个清单中的包名分别是 `app-core` 和 `app-ui`，并且它们与 JSON 文件的版本已经一致。前端位于嵌套目录、又不属于已识别的 workspace 时，需要显式登记。若 npm 清单与 Rust crate 同名（例如都叫 `app`），可以登记为 `npm@app` 和 `rust@app` 两个包，并使用共享版本。
 
 `qegg init` 会在适用时自动登记可读取的 Tauri 版本文件。你可以用 `qegg check` 检查版本是否一致。
 

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/SuperQuail/QuailEgg/internal/app"
+	"github.com/SuperQuail/QuailEgg/internal/config"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/semver"
 	"github.com/SuperQuail/QuailEgg/internal/tui"
@@ -27,7 +28,7 @@ func newCommitCommand(rt *Runtime) *cobra.Command {
 				return err
 			}
 			opts := app.CommitOptions{Message: message, Type: typ, Scope: scope, Body: body, NoCommit: noCommit}
-			parsed, err := parsePackages(packages, a.Cfg.PackageNames())
+			parsed, err := parsePackages(packages, a.Cfg)
 			if err != nil {
 				return fail(2, err)
 			}
@@ -64,7 +65,8 @@ func newCommitCommand(rt *Runtime) *cobra.Command {
 	return cmd
 }
 
-func parsePackages(values []string, known []string) (map[string]semver.Bump, error) {
+func parsePackages(values []string, cfg *config.Config) (map[string]semver.Bump, error) {
+	known := cfg.PackageNames()
 	out := map[string]semver.Bump{}
 	for _, value := range values {
 		value = strings.TrimSpace(value)
@@ -80,23 +82,15 @@ func parsePackages(values []string, known []string) (map[string]semver.Bump, err
 		if err != nil {
 			return nil, err
 		}
-		if !contains(known, name) {
+		key, ok := cfg.PackageKeyFor(name)
+		if !ok {
 			if len(known) == 1 {
-				name = known[0]
+				key = known[0]
 			} else {
 				return nil, fmt.Errorf(i18n.T("commit.unknown_package"), parts[0], strings.Join(known, ", "))
 			}
 		}
-		out[name] = bump
+		out[key] = bump
 	}
 	return out, nil
-}
-
-func contains(list []string, want string) bool {
-	for _, item := range list {
-		if item == want {
-			return true
-		}
-	}
-	return false
 }

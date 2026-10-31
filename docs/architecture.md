@@ -6,12 +6,12 @@
 cmd/qegg/                  # 进程入口，只调用 cli.Execute
 internal/
   cli/                     # 根命令、全局 flag、Runtime（Options/Runtime/ExitError），每个子命令一个文件，向导在 wizard.go
-  app/                     # 用例编排：init/plan/release/check/commit/status/...，报告类型与用例同文件
+  app/                     # 用例编排：init/scan/plan/release/check/commit/status/...，报告类型与用例同文件
   release/                 # 发布计划、执行器、版本阶段、发布阶段、marker 生成、changelog 片段、指纹、GitOps 接口
   release/state/           # .quailegg/release.json 与运行记录（.quailegg/state）的持久化
   verify/                  # 发版前校验命令执行
   ecosystem/               # 仅抽象：Package/Tool/Spec/Status、Ecosystem 与 Publisher 接口、CheckURL、ExpandGlobs/Exclude
-  ecosystem/registry/      # 唯一注册入口：All/ByID/Specs/SpecFor/DetectAll/DetectFor/SetVersion/PublisherFor/Precheck/Build/Publish
+  ecosystem/registry/      # 唯一注册入口：All/ByID/Specs/SpecFor/DetectAll/DetectFor/Scan/SetVersion/PublisherFor/Precheck/Build/Publish
   ecosystem/npm/           # Node.js 适配器（package.json、npm/pnpm 多包仓库）
   ecosystem/python/        # Python 适配器（PEP 621、Poetry、hatch/setuptools 动态版本、uv 多包仓库）
   ecosystem/rust/          # Rust 适配器（Cargo.toml、cargo 多包仓库）
@@ -56,7 +56,7 @@ cli 直接引用 release、scaffold、changelog、semver、tui、config 与 ecos
 ## SOLID 落点
 
 - **SRP**：每个子命令一个文件；发布计划、执行器、版本阶段、发布阶段、marker、本地状态各自一个文件；TUI 每个向导一个文件。
-- **OCP**：新增生态只需实现 `ecosystem.Ecosystem`（`Spec/Detect/SetVersion/Publisher`）并在 `registry.All()` 里加一行。静态能力（`PublishTargets`、`TagPrefix`、`Manifests`、`Tools`、工作流片段）放在 `Spec`；动态行为用可选接口：`TagVersioner`（版本来自 tag）、`InitAdvisor`（init 默认校验命令）、`Inspector`（按配置路径读取一个包）、`VersionSyncer`（兄弟 pin/lockfile）、`VersionStyle`（版本拼写）、`VersionFileAdvisor`（清单之外的版本文件候选）、`AssetPlanner`（生态自建发布资产，Go 用它规划交叉编译矩阵）。`plan`/`check`/`status` 只读配置里的包并调用 `Inspector`；`Detect` 只服务 `qegg init` 的建议与未登记警告。核心代码只通过 `ecosystem/registry` 查询能力，不判断生态名；`ecosystem/registry/policy_test.go` 会扫描核心代码里的 `config.Resolver*` 与生态名字面量。工具检查与工作流模板都由 `Spec` 驱动，新工具只需补 `tool.<name>.*` 文案。
+- **OCP**：新增生态只需实现 `ecosystem.Ecosystem`（`Spec/Detect/SetVersion/Publisher`）并在 `registry.All()` 里加一行。静态能力（`PublishTargets`、`TagPrefix`、`Manifests`、`Tools`、工作流片段）放在 `Spec`；动态行为用可选接口：`TagVersioner`（版本来自 tag）、`InitAdvisor`（init 默认校验命令）、`Inspector`（按配置路径读取一个包）、`VersionSyncer`（兄弟 pin/lockfile）、`VersionStyle`（版本拼写）、`VersionFileAdvisor`（清单之外的版本文件候选）、`AssetPlanner`（生态自建发布资产，Go 用它规划交叉编译矩阵）、`ManifestScanner`（三层目录扫描解析单个清单）。`plan`/`check`/`status` 只读配置里的包并调用 `Inspector`；`Detect` 只服务 `qegg init` 的建议与未登记警告。核心代码只通过 `ecosystem/registry` 查询能力，不判断生态名；`ecosystem/registry/policy_test.go` 会扫描核心代码里的 `config.Resolver*` 与生态名字面量。工具检查与工作流模板都由 `Spec` 驱动，新工具只需补 `tool.<name>.*` 文案。
 - **LSP**：三个 `Publisher` 适配器遵守同一套 Precheck/Build/Publish 语义（不需要构建的生态 Build 返回 nil）。
 - **ISP**：`release.GitOps` 只包含执行器真正用到的 11 个方法；`execx.Runner` 只有 Run。
 - **DIP**：`release.Deps` 依赖 `GitOps` 接口而非具体 `*git.Repo`；`cli.Runtime` 按需构造 `*ui.Printer` 与 `*app.App`，子命令不自行创建依赖。

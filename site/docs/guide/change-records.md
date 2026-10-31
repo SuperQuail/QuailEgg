@@ -53,7 +53,7 @@ qegg commit
 非交互用法如下：
 
 ```bash
-qegg commit --no-input -m "fix(cache): handle empty input" --body "Return an empty result for empty input." --packages my-package:patch
+qegg commit --no-input -m "fix(cache): handle empty input" --body "Return an empty result for empty input." --packages npm@my-package:patch
 ```
 
 这里有两段不同的说明：
@@ -64,26 +64,26 @@ qegg commit --no-input -m "fix(cache): handle empty input" --body "Return an emp
 如果只想生成记录，稍后自行提交，可以加 `--no-commit`：
 
 ```bash
-qegg commit --no-input --no-commit -m "fix(cache): handle empty input" --body "Return an empty result for empty input." --packages my-package:patch
+qegg commit --no-input --no-commit -m "fix(cache): handle empty input" --body "Return an empty result for empty input." --packages npm@my-package:patch
 ```
 
 这个命令只写文件。之后需要自行暂存记录，并与对应代码一起提交。
 
 ## 一条记录影响多个包
 
-同一个逻辑改动涉及多个包时，可以用逗号分隔包名与升级级别：
+同一个逻辑改动涉及多个包时，可以用逗号分隔包的身份键与升级级别。身份键就是 `.quailegg.toml` 里 `[packages.*]` 的表名；新生成的配置形如 `resolver@清单名`：
 
 ```bash
-qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages @acme/core:minor,@acme/cli:patch
+qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages npm@acme/core:minor,npm@acme/cli:patch
 ```
 
 也可以重复传入 `--packages`，结果相同：
 
 ```bash
-qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages @acme/core:minor --packages @acme/cli:patch
+qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages npm@acme/core:minor --packages npm@acme/cli:patch
 ```
 
-这会生成一条记录，分别为 `@acme/core` 指定 `minor`、为 `@acme/cli` 指定 `patch`。示例假设两个包都已登记；提交前同样需要先暂存对应代码。
+这会生成一条记录，分别为 `npm@acme/core` 指定 `minor`、为 `npm@acme/cli` 指定 `patch`。示例假设两个包都已登记；提交前同样需要先暂存对应代码。
 
 独立版本与共享版本如何处理这些级别，见[多包仓库](./monorepos)。
 

@@ -45,14 +45,26 @@ func (driver) SyncVersions(ctx context.Context, run execx.Runner, root string, p
 	}
 	changed := map[string]bool{}
 	rootManifest := filepath.Join(root, "Cargo.toml")
-	if err := writeWorkspaceVersion(rootManifest, pkgs, changed); err != nil {
-		return nil, err
+	rootExists := fsx.Exists(rootManifest)
+	if rootExists {
+		if err := writeWorkspaceVersion(rootManifest, pkgs, changed); err != nil {
+			return nil, err
+		}
+	} else {
+		for _, pkg := range pkgs {
+			if pkg.Inherited {
+				return nil, errors.New(i18n.T("rust.err.workspace_package_missing"))
+			}
+		}
 	}
 	byDir := make(map[string]ecosystem.Package, len(detected))
 	for _, pkg := range detected {
 		byDir[filepath.Clean(fsx.Join(root, pkg.Path))] = pkg
 	}
-	manifests := []string{rootManifest}
+	manifests := []string{}
+	if rootExists {
+		manifests = append(manifests, rootManifest)
+	}
 	for _, pkg := range detected {
 		manifests = append(manifests, filepath.Join(root, filepath.FromSlash(pkg.Manifest)))
 	}
@@ -70,6 +82,20 @@ func (driver) SyncVersions(ctx context.Context, run execx.Runner, root string, p
 			return nil, fmt.Errorf("%s: %w", i18n.T("rust.err.cargo_update"), err)
 		}
 		changed["Cargo.lock"] = true
+	}
+	for _, pkg := range pkgs {
+		if pkg.Path == "." || pkg.Path == "" {
+			continue
+		}
+		dir := fsx.Join(root, pkg.Path)
+		lock := filepath.Join(dir, "Cargo.lock")
+		if _, err := os.Stat(lock); err != nil {
+			continue
+		}
+		if _, err := run.Run(ctx, dir, "cargo", "update"); err != nil {
+			return nil, fmt.Errorf("%s: %w", i18n.T("rust.err.cargo_update"), err)
+		}
+		changed[fsx.Rel(root, lock)] = true
 	}
 	return sortedKeys(changed), nil
 }

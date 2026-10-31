@@ -160,7 +160,16 @@ func (e *executor) bump(ctx context.Context) error {
 func (e *executor) inspectPlanPackages() ([]ecosystem.Package, error) {
 	inputs := make([]ecosystem.Package, 0, len(e.plan.Packages))
 	for _, pkg := range e.plan.Packages {
-		inputs = append(inputs, ecosystem.Package{Name: pkg.Name, Path: pkg.Path, Resolver: pkg.Resolver})
+		manifestName := pkg.Name
+		if cfgPkg, ok := e.d.Cfg.Packages[pkg.Name]; ok {
+			manifestName = config.ManifestNameOf(pkg.Name, cfgPkg)
+		}
+		inputs = append(inputs, ecosystem.Package{
+			Name:     manifestName,
+			Identity: pkg.Name,
+			Path:     pkg.Path,
+			Resolver: pkg.Resolver,
+		})
 	}
 	return registry.InspectAll(e.d.Root, inputs)
 }
@@ -168,7 +177,7 @@ func (e *executor) inspectPlanPackages() ([]ecosystem.Package, error) {
 // findInspected resolves a planned package by name.
 func findInspected(pkgs []ecosystem.Package, name string) (ecosystem.Package, bool) {
 	for _, pkg := range pkgs {
-		if pkg.Name == name {
+		if pkg.IdentityName() == name || pkg.Name == name {
 			return pkg, true
 		}
 	}

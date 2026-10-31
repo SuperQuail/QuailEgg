@@ -73,7 +73,7 @@ func TestInitInfersSharedScopeAndPythonRegistry(t *testing.T) {
 			t.Fatalf("generated config is missing %s:\n%s", want, text)
 		}
 	}
-	for _, want := range []string{"[packages.core]", "[packages.app]"} {
+	for _, want := range []string{"[packages.\"python@core\"]", "[packages.\"python@app\"]"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("generated config is missing %s:\n%s", want, text)
 		}
@@ -165,9 +165,10 @@ func TestInitRegistersCargoWorkspace(t *testing.T) {
 		`version_scope = "shared"`,
 		`registries = ["crates"]`,
 		`commands = ["cargo test"]`,
-		`[packages."init-core"]`,
-		`[packages."init-app"]`,
-		`[packages."init-app"]
+		`[packages."rust@init-core"]`,
+		`[packages."rust@init-app"]`,
+		`[packages."rust@init-app"]
+name = "init-app"
 path = "app"
 resolver = "rust"
 publish = false`,
@@ -209,7 +210,7 @@ func TestInitCollectsVerifyCommandsPerEcosystem(t *testing.T) {
 	writeInitFiles(t, dir, map[string]string{
 		"Cargo.toml":             "[workspace]\nmembers = [\"crates/core\"]\n\n[workspace.package]\nversion = \"0.1.0\"\n",
 		"crates/core/Cargo.toml": "[package]\nname = \"mixed-core\"\nversion.workspace = true\n",
-		"package.json":           "{\"name\":\"mixed-ui\",\"scripts\":{\"test\":\"vitest run\"}}\n",
+		"package.json":           "{\"name\":\"mixed-ui\",\"version\":\"1.0.0\",\"scripts\":{\"test\":\"vitest run\"}}\n",
 	})
 	if _, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
 		WithWorkflows: false,

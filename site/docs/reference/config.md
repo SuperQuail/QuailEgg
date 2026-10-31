@@ -177,22 +177,29 @@ artifacts = ["target/release/my-app"]
 
 初始化渲染工作流时，显式发布目标优先决定生态 setup 和凭证；没有目标时再参考包的 resolver。跨生态项目应检查生成工作流是否覆盖所需的工具链。
 
-## [packages.<name>]
+## [packages.<key>]
 
-每个包登记一个表。名称含特殊字符时加引号，例如：
+每个包登记一个表，表名是包的**身份键**。新生成的配置使用 `<resolver>@<清单名>`，并用 `name` 记录清单里的真实名字：
 
 ```toml
-[packages."@acme/core"]
+[packages."npm@acme/core"]
+name = "@acme/core"
 path = "packages/core"
 resolver = "npm"
 publish = true
 ```
 
+- 清单名以 `@` 开头时，键里省略一个 `@`（`npm@acme/core`）。
+- 同名清单可以登记多次，例如 `npm@app` 与 `rust@app` 同时存在；`name` 都写 `app`。
+- 旧配置可以直接用清单名作键并省略 `name`，仍然有效；新登记时由 `qegg init` 生成新格式。
+- 键是身份，记录、计划、tag、check 都使用它；只有读取清单和发布时使用 `name`。
+
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
+| `name` | string | 键本身 | 清单里的真实包名；键与清单名不同时必填 |
 | `path` | string | 必填 | 包所在目录，根包使用 `"."` |
 | `resolver` | string | 必填 | `npm`、`python`、`rust` 或 `go` |
 | `publish` | bool | `true` | 是否发布软件包；关闭后仍可管理版本 |
-| `depends-on` | string[] | `[]` | 其他已登记包的依赖关系，用于发布排序 |
+| `depends-on` | string[] | `[]` | 其他已登记包的身份键，用于发布排序 |
 
-包名应与实际清单一致。`depends-on` 不会自动为依赖方创建升级记录；多个包的输入示例见[多包输入](./cli#多包输入)。
+`depends-on` 不会自动为依赖方创建升级记录；多个包的输入示例见[多包输入](./cli#多包输入)。

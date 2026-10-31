@@ -79,7 +79,7 @@
 
 qegg 把“包”分成两个阶段：
 
-- **发现**（`qegg init`）：`Detect` 只读根清单和根声明的 workspace，用来建议初始 `[packages.*]`；
+- **发现**（`qegg init`）：`Detect` 只读根清单和根声明的 workspace，再叠加最多三层的清单扫描，用来建议初始 `[packages.*]`；新登记使用 `resolver@清单名` 身份键并写入 `name`，旧式清单名键继续有效；
 - **解析**（每次 plan/check/status/release）：不看发现结果，直接遍历配置里的包，按 `path` 调适配器的 `Inspect` 读取清单。
 
 因此没有被 workspace 声明、也不会被发现的独立子工程（例如 Tauri 的 `ui/`），只要手写一条包配置就能参与版本、变更记录和 scope：

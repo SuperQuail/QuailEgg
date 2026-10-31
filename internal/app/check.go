@@ -74,9 +74,13 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 		return report, nil
 	}
 	report.Packages.Registered = a.Cfg.PackageNames()
+	registeredManifest := make(map[string]bool, len(report.Packages.Registered))
+	for _, key := range report.Packages.Registered {
+		registeredManifest[a.Cfg.ManifestName(key)] = true
+	}
 	for _, pkg := range detected {
 		report.Packages.Detected = append(report.Packages.Detected, pkg.Name)
-		if _, ok := a.Cfg.Packages[pkg.Name]; !ok {
+		if !registeredManifest[pkg.Name] {
 			report.Packages.Unregistered = append(report.Packages.Unregistered, pkg.Name)
 		}
 	}
@@ -115,7 +119,7 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 		}
 		pkg.Version = version
 		report.Entries = append(report.Entries, PackageEntry{
-			Name: pkg.Name, Resolver: pkg.Resolver, Version: pkg.Version, Manifest: pkg.Manifest,
+			Name: pkg.IdentityName(), Resolver: pkg.Resolver, Version: pkg.Version, Manifest: pkg.Manifest,
 		})
 		for _, tool := range requiredTools(pkg.Resolver) {
 			if seenTools[tool.command] {
@@ -339,7 +343,12 @@ func (a *App) inspectPackage(detected []ecosystem.Package, name string) (ecosyst
 				Fix:     i18n.T("check.fix.unknown_resolver"),
 			}
 		}
-		pkg, err := registry.Inspect(a.Root, ecosystem.Package{Name: name, Path: cfg.Path, Resolver: cfg.Resolver})
+		pkg, err := registry.Inspect(a.Root, ecosystem.Package{
+			Name:     a.Cfg.ManifestName(name),
+			Identity: name,
+			Path:     cfg.Path,
+			Resolver: cfg.Resolver,
+		})
 		if err != nil {
 			return ecosystem.Package{}, &Problem{
 				Code:    "inspect-failed",

@@ -9,6 +9,7 @@ import (
 
 	"github.com/SuperQuail/QuailEgg/internal/app"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
+	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
 	"github.com/SuperQuail/QuailEgg/internal/scaffold"
 )
@@ -17,6 +18,8 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 	var opts app.InitOptions
 	var jsonOut, dryRun, force, noHook, noWorkflows, noStatus, noAddPackages, noInput bool
 	var qeggVersion string
+	var packages, exclude []string
+	var depth int
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: i18n.T("cmd.init.short"),
@@ -32,8 +35,31 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 			opts.AddPackages = !noAddPackages
 			opts.Force = force
 			opts.DryRun = dryRun
+			opts.ScanDepth = depth
+			opts.Exclude = exclude
+			if cmd.Flags().Changed("packages") && noAddPackages {
+				return fail(2, errors.New(i18n.T("init.err.packages_no_add")))
+			}
+			root, err := fsx.RepoRoot(cwd)
+			if err != nil {
+				return fail(2, errors.New(i18n.T("error.not_git_repo")))
+			}
+			if depth < 0 {
+				return fail(2, errors.New(i18n.T("scan.err.depth")))
+			}
+			scan, err := app.Scan(cmd.Context(), root, app.ScanOptions{Depth: depth, Exclude: exclude, Remote: opts.Remote})
+			if err != nil {
+				return fail(2, err)
+			}
+			if cmd.Flags().Changed("packages") {
+				ids, err := app.SelectPackages(scan, packages)
+				if err != nil {
+					return fail(2, err)
+				}
+				opts.Packages = ids
+			}
 			if !noInput && !dryRun && rt.Printer().Color {
-				if err := maybeInitWizard(cwd, &opts); err != nil {
+				if err := maybeInitWizard(scan, &opts); err != nil {
 					if errors.Is(err, errInitAborted) {
 						return &ExitError{Code: 0}
 					}
@@ -50,6 +76,7 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 			if opts.QeggVersion == "" {
 				opts.QeggVersion = rt.InstallVersion()
 			}
+			opts.Candidates = scan
 			p := rt.Printer()
 			p.JSON = jsonOut
 			plan, err := app.Init(cmd.Context(), cwd, p, opts)
@@ -81,6 +108,9 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 	cmd.Flags().BoolVar(&noWorkflows, "no-workflows", false, i18n.T("flag.no_workflows"))
 	cmd.Flags().BoolVar(&noStatus, "no-status-workflow", false, i18n.T("flag.no_status_workflow"))
 	cmd.Flags().BoolVar(&noAddPackages, "no-add-packages", false, i18n.T("flag.no_add_packages"))
+	cmd.Flags().StringSliceVar(&packages, "packages", nil, i18n.T("flag.init_packages"))
+	cmd.Flags().IntVar(&depth, "depth", app.DefaultScanDepth, i18n.T("flag.scan_depth"))
+	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, i18n.T("flag.scan_exclude"))
 	cmd.Flags().StringVar(&qeggVersion, "qegg-version", "", i18n.T("flag.qegg_version"))
 	return cmd
 }

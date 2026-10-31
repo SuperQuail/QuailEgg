@@ -7,7 +7,7 @@ QuailEgg is an automated release tool. Once changes land on the main branch it c
 ## Features
 
 - Release records drive the flow, a pre-commit hook checks the record and runs `[verify].commands`
-- Detects npm, PyPI, crates.io and Go modules automatically
+- Detects npm, PyPI, crates.io and Go modules automatically, including manifests up to three directories deep
 - Release as a pull request or a direct commit, interrupted runs resume safely
 - Prerelease channels (`alpha`, `beta`, `rc`) that keep the records for the stable release
 - `qegg init` generates GitHub Actions workflows, merging is enough to release
@@ -21,6 +21,7 @@ go install github.com/SuperQuail/QuailEgg/cmd/qegg@latest
 ## Quick start
 
 ```bash
+qegg scan       # list the packages init can register
 qegg init       # config, git hook and GitHub Actions workflows
 qegg commit     # write one change record and commit it
 qegg release    # publish
@@ -45,6 +46,7 @@ The channel lives in the committed `.quailegg/pre-release.lock`. A prerelease ne
 | Command | Description |
 | --- | --- |
 | `qegg init` | Generate config, hook and workflows |
+| `qegg scan` | List the packages init can register |
 | `qegg commit` | Write and commit a change record |
 | `qegg check` | Validate environment and config |
 | `qegg plan` | Preview the release plan |
@@ -86,12 +88,13 @@ repo = "github.com/you/project"   # written by qegg init
 [publish]
 registries = ["npm"]
 
-[packages.my-package]
+[packages."npm@my-package"]
+name = "my-package"
 path = "."
 resolver = "npm"    # npm | python | rust | go
 ```
 
-Missing values come from detection or defaults; release credentials go through environment variables or CI secrets.
+The package table name is the package identity: new configurations use `resolver@manifest-name` and record the real manifest name in `name`. Old configurations can keep using the manifest name as the key. Missing values come from detection or defaults; release credentials go through environment variables or CI secrets.
 
 ## License
 

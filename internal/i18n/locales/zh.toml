@@ -351,7 +351,7 @@
     type: feat
     scope: cache
     packages:
-      my-package: minor
+      npm@my-package: minor
     ---
 
     用一两句话描述这次改动。
@@ -365,3 +365,56 @@
 
 用 qegg commit 生成记录。
 '''
+
+# --- 扫描与 init 包选择 ------------------------------------------------------
+"cmd.scan.short" = "列出 qegg init 可以登记的包"
+"flag.init_packages" = "只登记这些包，例如 npm:web,npm:core（默认登记全部可登记包）"
+"flag.scan_depth" = "扫描清单的目录层数（0 表示只用 workspace 声明）"
+"flag.scan_exclude" = "扫描时跳过匹配的路径"
+"error.no_packages_selected" = "没有选择任何包；可用 qegg scan 查看候选"
+"init.err.package_unknown" = "未知的包 %q；请使用 qegg scan 输出的身份键"
+"init.err.package_ambiguous" = "包名 %q 对应多个候选；请使用 qegg scan 输出的身份键"
+"init.err.package_unselectable" = "包 %s 不能登记：%s"
+"init.err.packages_no_add" = "--packages 不能与 --no-add-packages 同时使用"
+"init.warn.scan_skipped" = "%d 个候选没有登记；原因见 qegg scan"
+"init.warn.version_file_skipped" = "多个包使用 package 版本范围时不会写版本文件：%s"
+"init.warn.workspace_version_shared" = "未登记的 workspace 成员 %s 会随 workspace 版本一起变化"
+"scan.summary" = "扫描 %s（层数 %d）：%d 个候选"
+"scan.package_line" = "%s %s  %s  %s  %s"
+"scan.reason_line" = "  原因: %s"
+"scan.label_new" = "新增"
+"scan.label_registered" = "已登记"
+"scan.label_skipped" = "跳过"
+"scan.scope" = "版本范围: %s"
+"scan.version_file" = "版本文件: %s（%s）"
+"scan.err.depth" = "--depth 必须大于或等于 0"
+"scan.warn.no_config" = "还没有 .quailegg.toml；qegg init 会创建"
+"scan.warn.configured_missing" = "配置中已登记但未检测到：%s"
+"scan.warn.none" = "暂时没有可登记的包"
+"scan.detail.nested_go" = "Go 模块只支持仓库根目录"
+"scan.detail.nested_workspace" = "%s 属于嵌套的 Cargo workspace"
+"scan.detail.name_conflict" = "另一个候选使用了包名 %q"
+"scan.detail.registered_elsewhere" = "包 %q 已登记在 %s（%s）"
+"scan.detail.no_version" = "%s 没有版本；请先补上版本再登记"
+"scan.reason.no_version" = "清单没有版本"
+"scan.reason.name_conflict" = "与其他候选重名"
+"scan.reason.nested_go_unsupported" = "嵌套的 Go 模块"
+"scan.reason.nested_workspace_unsupported" = "嵌套的 Cargo workspace"
+"scan.reason.workspace_version_missing" = "缺少 workspace 版本"
+"scan.reason.invalid_manifest" = "清单无法解析"
+"scan.reason.invalid_version_file" = "版本文件无法读取"
+"scan.reason.needs_shared_scope" = "需要 shared 版本范围"
+"scan.reason.excluded" = "被 --exclude 排除"
+"tui.init.packages_title" = "QuailEgg 初始化 · 选择包"
+"tui.init.package_line" = "%s  %s  %s  %s"
+"tui.init.selected_count" = "已选 %d/%d"
+"tui.init.registered_count" = "%d 个已登记包保持不变"
+"tui.init.skipped_count" = "%d 个候选无法登记，详见 qegg scan"
+"tui.init.packages_hint" = "空格 切换 · 上下 移动 · 回车 下一步 · esc 取消 · q 取消"
+"scan.reason.duplicate_name" = "包名重复"
+"scan.reason.key_conflict" = "配置键已被占用"
+"scan.detail.duplicate_name" = "%s 出现在多个候选中；请手写不同的键登记"
+"scan.detail.name_registered" = "清单名 %q 已登记在 %q 下"
+"scan.detail.key_conflict" = "配置键 %s 已被另一个包使用"
+"init.warn.shared_recommended" = "共享同一清单名的包通常应使用 release.version_scope = \"shared\"：%s"
+"release.warn.same_manifest_names" = "包 %s 共享同一个清单名；除非各自独立发版，否则请保持 release.version_scope = \"shared\""

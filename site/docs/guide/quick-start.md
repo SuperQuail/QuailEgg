@@ -44,7 +44,14 @@ git remote add origin https://github.com/you/project.git
 qegg init
 ```
 
-向导会检测包，并询问主分支、发布方式和发布目标。第一次使用时，可以选择默认的 `pr` 模式。
+可以先运行 `qegg scan` 查看会被自动发现的包：
+
+```bash
+qegg scan
+qegg scan --json   # 脚本或 AI 使用
+```
+
+`qegg init` 会把根目录、workspace 声明和最多三层目录内的包清单合并成候选：向导里默认全选、空格取消；第一次使用可以选择默认的 `pr` 模式。
 
 初始化会生成以下内容：
 
@@ -59,7 +66,7 @@ qegg init
 `qegg init` 会把远程仓库身份写入 `[project].repo`，用于区分项目克隆和 fork 克隆。没有配置远程时，初始化会提示你先添加远程。
 
 ::: tip 先查看生成结果
-运行 `qegg init --dry-run` 可以预览文件变动。在脚本中使用 `qegg init --no-input` 可以跳过交互。
+运行 `qegg init --dry-run` 可以预览文件变动。在脚本中使用 `qegg init --no-input` 可以跳过交互；`--packages` 只登记指定包，值取自 `qegg scan` 的 `id`。
 :::
 
 ## 检查并提交初始化结果
@@ -73,7 +80,8 @@ qegg check
 例如，示例项目应登记为：
 
 ```toml
-[packages.my-package]
+[packages."npm@my-package"]
+name = "my-package"
 path = "."
 resolver = "npm"
 ```

@@ -23,6 +23,8 @@ qegg <command> --help
 
 仓库必须配置远程，默认使用 `origin`。已有工作流和 hook 默认保留；`--force` 允许重新生成它们。已有配置会保留并按需补充包、仓库身份与版本文件。
 
+不指定 `--packages` 时，默认登记全部可登记的包：仓库根目录、workspace 声明，以及最多三层目录内的包清单。`qegg scan` 可以提前查看候选与不可登记的原因。
+
 | 参数 | 说明 |
 | --- | --- |
 | `--no-input` | 跳过交互向导 |
@@ -43,12 +45,37 @@ qegg <command> --help
 | `--no-workflows` | 不生成工作流 |
 | `--no-status-workflow` | 不生成状态查询工作流 |
 | `--no-add-packages` | 不自动登记新发现的包 |
+| `--packages <ids>` | 只登记指定的包，逗号分隔；值取自 `qegg scan` 的 id、身份键或唯一清单名 |
+| `--depth <n>` | 扫描清单的目录层数，默认 3；`0` 表示只用 workspace 声明 |
+| `--exclude <globs>` | 扫描时跳过的路径，逗号分隔 |
 | `--qegg-version <version>` | 工作流使用的 QuailEgg 版本，接受已发布版本或 `latest` |
 
 ```bash
 qegg init --no-input --mode pr --registries npm
+qegg init --no-input --packages npm@web,npm@core
 qegg init --dry-run --force
 ```
+
+## qegg scan
+
+只读地列出 `qegg init` 可以登记的包，以及每个候选不可登记的原因。它不写文件，不要求已有 `.quailegg.toml`，也不要求仓库配置远程；适合脚本和 AI 在初始化前做发现。
+
+| 参数 | 说明 |
+| --- | --- |
+| `--json` | 输出 JSON（`schema_version` 为 1） |
+| `--depth <n>` | 扫描清单的目录层数，默认 3；`0` 表示只用 workspace 声明 |
+| `--exclude <globs>` | 扫描时跳过的路径，逗号分隔 |
+| `--remote <name>` | 推导仓库身份时使用的 Git remote，默认 `origin` |
+
+```bash
+qegg scan
+qegg scan --json
+qegg scan --depth 2 --exclude 'examples/**'
+```
+
+JSON 里每个候选带稳定的 `id`（`resolver:path`）、真实清单名 `name`、身份键 `key`（已登记时为现有键，未登记时为 `resolver@清单名`）、`selectable`、`reason` 与 `source`（`workspace` 或 `scan`）；`default_packages` 是不加参数运行 `qegg init` 时会登记的那些包。
+
+`--packages`、`qegg commit --packages` 和变更记录里的包键都使用 `key`；同一个清单名出现在多个候选时（例如 npm 与 Rust 包同名），按清单名选择会产生歧义，需改用 `key` 或 `id`。
 
 ## qegg commit
 
@@ -60,7 +87,7 @@ qegg init --dry-run --force
 | `--type <type>` | 显式指定记录类型 |
 | `--scope <scope>` | 显式指定记录范围 |
 | `--body <text>` | 进入更新日志的记录正文 |
-| `--packages <list>` | 包名与升级级别，支持逗号分隔和重复传入 |
+| `--packages <list>` | 包身份键与升级级别，支持逗号分隔和重复传入 |
 | `--no-commit` | 只生成记录 |
 | `--no-input` | 跳过交互向导，需要提供包与升级级别 |
 | `-y, --yes` | 确认选项；脚本调用仍应显式提供 `--no-input` 和所需字段 |
@@ -69,7 +96,7 @@ qegg init --dry-run --force
 
 ```bash
 git add -A
-qegg commit --no-input -m "fix(cache): handle empty input" --body "Return an empty result for empty input." --packages my-package:patch
+qegg commit --no-input -m "fix(cache): handle empty input" --body "Return an empty result for empty input." --packages npm@my-package:patch
 ```
 
 ### 多包输入
@@ -77,13 +104,13 @@ qegg commit --no-input -m "fix(cache): handle empty input" --body "Return an emp
 一个参数可以为多个包指定不同的升级级别：
 
 ```bash
-qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages @acme/core:minor,@acme/cli:patch
+qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages npm@acme/core:minor,npm@acme/cli:patch
 ```
 
 也可以重复传入参数，下面与上例等价：
 
 ```bash
-qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages @acme/core:minor --packages @acme/cli:patch
+qegg commit --no-input -m "feat: support configurable expiration" --body "Allow users to configure cache expiration." --packages npm@acme/core:minor --packages npm@acme/cli:patch
 ```
 
 包名取自配置中的 `[packages]`，级别为 `patch`、`minor` 或 `major`。这些例子都只生成一条记录；`packages` 中会包含多个包。版本策略见[多包仓库](../guide/monorepos)。

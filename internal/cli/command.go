@@ -111,6 +111,7 @@ func fail(code int, err error) error { return &ExitError{Code: code, Err: err} }
 func register(root *cobra.Command, rt *Runtime) {
 	root.AddCommand(
 		newInitCommand(rt),
+		newScanCommand(rt),
 		newCheckCommand(rt),
 		newCommitCommand(rt),
 		newChangelogCommand(rt),

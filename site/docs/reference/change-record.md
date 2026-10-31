@@ -37,17 +37,17 @@ Allow users to configure cache expiration.
 
 ### packages
 
-包名必须与配置中登记的名称一致。一个记录可以包含多个包，并分别指定 `patch`、`minor` 或 `major`：
+包键必须与 `.quailegg.toml` 中登记的身份键一致（新配置形如 `resolver@清单名`）。一个记录可以包含多个包，并分别指定 `patch`、`minor` 或 `major`：
 
 ```yaml
 packages:
-  "@acme/core": minor
-  "@acme/cli": patch
+  "npm@acme/core": minor
+  "npm@acme/cli": patch
 ```
 
 同一个包的多条记录取最高升级级别。共享版本模式会为所有登记包选择同一个版本，见[多包仓库](../guide/monorepos)。
 
-使用命令生成时，等价输入为 `--packages @acme/core:minor,@acme/cli:patch`，也可以重复传入 `--packages`。完整命令见[多包输入](./cli#多包输入)。
+使用命令生成时，等价输入为 `--packages npm@acme/core:minor,npm@acme/cli:patch`，也可以重复传入 `--packages`。完整命令见[多包输入](./cli#多包输入)。
 
 ### release
 

@@ -11,7 +11,9 @@ QuailEgg 用同一套变更记录管理不同语言的包，再按各生态的�
 | Rust | `Cargo.toml` | `rust` | `crates` | `cargo publish` |
 | Go | `go.mod` | `go` | `go` | 创建并推送版本标签 |
 
-`qegg init` 用自动发现结果生成建议。初始化后，发布计划主要按配置里登记的包和路径读取清单；不能把自动发现理解为任意嵌套目录都会自动发布。
+`qegg init` 用自动发现结果生成建议：根目录清单、workspace 声明，以及最多三层目录内发现的清单。`qegg scan` 可以提前查看候选和不可登记的原因。初始化后，发布计划主要按配置里登记的包和路径读取清单；超过扫描深度的包仍需显式写入配置。
+
+新生成的配置用 `resolver@清单名` 作为包的身份键，并在表里用 `name` 记录真实清单名；下面示例沿用手写/旧式的清单名键，同样有效。同一清单名可以登记为多个包（例如 Tauri 的 `npm@app` 与 `rust@app`），此时应使用共享版本。
 
 ## Node.js
 
@@ -68,7 +70,7 @@ path = "."
 resolver = "rust"
 ```
 
-普通 crate 的版本写回 `[package].version`。Cargo workspace 的成员也可以被识别，包括只有 `[workspace]` 的虚拟根清单。
+普通 crate 的版本写回 `[package].version`。Cargo workspace 的成员也可以被识别，包括只有 `[workspace]` 的虚拟根清单。嵌套的 Cargo workspace（例如 `frontend/Cargo.toml` 自己声明 `[workspace]`）暂不支持继承版本的成员，`qegg scan` 会把它们标为不可登记。
 
 ### 继承 workspace 版本
 
@@ -113,7 +115,7 @@ Go 模块的版本来自标签，不写回 `go.mod` 中的版本字段。QuailEg
 当前支持范围如下：
 
 - `git.tag_prefix` 必须为 `v`。
-- 只支持仓库根目录的 `go.mod`，暂不支持子目录模块与 `go.work` 多模块发布。
+- 只支持仓库根目录的 `go.mod`，暂不支持子目录模块与 `go.work` 多模块发布；`qegg scan` 会把子目录模块标为不可登记。
 - Go 包不能加入多包发布计划。
 - 发布 v2 或更高版本前，需要自行调整 module 路径和 import，使其带上 `/vN` 后缀；QuailEgg 会检查，不会自动改写。
 

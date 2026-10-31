@@ -351,7 +351,7 @@ Example record:
     type: feat
     scope: cache
     packages:
-      my-package: minor
+      npm@my-package: minor
     ---
 
     Describe the change in one or two sentences.
@@ -365,3 +365,56 @@ Fields:
 
 Create records with qegg commit.
 '''
+
+# --- scan and init package selection ----------------------------------------
+"cmd.scan.short" = "List the packages qegg init can register"
+"flag.init_packages" = "packages to register, for example npm:web,npm:core (defaults to every selectable package)"
+"flag.scan_depth" = "directory levels scanned for manifests (0 keeps workspace detection only)"
+"flag.scan_exclude" = "skip paths matching these globs during the scan"
+"error.no_packages_selected" = "no package selected; qegg scan lists the candidates"
+"init.err.package_unknown" = "unknown package %q; use the identity key from qegg scan"
+"init.err.package_ambiguous" = "package name %q matches several candidates; use the identity key from qegg scan"
+"init.err.package_unselectable" = "package %s cannot be registered: %s"
+"init.err.packages_no_add" = "--packages cannot be combined with --no-add-packages"
+"init.warn.scan_skipped" = "%d candidate(s) were not registered; run qegg scan for the reasons"
+"init.warn.version_file_skipped" = "version files are only written for one package or shared versions: %s"
+"init.warn.workspace_version_shared" = "workspace members %s are not registered; their version changes together with the workspace"
+"scan.summary" = "scan %s (depth %d): %d candidate(s)"
+"scan.package_line" = "%s %s  %s  %s  %s"
+"scan.reason_line" = "  reason: %s"
+"scan.label_new" = "new"
+"scan.label_registered" = "registered"
+"scan.label_skipped" = "skipped"
+"scan.scope" = "version scope: %s"
+"scan.version_file" = "version file: %s (%s)"
+"scan.err.depth" = "--depth must be zero or greater"
+"scan.warn.no_config" = "no .quailegg.toml yet; qegg init creates one"
+"scan.warn.configured_missing" = "configured packages not detected: %s"
+"scan.warn.none" = "no package can be registered yet"
+"scan.detail.nested_go" = "Go modules are only supported at the repository root"
+"scan.detail.nested_workspace" = "%s belongs to a nested Cargo workspace"
+"scan.detail.name_conflict" = "another candidate uses the package name %q"
+"scan.detail.registered_elsewhere" = "package %q is already registered at %s (%s)"
+"scan.detail.no_version" = "%s has no version; add one before registering it"
+"scan.reason.no_version" = "manifest has no version"
+"scan.reason.name_conflict" = "another candidate uses the same name"
+"scan.reason.nested_go_unsupported" = "nested Go module"
+"scan.reason.nested_workspace_unsupported" = "nested Cargo workspace"
+"scan.reason.workspace_version_missing" = "workspace version is missing"
+"scan.reason.invalid_manifest" = "manifest cannot be parsed"
+"scan.reason.invalid_version_file" = "version file cannot be read"
+"scan.reason.needs_shared_scope" = "needs shared versions"
+"scan.reason.excluded" = "excluded by --exclude"
+"tui.init.packages_title" = "QuailEgg initialisation · select packages"
+"tui.init.package_line" = "%s  %s  %s  %s"
+"tui.init.selected_count" = "selected %d/%d"
+"tui.init.registered_count" = "%d registered package(s) stay registered"
+"tui.init.skipped_count" = "%d candidate(s) cannot be registered; see qegg scan"
+"tui.init.packages_hint" = "space toggle · up/down move · enter next · esc cancel · q cancel"
+"scan.reason.duplicate_name" = "duplicate package name"
+"scan.reason.key_conflict" = "configuration key already in use"
+"scan.detail.duplicate_name" = "%s is used by more than one candidate; register it manually with a distinct key"
+"scan.detail.name_registered" = "manifest name %q is already registered under %q"
+"scan.detail.key_conflict" = "configuration key %s is already used by another package"
+"init.warn.shared_recommended" = "packages sharing a manifest name should usually use release.version_scope = \"shared\": %s"
+"release.warn.same_manifest_names" = "packages %s share a manifest name; keep release.version_scope = \"shared\" unless they version independently"

@@ -17,6 +17,7 @@ record prose). When the two disagree, fix this file.
 | `go vet ./...` | static check |
 | `gofmt -l .` | formatting: must print nothing |
 | `go test ./...` | unit and e2e tests |
+| `qegg scan` | packages `qegg init` can register |
 | `qegg check` | config, ecosystem, tools and records |
 | `qegg plan` | next version and grouped changes |
 | `qegg plan --markdown` | the same, ready for a PR comment |
@@ -35,7 +36,7 @@ The docs site is a separate pnpm project: `cd site && pnpm install`, then
 
 - `cmd/qegg/`: process entry, calls `cli.Execute` and nothing else.
 - `internal/cli/`: cobra commands, one file per command, `Runtime` and `ExitError`.
-- `internal/app/`: use cases (init, check, commit, plan, release, resume, status).
+- `internal/app/`: use cases (init, scan, check, commit, plan, release, resume, status).
 - `internal/release/`: plan, executor, version and publish phases, marker, changelog section.
 - `internal/ecosystem/{npm,python,rust,golang}/`: adapters; `ecosystem/registry` is the only entry point.
 - `internal/changes/`: record parsing, writing, and the pre-commit rules.

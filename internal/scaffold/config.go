@@ -56,6 +56,9 @@ func renderConfig(opts Options, packages map[string]config.Package) []byte {
 	for _, name := range names {
 		pkg := packages[name]
 		b.WriteString("\n[packages." + tomlKey(name) + "]\n")
+		if manifest := strings.TrimSpace(pkg.Name); manifest != "" && manifest != name {
+			b.WriteString("name = " + strconv.Quote(manifest) + "\n")
+		}
 		b.WriteString("path = " + strconv.Quote(pkg.Path) + "\n")
 		b.WriteString("resolver = " + strconv.Quote(pkg.Resolver) + "\n")
 		publish := true
@@ -113,6 +116,9 @@ func MergePackages(existing []byte, opts Options, packages map[string]config.Pac
 		}
 		pkg := packages[name]
 		additions.WriteString("\n[packages." + tomlKey(name) + "]\n")
+		if manifest := strings.TrimSpace(pkg.Name); manifest != "" && manifest != name {
+			additions.WriteString("name = " + strconv.Quote(manifest) + "\n")
+		}
 		additions.WriteString("path = " + strconv.Quote(pkg.Path) + "\n")
 		additions.WriteString("resolver = " + strconv.Quote(pkg.Resolver) + "\n")
 		publish := true

@@ -198,12 +198,57 @@ type Publish struct {
 	Registries []string `toml:"registries"`
 }
 
-// Package registers one package in the repository.
+// Package registers one package in the repository. The map key in
+// Config.Packages is the package identity; Name records the manifest's own
+// name when the two differ (qegg init writes resolver-qualified keys).
 type Package struct {
 	Path      string   `toml:"path"`
 	Resolver  string   `toml:"resolver"`
+	Name      string   `toml:"name,omitempty"`
 	Publish   *bool    `toml:"publish"`
 	DependsOn []string `toml:"depends-on"`
+}
+
+// ManifestNameOf returns the manifest name of pkg, falling back to the key
+// when the configuration does not set name explicitly.
+func ManifestNameOf(key string, pkg Package) string {
+	if name := strings.TrimSpace(pkg.Name); name != "" {
+		return name
+	}
+	return key
+}
+
+// ManifestName returns the manifest name registered under key.
+func (c *Config) ManifestName(key string) string {
+	if pkg, ok := c.Packages[key]; ok {
+		return ManifestNameOf(key, pkg)
+	}
+	return key
+}
+
+// PackageKeyFor resolves a package key or a unique manifest name to the
+// configured key. It reports false when the value is unknown or matches more
+// than one package.
+func (c *Config) PackageKeyFor(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", false
+	}
+	if _, ok := c.Packages[value]; ok {
+		return value, true
+	}
+	var match string
+	count := 0
+	for _, key := range c.PackageNames() {
+		if ManifestNameOf(key, c.Packages[key]) == value {
+			match = key
+			count++
+		}
+	}
+	if count == 1 {
+		return match, true
+	}
+	return "", false
 }
 
 // Default returns the built-in defaults.
@@ -379,6 +424,9 @@ func (c *Config) Validate() error {
 		}
 		if strings.TrimSpace(pkg.Resolver) == "" {
 			return fmt.Errorf("packages.%s.resolver must not be empty", name)
+		}
+		if pkg.Name != "" && strings.TrimSpace(pkg.Name) == "" {
+			return fmt.Errorf("packages.%s.name must not be blank", name)
 		}
 	}
 	return nil

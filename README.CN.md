@@ -7,7 +7,7 @@ QuailEgg 是一个自动发版工具。合并到主分支后，它汇总 `.chang
 ## 特性
 
 - 变更记录驱动发版，pre-commit hook 检查记录并执行 `[verify].commands`
-- 自动识别 npm、PyPI、crates.io 与 Go module
+- 自动识别 npm、PyPI、crates.io 与 Go module，并扫描根目录下最多三层的包清单
 - 发布方式可选：发布 PR 或直接提交，失败可断点续跑
 - 预发布渠道（`alpha`、`beta`、`rc`），记录留到稳定版一起发布
 - `qegg init` 生成 GitHub Actions 工作流，合并即自动发版
@@ -21,6 +21,7 @@ go install github.com/SuperQuail/QuailEgg/cmd/qegg@latest
 ## 快速开始
 
 ```bash
+qegg scan       # 查看 init 可以登记的包
 qegg init       # 生成配置、git hook 和 GitHub Actions 工作流
 qegg commit     # 写一条变更记录并提交
 qegg release    # 发版
@@ -45,6 +46,7 @@ qegg pre exit       # 毕业，发布稳定版
 | 命令 | 说明 |
 | --- | --- |
 | `qegg init` | 生成配置、hook 和工作流 |
+| `qegg scan` | 列出 init 可以登记的包 |
 | `qegg commit` | 生成变更记录并提交 |
 | `qegg check` | 检查环境与配置 |
 | `qegg plan` | 预览发版计划 |
@@ -86,12 +88,13 @@ repo = "github.com/you/project"   # 由 qegg init 写入
 [publish]
 registries = ["npm"]
 
-[packages.my-package]
+[packages."npm@my-package"]
+name = "my-package"
 path = "."
 resolver = "npm"    # npm | python | rust | go
 ```
 
-未填写的配置项使用自动检测结果或默认值；发布凭证走环境变量或 CI Secrets。
+包表名是包的身份键：新配置使用 `resolver@清单名`，并用 `name` 记录真实清单名；旧配置可以继续用清单名作键。未填写的配置项使用自动检测结果或默认值；发布凭证走环境变量或 CI Secrets。
 
 ## License
 

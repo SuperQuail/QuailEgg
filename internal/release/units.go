@@ -16,7 +16,7 @@ const defaultTagFormat = "{{slug}}-v{{version}}"
 // tagSlug lowercases a package name and turns it into a tag component.
 func tagSlug(name string) string {
 	slug := strings.ToLower(strings.TrimSpace(name))
-	slug = strings.NewReplacer("/", "-", "@", "", " ", "-", "_", "-").Replace(slug)
+	slug = strings.NewReplacer("/", "-", "@", "-", " ", "-", "_", "-").Replace(slug)
 	for strings.Contains(slug, "--") {
 		slug = strings.ReplaceAll(slug, "--", "-")
 	}
@@ -65,7 +65,7 @@ func packageTag(cfg *config.Config, scope string, pkg ecosystem.Package, version
 		if format == "" {
 			format = defaultTagFormat
 		}
-		tag := renderTagFormat(format, pkg.Name, registry.TagVersion(pkg.Resolver, version))
+		tag := renderTagFormat(format, pkg.IdentityName(), registry.TagVersion(pkg.Resolver, version))
 		if err := validateTag(tag); err != nil {
 			return "", err
 		}

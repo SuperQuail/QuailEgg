@@ -109,7 +109,7 @@ npm 的环境变量还需要相应的 npm 认证配置；生成的 Actions 工�
 
 ## 多包仓库
 
-每个包登记一个 `[packages."<name>"]` 表。默认配置值 `version_scope = "package"` 表示独立版本，`shared` 表示所有包共用版本。
+每个包登记一个 `[packages."<key>"]` 表。新配置的键是 `resolver@清单名`（如 `npm@my-package`），并用 `name` 记录真实清单名；旧式清单名键仍然有效。默认配置值 `version_scope = "package"` 表示独立版本，`shared` 表示所有包共用版本。
 
 首次初始化检测到多个包版本一致时，`qegg init` 可能会建议并生成 `shared`，因此请以生成的配置为准。完整示例见[多包仓库](./monorepos)。
 

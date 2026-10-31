@@ -218,6 +218,20 @@ func AssetPlannerFor(resolver string) (ecosystem.AssetPlanner, bool) {
 	return planner, ok
 }
 
+// DefaultPublish lets an ecosystem veto publication for application packages
+// that are not registry artifacts, such as a Tauri app crate.
+func DefaultPublish(root string, pkg ecosystem.Package) bool {
+	eco, ok := ByID(pkg.Resolver)
+	if !ok {
+		return pkg.Publish
+	}
+	advisor, ok := eco.(ecosystem.PublishAdvisor)
+	if !ok {
+		return pkg.Publish
+	}
+	return advisor.DefaultPublish(root, pkg)
+}
+
 // VersionFileCandidates lists the extra version files an ecosystem suggests
 // for a package. Candidates are guesses; qegg init verifies them before use.
 func VersionFileCandidates(root string, pkg ecosystem.Package) []ecosystem.VersionFile {
@@ -326,6 +340,7 @@ func Inspect(root string, pkg ecosystem.Package) (ecosystem.Package, error) {
 	if inspected.Resolver == "" {
 		inspected.Resolver = pkg.Resolver
 	}
+	inspected.Identity = pkg.Identity
 	return inspected, nil
 }
 

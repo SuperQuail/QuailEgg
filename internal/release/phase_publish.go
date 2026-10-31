@@ -95,7 +95,11 @@ func (e *executor) publishPackages(ctx context.Context) error {
 			e.setPackageState(pkg.Name, "skipped", "publish=false")
 			continue
 		}
-		target := ecosystem.Package{Name: pkg.Name, Path: pkg.Path, Resolver: pkg.Resolver}
+		manifestName := pkg.Name
+		if cfgPkg, ok := e.d.Cfg.Packages[pkg.Name]; ok {
+			manifestName = config.ManifestNameOf(pkg.Name, cfgPkg)
+		}
+		target := ecosystem.Package{Name: manifestName, Identity: pkg.Name, Path: pkg.Path, Resolver: pkg.Resolver}
 		status, err := registry.Precheck(ctx, e.d.HTTP, target, pkg.Next)
 		if err != nil {
 			return err
