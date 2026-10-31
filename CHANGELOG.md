@@ -1,5 +1,28 @@
 # Changelog
 
+<!-- qegg:release 0.10.0 -->
+## v0.10.0 - 2026-10-31
+
+### Features
+
+- [`74b8ca2`](https://github.com/SuperQuail/QuailEgg/commit/74b8ca207821bd043b34e2acf94b307f2c83980b): Generate workflows that build the tool from the checked-out source in development mode.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Release packages that share a manifest name independently.
+- [`03448d8`](https://github.com/SuperQuail/QuailEgg/commit/03448d8012101498c40f43f3f7d7f07da0e4c308): Build release assets only in the publish run.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Register same-named frontend and backend packages together at initialisation.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Choose which discovered packages initialisation registers.
+- [`04f9375`](https://github.com/SuperQuail/QuailEgg/commit/04f937522642ad63093d794c1922dbfa80b6197e): Record the build version, commit and development flag in the release state.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Key packages by resolver and record their manifest names.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Preview the packages initialisation can register without writing files.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Discover package manifests in nested directories during initialisation.
+
+### Bug Fixes
+
+- [`96a34c9`](https://github.com/SuperQuail/QuailEgg/commit/96a34c91b3095b8e38c6b7becd0619b52105c7fd): Link a stable release to the last stable tag instead of the last prerelease.
+- [`5cd7b78`](https://github.com/SuperQuail/QuailEgg/commit/5cd7b7816ec867feb4af50e5c502f5cee2e1c621): Show only the entries a prerelease adds since the previous prerelease.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.9.0...v0.10.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.9.0 -->
 ## v0.9.0 - 2026-10-30
 
