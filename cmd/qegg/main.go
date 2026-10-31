@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/SuperQuail/QuailEgg/internal/buildinfo"
 	"github.com/SuperQuail/QuailEgg/internal/cli"
 )
 
@@ -10,6 +11,6 @@ import (
 var version = ""
 
 func main() {
-	cli.BuildVersionOverride = version
+	buildinfo.SetVersion(version)
 	os.Exit(cli.Execute(os.Args[1:]))
 }

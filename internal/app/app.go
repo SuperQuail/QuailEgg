@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/SuperQuail/QuailEgg/internal/buildinfo"
 	"github.com/SuperQuail/QuailEgg/internal/config"
 	"github.com/SuperQuail/QuailEgg/internal/git"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
@@ -82,5 +83,9 @@ func (a *App) deps(opts release.Options) *release.Deps {
 		Now:     a.Now,
 		HTTP:    a.HTTP,
 		Options: opts,
+
+		QeggVersion: buildinfo.Version(),
+		QeggCommit:  buildinfo.Commit(),
+		QeggDevelop: a.Cfg.Develop,
 	}
 }

@@ -1,11 +1,14 @@
 package cli
 
-import "testing"
+import (
+	"testing"
 
-func TestBuildVersionOverride(t *testing.T) {
-	previous := BuildVersionOverride
-	BuildVersionOverride = "v1.2.3"
-	defer func() { BuildVersionOverride = previous }()
+	"github.com/SuperQuail/QuailEgg/internal/buildinfo"
+)
+
+func TestBuildVersion(t *testing.T) {
+	buildinfo.SetVersion("v1.2.3")
+	t.Cleanup(func() { buildinfo.SetVersion("") })
 
 	rt := newRuntime(&Options{})
 	if got := rt.BuildVersion(); got != "1.2.3" {

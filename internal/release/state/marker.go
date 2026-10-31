@@ -84,6 +84,8 @@ type Marker struct {
 	Packages      []MarkerPackage `json:"packages"`
 	Releases      []MarkerRelease `json:"releases,omitempty"`
 	Changes       []MarkerChange  `json:"changes"`
+	// Qegg records the build that wrote the marker.
+	Qegg *ToolInfo `json:"qegg,omitempty"`
 }
 
 // MarkerPath returns the marker path for a repository root.

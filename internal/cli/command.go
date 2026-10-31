@@ -5,12 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime/debug"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/SuperQuail/QuailEgg/internal/app"
+	"github.com/SuperQuail/QuailEgg/internal/buildinfo"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
 )
 
@@ -64,29 +63,14 @@ func (r *Runtime) App() (*app.App, error) {
 
 var releaseVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
-// BuildVersionOverride is injected through -ldflags -X at build time. Release
-// binaries are built from source, so their module version is (devel).
-var BuildVersionOverride string
-
 // BuildVersion returns the module version of the running binary.
 func (r *Runtime) BuildVersion() string {
-	if version := strings.TrimSpace(BuildVersionOverride); version != "" {
-		return strings.TrimPrefix(version, "v")
-	}
-	info, ok := debug.ReadBuildInfo()
-	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
-		return "devel"
-	}
-	return strings.TrimPrefix(info.Main.Version, "v")
+	return buildinfo.Version()
 }
 
 // InstallVersion is the qegg version pinned in generated workflows.
 func (r *Runtime) InstallVersion() string {
-	v := strings.TrimPrefix(r.BuildVersion(), "v")
-	if !releaseVersionPattern.MatchString(v) {
-		return "latest"
-	}
-	return "v" + v
+	return buildinfo.InstallVersion()
 }
 
 // ExitError carries an explicit process exit code.

@@ -50,6 +50,8 @@ type RunRecord struct {
 	Steps         map[string]StepState    `json:"steps"`
 	Publish       map[string]PackageState `json:"publish,omitempty"`
 	Assets        []string                `json:"assets,omitempty"`
+	// Qegg records the build that executed the run.
+	Qegg *ToolInfo `json:"qegg,omitempty"`
 }
 
 // NewRunRecord creates a run record.

@@ -25,6 +25,7 @@ func Run(ctx context.Context, d *Deps, plan *Plan) error {
 	}
 	runID := fmt.Sprintf("%s-%d", d.Now().Format("20060102T150405"), d.Now().UnixNano()%10000)
 	run := state.NewRunRecord(runID, d.Cfg.Release.Mode, plan.Phase, plan.Fingerprint)
+	run.Qegg = d.toolInfo()
 	e := &executor{d: d, plan: plan, run: run}
 	return e.execute(ctx)
 }

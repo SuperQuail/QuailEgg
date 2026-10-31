@@ -21,6 +21,7 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 			Skipped:  d.Options.SkipVerify,
 			At:       d.Now(),
 		},
+		Qegg: d.toolInfo(),
 	}
 	if p.Repo.Valid() {
 		marker.Repo = state.MarkerRepo{Host: p.Repo.Host, Owner: p.Repo.Owner, Name: p.Repo.Name, URL: p.Repo.URL()}

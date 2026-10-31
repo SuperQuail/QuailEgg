@@ -46,6 +46,21 @@ type Deps struct {
 	Now     func() time.Time
 	HTTP    *http.Client
 	Options Options
+
+	// QeggVersion, QeggCommit and QeggDevelop identify the running qegg build
+	// in the marker and the local run record.
+	QeggVersion string
+	QeggCommit  string
+	QeggDevelop bool
+}
+
+// toolInfo returns the qegg identifier stored in release state, or nil when the
+// caller did not provide it (tests that build Deps by hand).
+func (d *Deps) toolInfo() *state.ToolInfo {
+	if d.QeggVersion == "" && d.QeggCommit == "" {
+		return nil
+	}
+	return &state.ToolInfo{Version: d.QeggVersion, Commit: d.QeggCommit, Develop: d.QeggDevelop}
 }
 
 // ProjectInfo describes the release target.
