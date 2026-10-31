@@ -125,3 +125,58 @@ func TestRenderConfigOmitsDefaultScopeAndCommitMessage(t *testing.T) {
 		t.Fatalf("multi-package config needs a neutral commit message:\n%s", out)
 	}
 }
+
+func TestRenderConfigDevelop(t *testing.T) {
+	out := renderConfig(Options{
+		BaseBranch: "main",
+		Mode:       config.ModePR,
+		TagPrefix:  "v",
+		Remote:     "origin",
+		ChangesDir: ".changes",
+		Develop:    true,
+	}, nil)
+	if !strings.Contains(string(out), "develop = true") {
+		t.Fatalf("generated config is missing develop:\n%s", out)
+	}
+	path := filepath.Join(t.TempDir(), config.FileName)
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("generated config does not load: %v\n%s", err, out)
+	}
+	if !cfg.Develop {
+		t.Fatal("develop did not survive the round trip")
+	}
+}
+
+func TestMergeDevelop(t *testing.T) {
+	existing := []byte("# keep me\nschema_version = 1\n\n[project]\ndefault_branch = \"main\"\n\n[release]\ndevelop = false\n")
+	on := MergeDevelop(existing, true)
+	text := string(on)
+	if !strings.Contains(text, "schema_version = 1\ndevelop = true") {
+		t.Fatalf("develop was not inserted after schema_version:\n%s", text)
+	}
+	if !strings.HasPrefix(text, "# keep me") {
+		t.Fatalf("existing content was rewritten:\n%s", text)
+	}
+	if !strings.Contains(text, "[release]\ndevelop = false") {
+		t.Fatalf("a section key named develop was touched:\n%s", text)
+	}
+	if again := MergeDevelop(on, true); string(again) != text {
+		t.Fatalf("merge is not idempotent:\n%s", again)
+	}
+
+	off := MergeDevelop(on, false)
+	offText := string(off)
+	if strings.Contains(offText, "develop = true") {
+		t.Fatalf("develop was not removed:\n%s", offText)
+	}
+	if !strings.Contains(offText, "[release]\ndevelop = false") {
+		t.Fatalf("removing the top-level flag dropped a section key:\n%s", offText)
+	}
+	if string(MergeDevelop(existing, false)) != string(existing) {
+		t.Fatal("an absent flag must leave the config untouched")
+	}
+}

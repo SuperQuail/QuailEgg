@@ -16,7 +16,7 @@ import (
 
 func newInitCommand(rt *Runtime) *cobra.Command {
 	var opts app.InitOptions
-	var jsonOut, dryRun, force, noHook, noWorkflows, noStatus, noAddPackages, noInput bool
+	var jsonOut, dryRun, force, noHook, noWorkflows, noStatus, noAddPackages, noInput, develop bool
 	var qeggVersion string
 	var packages, exclude []string
 	var depth int
@@ -66,6 +66,10 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 					return fail(2, err)
 				}
 			}
+			if cmd.Flags().Changed("develop") {
+				value := develop
+				opts.Develop = &value
+			}
 			if qeggVersion != "" {
 				normalized, err := normalizeQeggVersion(qeggVersion)
 				if err != nil {
@@ -112,6 +116,7 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 	cmd.Flags().IntVar(&depth, "depth", app.DefaultScanDepth, i18n.T("flag.scan_depth"))
 	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, i18n.T("flag.scan_exclude"))
 	cmd.Flags().StringVar(&qeggVersion, "qegg-version", "", i18n.T("flag.qegg_version"))
+	cmd.Flags().BoolVar(&develop, "develop", false, i18n.T("flag.develop"))
 	return cmd
 }
 

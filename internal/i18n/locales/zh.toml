@@ -41,6 +41,7 @@
 "flag.no_status_workflow" = "不生成 status 工作流"
 "flag.no_add_packages" = "不自动登记新发现的包"
 "flag.qegg_version" = "生成的工作流固定使用的 qegg 版本（默认取当前运行版本）"
+"flag.develop" = "生成使用开发版 qegg 的工作流"
 "flag.message" = "提交信息（conventional commits）"
 "flag.type" = "变更类型，例如 feat"
 "flag.scope_flag" = "影响范围"

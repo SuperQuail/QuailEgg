@@ -41,6 +41,7 @@
 "flag.no_status_workflow" = "do not generate the status workflow"
 "flag.no_add_packages" = "do not register newly detected packages"
 "flag.qegg_version" = "qegg version pinned in generated workflows (defaults to the running version)"
+"flag.develop" = "build the generated workflows from the development source"
 "flag.message" = "commit message (conventional commits)"
 "flag.type" = "change type, for example feat"
 "flag.scope_flag" = "change scope"

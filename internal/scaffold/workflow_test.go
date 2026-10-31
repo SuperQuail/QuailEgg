@@ -329,3 +329,33 @@ func TestExternalWorkflowSkipsReleaseWorkflow(t *testing.T) {
 		t.Fatalf("expected an external workflow warning, got %v", plan.Warnings)
 	}
 }
+
+func TestDevelopWorkflowBuildsLocalQegg(t *testing.T) {
+	plan := buildPlan(t, Options{Develop: true, QeggVersion: "latest", WithStatus: true})
+	for _, name := range []string{"qegg-release.yml", "qegg-pr.yml", "qegg-status.yml"} {
+		file := workflowFile(t, plan, name)
+		if file == nil {
+			t.Fatalf("missing %s", name)
+		}
+		content := string(file.Content)
+		for _, want := range []string{
+			`go build -o "$RUNNER_TEMP/bin/qegg" ./cmd/qegg`,
+			"cmd/qegg@main",
+			"shell: bash",
+			"set -euo pipefail",
+		} {
+			if !strings.Contains(content, want) {
+				t.Fatalf("%s is missing %q:\n%s", name, want, content)
+			}
+		}
+		var doc map[string]any
+		if err := yaml.Unmarshal(file.Content, &doc); err != nil {
+			t.Fatalf("%s is not valid YAML: %v\n%s", name, err, content)
+		}
+	}
+	for _, warning := range plan.Warnings {
+		if strings.Contains(warning, "latest") {
+			t.Fatalf("develop mode must not warn about a floating version: %v", plan.Warnings)
+		}
+	}
+}

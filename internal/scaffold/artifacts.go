@@ -88,6 +88,9 @@ type view struct {
 	ActorGuard string
 	// BuildCondition gates the platform builds on the run's release phase.
 	BuildCondition string
+	// QeggSetup is the raw qegg install step. Templates indent it to the step
+	// position; the development mode also builds the checked-out source.
+	QeggSetup string
 	// ReleaseJobs are the jobs that run qegg release. PR mode splits the work
 	// into a version job (no builds) and a publish job (after the builds).
 	ReleaseJobs []releaseJobView
@@ -126,6 +129,7 @@ const (
 func newView(opts Options) view {
 	data := view{
 		Options:        opts,
+		QeggSetup:      qeggSetup(opts),
 		ReleasePaths:   releasePaths(opts),
 		HookNote:       i18n.T("scaffold.hook_note"),
 		ActorGuard:     actorGuard,
@@ -176,6 +180,32 @@ func newView(opts Options) view {
 		}
 	}
 	return data
+}
+
+// qeggSetup renders the qegg install step. The development mode prefers a
+// build of the checked-out QuailEgg module and falls back to the repository's
+// main branch in other projects.
+func qeggSetup(opts Options) string {
+	version := strings.TrimSpace(opts.QeggVersion)
+	if version == "" {
+		version = "latest"
+	}
+	if !opts.Develop {
+		return "- name: Install qegg\n  run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@" + version
+	}
+	return strings.Join([]string{
+		"- name: Install qegg (develop)",
+		"  shell: bash",
+		"  run: |",
+		"    set -euo pipefail",
+		"    if [ -f go.mod ] && grep -q '^module github.com/SuperQuail/QuailEgg$' go.mod && [ -d cmd/qegg ]; then",
+		"      mkdir -p \"$RUNNER_TEMP/bin\"",
+		"      go build -o \"$RUNNER_TEMP/bin/qegg\" ./cmd/qegg",
+		"      echo \"$RUNNER_TEMP/bin\" >> \"$GITHUB_PATH\"",
+		"    else",
+		"      go install github.com/SuperQuail/QuailEgg/cmd/qegg@main",
+		"    fi",
+	}, "\n")
 }
 
 // workflowEcosystems lists the ecosystems the release workflow must set up and

@@ -49,6 +49,9 @@ var ErrNotFound = errors.New("no .quailegg.toml found")
 // Config mirrors the TOML schema.
 type Config struct {
 	SchemaVersion int `toml:"schema_version"`
+	// Develop builds the generated workflows from a development qegg instead of
+	// the pinned release. It is meant for self-hosting while qegg itself changes.
+	Develop bool `toml:"develop,omitempty"`
 	// Language is a legacy key. The interface language is user-scoped (qegg
 	// lang, --lang, QEGG_LANG); the field only keeps existing .quailegg.toml
 	// files loadable, because unknown keys are rejected. It has no effect.

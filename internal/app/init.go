@@ -39,6 +39,9 @@ type InitOptions struct {
 	DryRun         bool
 	QeggVersion    string
 	Environment    string
+	// Develop selects the development qegg in the generated workflows. Nil
+	// keeps the value already in the configuration.
+	Develop *bool
 	// Packages limits the new packages init registers. Nil registers every
 	// selectable candidate; a non-nil empty slice registers none.
 	Packages []string
@@ -217,6 +220,13 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if version == "" {
 		version = "latest"
 	}
+	develop := false
+	if existing != nil {
+		develop = existing.Develop
+	}
+	if opts.Develop != nil {
+		develop = *opts.Develop
+	}
 
 	plan, err := scaffold.Build(scaffold.Options{
 		Root:            root,
@@ -232,6 +242,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		VerifyCommands:  verifyCommands,
 		Ecosystem:       ecosystemID,
 		QeggVersion:     version,
+		Develop:         develop,
 		VersionScope:    versionScope,
 		Environment:     environment,
 		WithHook:        opts.WithHook,

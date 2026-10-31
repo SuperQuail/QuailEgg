@@ -28,6 +28,7 @@ type Options struct {
 	VersionScope    string
 	Environment     string
 	QeggVersion     string
+	Develop         bool
 	WithHook        bool
 	WithWorkflows   bool
 	WithStatus      bool
@@ -101,6 +102,7 @@ func Build(opts Options) (*Plan, error) {
 	if len(opts.ExistingContent) > 0 {
 		merged := MergeProjectRepo(MergePackages(opts.ExistingContent, opts, packages), opts.Repo)
 		merged = MergeVersionFiles(merged, opts.VersionFiles)
+		merged = MergeDevelop(merged, opts.Develop)
 		configContent = merged
 		if bytes.Equal(opts.ExistingContent, merged) {
 			action = ActionSkip
@@ -156,7 +158,7 @@ func Build(opts Options) (*Plan, error) {
 	if opts.Existing == nil {
 		plan.Warnings = append(plan.Warnings, i18n.T("init.warn_new_config"))
 	}
-	if opts.QeggVersion == "latest" {
+	if opts.QeggVersion == "latest" && !opts.Develop {
 		plan.Warnings = append(plan.Warnings, i18n.T("init.warn_latest_qegg"))
 	}
 	return plan, nil
