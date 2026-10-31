@@ -32,6 +32,9 @@ var validType = func() map[string]bool {
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.md$`)
 
+// maxSlugWords is the number of dash separated words a record file name may carry.
+const maxSlugWords = 3
+
 // Record is one parsed change record.
 type Record struct {
 	Path     string
@@ -146,7 +149,7 @@ func (r *Record) Validate(known []string) error {
 			return fmt.Errorf("file name %q must match slug.md (lowercase letters, digits, dashes)", base)
 		}
 		parts := strings.Split(strings.TrimSuffix(base, ".md"), "-")
-		if len(parts) > 3 {
+		if len(parts) > maxSlugWords {
 			return fmt.Errorf("file name %q should use at most three words", base)
 		}
 	}
@@ -272,6 +275,10 @@ func Slugify(title string) string {
 	slug := strings.Trim(b.String(), "-")
 	if slug == "" {
 		slug = "change"
+	}
+	// The validator rejects longer names, so a long title keeps its first words.
+	if parts := strings.Split(slug, "-"); len(parts) > maxSlugWords {
+		slug = strings.Join(parts[:maxSlugWords], "-")
 	}
 	return slug + ".md"
 }
