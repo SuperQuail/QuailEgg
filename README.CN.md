@@ -7,7 +7,7 @@ QuailEgg 是一个自动发版工具。合并到主分支后，它汇总 `.chang
 ## 特性
 
 - 变更记录驱动发版，pre-commit hook 检查记录并执行 `[verify].commands`
-- 自动识别 npm、PyPI、crates.io 与 Go module，并扫描根目录下最多三层的包清单
+- 自动识别 npm、PyPI、crates.io、Go module、Maven 与 Gradle 工程，并扫描根目录下最多三层的包清单
 - 发布方式可选：发布 PR 或直接提交，失败可断点续跑
 - 预发布渠道（`alpha`、`beta`、`rc`），记录留到稳定版一起发布
 - `qegg init` 生成 GitHub Actions 工作流，合并即自动发版
@@ -91,7 +91,7 @@ registries = ["npm"]
 [packages."npm@my-package"]
 name = "my-package"
 path = "."
-resolver = "npm"    # npm | python | rust | go
+resolver = "npm"    # npm | python | rust | go | java
 ```
 
 包表名是包的身份键：新配置使用 `resolver@清单名`，并用 `name` 记录真实清单名；旧配置可以继续用清单名作键。未填写的配置项使用自动检测结果或默认值；发布凭证走环境变量或 CI Secrets。

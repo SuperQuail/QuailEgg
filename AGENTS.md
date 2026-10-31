@@ -38,7 +38,7 @@ The docs site is a separate pnpm project: `cd site && pnpm install`, then
 - `internal/cli/`: cobra commands, one file per command, `Runtime` and `ExitError`.
 - `internal/app/`: use cases (init, scan, check, commit, plan, release, resume, status).
 - `internal/release/`: plan, executor, version and publish phases, marker, changelog section.
-- `internal/ecosystem/{npm,python,rust,golang}/`: adapters; `ecosystem/registry` is the only entry point.
+- `internal/ecosystem/{npm,python,rust,golang,java}/`: adapters; `ecosystem/registry` is the only entry point.
 - `internal/changes/`: record parsing, writing, and the pre-commit rules.
 - `internal/scaffold/`: `qegg init` plan and generated assets.
 - `internal/i18n`, `config`, `semver`, `git`, `github`, `versionfile`, `platform`: shared leaves.
