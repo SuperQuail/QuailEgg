@@ -8,7 +8,7 @@ Example record:
     type: feat
     scope: cache
     packages:
-      my-package: minor
+      npm@my-package: minor
     ---
 
     Describe the change in one or two sentences.
