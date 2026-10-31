@@ -184,6 +184,11 @@ Good and bad examples:
 - Upgrading the pinned toolchain is `ci: pin qegg to vX.Y.Z` and touches the
   workflow pins only. Fixing changelog prose afterwards is a separate
   `docs(changelog): ...` commit.
+- `develop = true` in `.quailegg.toml` makes the generated workflows build qegg
+  from the checked-out QuailEgg source (other repositories install `@main`). It
+  is a debugging mode, not a reproducible pin: turn it off with
+  `qegg init --force --develop=false --qegg-version vX.Y.Z` and commit the
+  generated files as `ci: pin qegg to vX.Y.Z` before a stable release.
 - `CHANGELOG.md` between `<!-- qegg:release X -->` and `<!-- qegg:release:end -->`
   is generated. Never edit inside those markers; prose that must change now is
   edited outside them, everything else waits for the next release.

@@ -92,6 +92,29 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 - `[release] environment` 会渲染成发布 workflow 的 `environment:`，便于把 PyPI 凭证限制在受保护的 environment 里（NeoBot 这类项目用它做 `pypi` 审批）。
 - CHANGELOG 的贡献者句柄取自 PR（没有 PR 时取 commit）作者的 GitHub login；私有仓库本地需要 `GITHUB_TOKEN`/`GH_TOKEN` 或登录过的 `gh`，都不可用时省略作者，不写显示名，也不影响发版。
 
+## 开发模式（自举调试）
+
+默认情况下，生成的工作流固定使用已发布的 qegg。修改 qegg 本身、又需要 CI 立刻用上当前源码时，可以打开开发模式：
+
+```bash
+qegg init --force --develop --no-input
+```
+
+它会写入顶层 `develop = true`，并把三个工作流的安装步骤改成：
+
+- 当前 checkout 是 QuailEgg 仓库（`go.mod` 的 module 为 `github.com/SuperQuail/QuailEgg` 且存在 `cmd/qegg`）时，直接 `go build ./cmd/qegg` 使用本地源码；
+- 其他仓库退回 `go install github.com/SuperQuail/QuailEgg/cmd/qegg@main`。
+
+开发模式不可复现，只用于自举调试：CI 会随当前分支变化，源码编译失败时发布也会失败。每个 release 的 marker 和本地 run record 会记录 `qegg.version`、`qegg.commit` 和 `qegg.develop`，便于确认某个版本由哪个构建产生。
+
+稳定版发布前应关闭开发模式并固定版本：
+
+```bash
+qegg init --force --develop=false --qegg-version vX.Y.Z --no-input
+```
+
+检查生成的配置和工作流后，以 `ci: pin qegg to vX.Y.Z` 提交。`qegg init` 默认不会覆盖已有托管文件，因此修改 develop 后需要带 `--force`。
+
 ## 预发布（alpha / beta / rc）
 
 预发布通过 `qegg pre` 和提交进仓库的锁文件表达，不需要改配置或给 CI 传参数：

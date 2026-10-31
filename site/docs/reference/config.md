@@ -9,6 +9,7 @@
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `schema_version` | int | `1` | 配置格式版本，目前只支持 `1` |
+| `develop` | bool | `false` | 生成的工作流使用开发版 qegg：QuailEgg 仓库构建本地源码，其他仓库安装 `@main`。仅用于自举调试 |
 
 ## [project]
 

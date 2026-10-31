@@ -49,6 +49,7 @@ qegg <command> --help
 | `--depth <n>` | 扫描清单的目录层数，默认 3；`0` 表示只用 workspace 声明 |
 | `--exclude <globs>` | 扫描时跳过的路径，逗号分隔 |
 | `--qegg-version <version>` | 工作流使用的 QuailEgg 版本，接受已发布版本或 `latest` |
+| `--develop` | 生成使用开发版 qegg 的工作流；`--develop=false` 关闭并恢复固定版本 |
 
 ```bash
 qegg init --no-input --mode pr --registries npm

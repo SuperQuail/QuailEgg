@@ -190,4 +190,6 @@ qegg init --force
 
 生成的工作流通常固定使用生成时的已发布 QuailEgg 版本。升级本地工具后，可以重新生成，或用 `--qegg-version` 指定一个已发布版本。
 
+修改 QuailEgg 本身、需要让 CI 立刻使用当前源码时，可以运行 `qegg init --force --develop`：配置写入顶层 `develop = true`，工作流在 QuailEgg 仓库内直接构建 `./cmd/qegg`，在其他仓库则安装 `@main`。该模式不可复现，只用于自举调试；稳定版发布前用 `qegg init --force --develop=false --qegg-version vX.Y.Z` 关闭并固定版本，再提交生成文件的差异。
+
 请检查并提交生成文件的差异。如果使用开发构建或显式指定 `latest`，生成的安装命令可能不固定版本；运行初始化时会提示这一点。
