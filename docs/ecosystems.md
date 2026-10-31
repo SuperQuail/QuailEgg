@@ -8,10 +8,11 @@
 | Python | `pyproject.toml` | PyPI | `[project].version`、`[tool.poetry].version`、hatch/setuptools 动态版本文件 | `uv publish` / `twine upload` |
 | Rust | `Cargo.toml` | crates.io | `[package].version`；继承时写根 `[workspace.package].version` | `cargo publish` |
 | Go | `go.mod` | proxy.golang.org | 无（版本来自 git tag） | 无（push tag 即发布），默认附带交叉编译的二进制资产 |
+| Java | `pom.xml` / `build.gradle[.kts]` | 项目里配置的 Maven 仓库 | `<project><version>`、`${revision}`、`version = ...`、`gradle.properties` 属性 | `mvn deploy` / `gradlew publish` |
 
 ## 工作流里注入什么，由项目决定
 
-`qegg init` 只为项目实际使用的生态生成 setup 步骤和凭证：优先取 `[publish].registries`（`npm`、`pypi`、`crates` 会映射到 `npm`、`python`、`rust`；`go` 映射到 `go`），否则取 `[packages.*].resolver`，最后才回退到检测到的第一个生态。因此只做 npm 的项目不会出现 `UV_PUBLISH_TOKEN`，同时发布到多个 registry 的项目会得到全部对应的步骤与凭证。
+`qegg init` 只为项目实际使用的生态生成 setup 步骤和凭证：优先取 `[publish].registries`（`npm`、`pypi`、`crates`、`maven` 会映射到 `npm`、`python`、`rust`、`java`；`go` 映射到 `go`），否则取 `[packages.*].resolver`，最后才回退到检测到的第一个生态。因此只做 npm 的项目不会出现 `UV_PUBLISH_TOKEN`，同时发布到多个 registry 的项目会得到全部对应的步骤与凭证。
 
 | 生态 | 环境变量 | Secret |
 | --- | --- | --- |
@@ -19,6 +20,7 @@
 | Python | `UV_PUBLISH_TOKEN` | `UV_PUBLISH_TOKEN` |
 | Rust | `CARGO_REGISTRY_TOKEN` | `CARGO_REGISTRY_TOKEN` |
 | Go | —（模块代理公开，无凭证） | — |
+| Java | `MAVEN_USERNAME` / `MAVEN_PASSWORD` | `MAVEN_USERNAME` / `MAVEN_PASSWORD` |
 
 ## 为什么不是硬编码
 
@@ -106,7 +108,18 @@ key = "version"
 
 `qegg init` 会向适配器询问候选（rust 适配器认识 `tauri.conf.json` 与 `src-tauri/tauri.conf.json`），确认文件里是字面量版本后自动写入配置。`qegg check` 会比对文件里的版本与包版本，漂移直接报错。
 
-各适配器都实现了 `Inspect`：npm 读 `package.json`、rust 读 `Cargo.toml`（继承版本回读根 workspace）、python 读 `pyproject.toml`、go 只接受根目录的 `go.mod`。
+各适配器都实现了 `Inspect`：npm 读 `package.json`、rust 读 `Cargo.toml`（继承版本回读根 workspace）、python 读 `pyproject.toml`、java 读 `pom.xml` 或 `build.gradle[.kts]`、go 只接受根目录的 `go.mod`。
+
+## Java（Maven / Gradle）
+
+Java 适配器同时认识 Maven（`pom.xml`）和 Gradle（`build.gradle`、`build.gradle.kts`）；同一目录同时存在两者时以 Maven 为准。
+
+- **发现**：Maven 读根 pom 的 `<modules>`，Gradle 读 `settings.gradle[.kts]` 的 `include`，每个子工程各自成为一个包。
+- **版本**：Maven 写 `<project><version>`；用 `${revision}` 的项目改写 `<properties><revision>`。Gradle 改写 `version = 'x'`/`version = "x"` 字面量；写成 `version = mod_version` 时改写 `gradle.properties` 里的属性（先找包目录，再找仓库根）。继承父版本的 Maven 子模块在 bump 时跳过，由 `SyncVersions` 更新其 `<parent><version>`。
+- **是否发布**：Maven 只有声明了 `<distributionManagement><repository><url>` 才默认发布；Gradle 只有出现 `maven-publish` 或 `publishing {` 才默认发布。游戏 Mod、桌面应用这类只产出 jar 的工程因此默认 `publish = false`，可以改用 `[release.assets]` 的 `commands` + `files` 把 jar 挂到 GitHub Release。
+- **发布**：`mvn -B -DskipTests deploy`，仓库自带 wrapper 时用 `mvnw`；Gradle 用 `publish`（`gradlew` 优先）。凭证走 `MAVEN_USERNAME` / `MAVEN_PASSWORD`，生成的 workflow 注入 `actions/setup-java`（Temurin 17；JDK 21 项目把它改成 `'21'` 即可）。
+- **预检查**：Maven 仓库地址写在构建文件里而不是包名里，`Precheck` 无法可靠推导，统一返回 `Unknown`，由 deploy 的结果负责幂等（同名版本重复 deploy 会失败，release 状态记录会阻止重跑时重复发布）。
+- **校验命令**：适配器不写默认 `[verify].commands`（`gradlew` / `mvnw` 的调用方式随平台与 CI 不同），请在配置里显式写，例如 `commands = ["./gradlew build"]`（Windows 本地用 `gradlew.bat build`）。
 
 ## Go 的边界
 
@@ -171,7 +184,7 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 
 ## 后续计划
 
-为了让 Java、Ruby、PHP、C#、Swift 这类生态无需每次都改 Go 代码，计划引入**声明式 resolver**：
+为了让 Ruby、PHP、C#、Swift 这类生态无需每次都改 Go 代码，计划引入**声明式 resolver**：
 
 ```toml
 [resolver.maven]

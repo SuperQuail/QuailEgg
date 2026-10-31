@@ -14,6 +14,7 @@ import (
 
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/golang"
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem/java"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/npm"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/python"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/rust"
@@ -24,7 +25,7 @@ import (
 
 // All returns the supported ecosystems.
 func All() []ecosystem.Ecosystem {
-	return []ecosystem.Ecosystem{npm.New(), python.New(), rust.New(), golang.New()}
+	return []ecosystem.Ecosystem{npm.New(), python.New(), rust.New(), golang.New(), java.New()}
 }
 
 // ByID resolves an ecosystem by identifier.
