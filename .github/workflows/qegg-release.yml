@@ -34,8 +34,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - uses: actions/setup-go@v5
         with: { go-version: '1.26', cache: true }
-      - name: Install qegg
-        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@latest
+      - name: Install qegg (develop)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f go.mod ] && grep -q '^module github.com/SuperQuail/QuailEgg$' go.mod && [ -d cmd/qegg ]; then
+            mkdir -p "$RUNNER_TEMP/bin"
+            go build -o "$RUNNER_TEMP/bin/qegg" ./cmd/qegg
+            echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          else
+            go install github.com/SuperQuail/QuailEgg/cmd/qegg@main
+          fi
       - name: Release
         run: qegg release --yes
         env:
