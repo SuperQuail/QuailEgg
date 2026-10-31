@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version": "0.10.0-alpha.2",
-  "created_at": "2026-10-31T06:14:01.870356647Z",
+  "version": "0.10.0-alpha.3",
+  "created_at": "2026-10-31T08:16:32.845351513Z",
   "mode": "pr",
   "channel": "alpha",
-  "fingerprint": "sha256:d70aaca059890d995cca25146399c1d421253648797839ac68229c257669667c",
+  "fingerprint": "sha256:8176ec5e0b6f55ab70be791db3e79bd867ab2620f18cf52cd329bae8111ad8ca",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -16,25 +16,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-31T06:14:01.870357158Z"
+    "at": "2026-10-31T08:16:32.845351984Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.10.0-alpha.1",
-      "next": "0.10.0-alpha.2",
+      "current": "0.10.0-alpha.2",
+      "next": "0.10.0-alpha.3",
       "bump": "minor",
-      "tag": "v0.10.0-alpha.2",
+      "tag": "v0.10.0-alpha.3",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.10.0-alpha.2",
-      "tag": "v0.10.0-alpha.2",
-      "previous_tag": "v0.10.0-alpha.1",
+      "version": "0.10.0-alpha.3",
+      "tag": "v0.10.0-alpha.3",
+      "previous_tag": "v0.10.0-alpha.2",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
@@ -42,6 +42,18 @@
     }
   ],
   "changes": [
+    {
+      "file": ".changes/add-development-mode.md",
+      "type": "feat",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Generate workflows that build the tool from the checked-out source in development mode.",
+      "commit": "74b8ca207821bd043b34e2acf94b307f2c83980b",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/74b8ca207821bd043b34e2acf94b307f2c83980b",
+      "author": "Wsrsq"
+    },
     {
       "file": ".changes/alias-release-identities.md",
       "type": "feat",
@@ -53,6 +65,19 @@
       "body": "Release packages that share a manifest name independently.",
       "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
       "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/anchor-graduation-compare.md",
+      "type": "fix",
+      "scope": "release",
+      "bump": "patch",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Link a stable release to the last stable tag instead of the last prerelease.",
+      "commit": "96a34c91b3095b8e38c6b7becd0619b52105c7fd",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/96a34c91b3095b8e38c6b7becd0619b52105c7fd",
       "author": "Wsrsq"
     },
     {
@@ -95,6 +120,19 @@
       "author": "Wsrsq"
     },
     {
+      "file": ".changes/record-build-info.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Record the build version, commit and development flag in the release state.",
+      "commit": "04f937522642ad63093d794c1922dbfa80b6197e",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/04f937522642ad63093d794c1922dbfa80b6197e",
+      "author": "Wsrsq"
+    },
+    {
       "file": ".changes/resolver-qualified-keys.md",
       "type": "feat",
       "scope": "config",
@@ -132,6 +170,33 @@
       "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
       "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
       "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/trim-prerelease-notes.md",
+      "type": "fix",
+      "scope": "release",
+      "bump": "patch",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Show only the entries a prerelease adds since the previous prerelease.",
+      "commit": "5cd7b7816ec867feb4af50e5c502f5cee2e1c621",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/5cd7b7816ec867feb4af50e5c502f5cee2e1c621",
+      "author": "Wsrsq"
     }
-  ]
+  ],
+  "previous_changes": [
+    ".changes/alias-release-identities.md",
+    ".changes/gate-publish-builds.md",
+    ".changes/init-package-keys.md",
+    ".changes/init-select-packages.md",
+    ".changes/resolver-qualified-keys.md",
+    ".changes/scan-command.md",
+    ".changes/scan-nested-manifests.md"
+  ],
+  "qegg": {
+    "version": "0.10.0-alpha.2.0.20261031081306-bc9b0be50fcd",
+    "commit": "bc9b0be",
+    "develop": true
+  }
 }
