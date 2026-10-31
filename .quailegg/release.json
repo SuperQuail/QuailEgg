@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version": "0.10.0-alpha.1",
-  "created_at": "2026-10-31T02:17:20.543232517Z",
+  "version": "0.10.0-alpha.2",
+  "created_at": "2026-10-31T06:14:01.870356647Z",
   "mode": "pr",
   "channel": "alpha",
-  "fingerprint": "sha256:9767924d0e0e6b33a7843038a134ed073b7bf9d312eadd2377f0c2799358a92a",
+  "fingerprint": "sha256:d70aaca059890d995cca25146399c1d421253648797839ac68229c257669667c",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -16,25 +16,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-31T02:17:20.543232947Z"
+    "at": "2026-10-31T06:14:01.870357158Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.9.0",
-      "next": "0.10.0-alpha.1",
+      "current": "0.10.0-alpha.1",
+      "next": "0.10.0-alpha.2",
       "bump": "minor",
-      "tag": "v0.10.0-alpha.1",
+      "tag": "v0.10.0-alpha.2",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.10.0-alpha.1",
-      "tag": "v0.10.0-alpha.1",
-      "previous_tag": "v0.9.0",
+      "version": "0.10.0-alpha.2",
+      "tag": "v0.10.0-alpha.2",
+      "previous_tag": "v0.10.0-alpha.1",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
@@ -42,6 +42,19 @@
     }
   ],
   "changes": [
+    {
+      "file": ".changes/alias-release-identities.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Release packages that share a manifest name independently.",
+      "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "author": "Wsrsq"
+    },
     {
       "file": ".changes/gate-publish-builds.md",
       "type": "feat",
@@ -53,6 +66,71 @@
       "body": "Build release assets only in the publish run.",
       "commit": "03448d8012101498c40f43f3f7d7f07da0e4c308",
       "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/03448d8012101498c40f43f3f7d7f07da0e4c308",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/init-package-keys.md",
+      "type": "feat",
+      "scope": "cli",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Register same-named frontend and backend packages together at initialisation.",
+      "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/init-select-packages.md",
+      "type": "feat",
+      "scope": "app",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Choose which discovered packages initialisation registers.",
+      "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/resolver-qualified-keys.md",
+      "type": "feat",
+      "scope": "config",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Key packages by resolver and record their manifest names.",
+      "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/scan-command.md",
+      "type": "feat",
+      "scope": "cli",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Preview the packages initialisation can register without writing files.",
+      "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/scan-nested-manifests.md",
+      "type": "feat",
+      "scope": "ecosystem",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Discover package manifests in nested directories during initialisation.",
+      "commit": "8b3ba25b4a6973c72446e36fb618aa946204f4aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa",
       "author": "Wsrsq"
     }
   ]
