@@ -84,6 +84,13 @@ type view struct {
 	ReleaseEnv      string
 	ReleasePaths    []string
 	HookNote        string
+	// ActorGuard skips runs started by the release commit itself.
+	ActorGuard string
+	// BuildCondition gates the platform builds on the run's release phase.
+	BuildCondition string
+	// ReleaseJobs are the jobs that run qegg release. PR mode splits the work
+	// into a version job (no builds) and a publish job (after the builds).
+	ReleaseJobs []releaseJobView
 }
 
 // buildJobView is one platform build rendered into the release workflow.
@@ -97,12 +104,33 @@ type buildJobView struct {
 	Artifacts []string
 }
 
+// releaseJobView is one job of the generated workflow that runs qegg release.
+type releaseJobView struct {
+	Name      string
+	Needs     []string
+	Condition string
+	// Downloads is set when the job attaches the platform build artifacts.
+	Downloads bool
+}
+
+// Job conditions of the generated release workflow. They read the phase the
+// plan job resolved, so platform builds only start when the run publishes.
+const (
+	actorGuard       = "github.actor != 'github-actions[bot]'"
+	conditionVersion = "needs.plan.outputs.phase == 'version'"
+	conditionPublish = "needs.plan.outputs.phase == 'publish'"
+	conditionAny     = "needs.plan.outputs.phase != 'none'"
+)
+
 // newView collects the template data for one plan.
 func newView(opts Options) view {
 	data := view{
-		Options:      opts,
-		ReleasePaths: releasePaths(opts),
-		HookNote:     i18n.T("scaffold.hook_note"),
+		Options:        opts,
+		ReleasePaths:   releasePaths(opts),
+		HookNote:       i18n.T("scaffold.hook_note"),
+		ActorGuard:     actorGuard,
+		BuildCondition: actorGuard,
+		ReleaseJobs:    []releaseJobView{{Name: "release", Condition: actorGuard}},
 	}
 	data.ReleaseEnv = envBlock(opts.Workflow.Env)
 	for _, job := range opts.Build {
@@ -115,6 +143,25 @@ func newView(opts Options) view {
 			Env:       envBlock(job.Env),
 			Artifacts: job.Artifacts,
 		})
+	}
+	if len(opts.Build) > 0 {
+		needs := make([]string, 0, len(opts.Build)+1)
+		needs = append(needs, "plan")
+		for _, job := range opts.Build {
+			needs = append(needs, "build-"+job.Name)
+		}
+		if opts.Mode == config.ModePR {
+			data.BuildCondition = conditionPublish
+			data.ReleaseJobs = []releaseJobView{
+				{Name: "version", Needs: []string{"plan"}, Condition: conditionVersion},
+				{Name: "publish", Needs: needs, Condition: conditionPublish, Downloads: true},
+			}
+		} else {
+			data.BuildCondition = conditionAny
+			data.ReleaseJobs = []releaseJobView{
+				{Name: "release", Needs: needs, Condition: conditionAny, Downloads: true},
+			}
+		}
 	}
 	for _, id := range workflowEcosystems(opts) {
 		spec, ok := registry.SpecFor(id)

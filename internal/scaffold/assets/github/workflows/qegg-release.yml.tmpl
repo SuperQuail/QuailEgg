@@ -18,9 +18,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+[[- if .BuildJobs ]]
+  plan:
+    runs-on: [[ .Workflow.Runner ]]
+    timeout-minutes: 15
+    if: [[ .ActorGuard ]]
+    outputs:
+      phase: ${{ steps.plan.outputs.phase }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26', cache: true }
+      - name: Install qegg
+        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@[[ .QeggVersion ]]
+      - name: Plan
+        id: plan
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          qegg plan --json > "$RUNNER_TEMP/plan.json"
+          phase="$(jq -r .phase "$RUNNER_TEMP/plan.json")"
+          case "$phase" in
+            none|version|publish) ;;
+            *) echo "unexpected phase: $phase" >&2; exit 1 ;;
+          esac
+          echo "phase=$phase" >> "$GITHUB_OUTPUT"
+[[- end ]]
 [[- range .BuildJobs ]]
   build-[[ .ID ]]:
-    if: github.actor != 'github-actions[bot]'
+    needs: plan
+    if: [[ $.BuildCondition ]]
     runs-on: [[ .Runner ]]
     timeout-minutes: [[ .Timeout ]]
 [[- if .Env ]]
@@ -51,23 +81,24 @@ jobs:
             [[ . ]]
 [[- end ]]
 [[- end ]]
-  release:
-[[- if .BuildJobs ]]
+[[- range .ReleaseJobs ]]
+  [[ .Name ]]:
+[[- if .Needs ]]
     needs:
-[[- range .BuildJobs ]]
-      - build-[[ .ID ]]
+[[- range .Needs ]]
+      - [[ . ]]
 [[- end ]]
 [[- end ]]
-    runs-on: [[ .Workflow.Runner ]]
-    timeout-minutes: [[ .Workflow.TimeoutMinutes ]]
-[[- if .ReleaseEnv ]]
+    runs-on: [[ $.Workflow.Runner ]]
+    timeout-minutes: [[ $.Workflow.TimeoutMinutes ]]
+[[- if $.ReleaseEnv ]]
     env:
-[[ indent 6 .ReleaseEnv ]]
+[[ indent 6 $.ReleaseEnv ]]
 [[- end ]]
-[[- if .Environment ]]
-    environment: [[ .Environment ]]
+[[- if $.Environment ]]
+    environment: [[ $.Environment ]]
 [[- end ]]
-    if: github.actor != 'github-actions[bot]'
+    if: [[ .Condition ]]
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -77,19 +108,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - uses: actions/setup-go@v5
         with: { go-version: '1.26', cache: true }
-[[- range .EcosystemSetups ]]
+[[- range $.EcosystemSetups ]]
 [[ indent 6 . ]]
 [[- end ]]
       - name: Install qegg
-        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@[[ .QeggVersion ]]
-[[- if .Workflow.YAML ]]
-[[ indent 6 .Workflow.YAML ]]
+        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@[[ $.QeggVersion ]]
+[[- if $.Workflow.YAML ]]
+[[ indent 6 $.Workflow.YAML ]]
 [[- else ]]
-[[- range .Workflow.Steps ]]
+[[- range $.Workflow.Steps ]]
       - run: [[ shquote . ]]
 [[- end ]]
 [[- end ]]
-[[- if .BuildJobs ]]
+[[- if .Downloads ]]
       - uses: actions/download-artifact@v4
         with:
           pattern: qegg-assets-*
@@ -102,6 +133,7 @@ jobs:
 [[- end ]]
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-[[- range .EcosystemEnvs ]]
+[[- range $.EcosystemEnvs ]]
 [[ indent 10 . ]]
+[[- end ]]
 [[- end ]]
