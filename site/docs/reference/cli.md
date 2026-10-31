@@ -106,6 +106,8 @@ qegg commit --no-input -m "feat: support configurable expiration" --body "Allow 
 | `--json` | 输出 JSON |
 | `--markdown` | 输出适合 PR 评论的 Markdown |
 
+JSON 输出的 `phase` 为 `version`（准备版本）、`publish`（实际发布）或 `none`（没有任务）。配置平台构建后，生成的工作流用它决定哪些 job 需要运行，见[构建触发条件](../guide/github-actions#触发工作流后什么时候才构建)。
+
 ## qegg verify
 
 执行 `[verify].commands`，遵循配置的超时和 `fail_fast`。即使当前没有暂存文件，也可以手动运行。

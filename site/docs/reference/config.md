@@ -91,6 +91,8 @@ key = "version"
 
 控制发布工作流的生成。修改后需重新运行 `qegg init --force`，建议先加 `--dry-run` 查看结果。
 
+没有平台构建时，生成单个 `release` job。配置 `[[release.build]]` 后，PR 模式会先运行 `plan`，再分别选择 `version` 或 `publish` job；这两个执行发布命令的 job 都使用下方的前置步骤、环境变量、runner 和超时设置。`plan` 使用同一个 runner，超时固定为 15 分钟，不执行这些自定义前置步骤。
+
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `mode` | string | `"managed"` | `managed` 为工具生成，`external` 为自行维护 |
@@ -102,13 +104,22 @@ key = "version"
 
 `steps` 和 `yaml` 互斥。这里的 `yaml` 只替换自定义前置步骤，保留 release job 的内置 checkout、setup、QuailEgg 安装与发布步骤。
 
+PR 模式的版本准备 job 也会执行这些前置步骤。需要按发布阶段执行的耗时构建，应放在 `[[release.build]]`，或放在 `[release.assets].commands`。
+
 `external` 模式不生成发布工作流，仍可生成 PR 和状态工作流；已有发布文件不会自动删除。外部工作流需要自行安装工具并调用发布命令，见[GitHub Actions](../guide/github-actions)。
 
 ## [[release.build]]
 
-为 `managed` 工作流增加原生构建 job，可以重复配置。各 job 上传文件，release job 下载后通过 `--assets-dir` 交给 QuailEgg。
+为 `managed` 工作流增加原生构建 job，可以重复配置。工作流先用 `plan` job 判断阶段，再决定是否启动构建。各 job 上传文件，负责实际发布的 job 下载后通过 `--assets-dir` 交给 QuailEgg。
 
-这组配置在 `qegg init` 生成工作流时生效；本地运行 `qegg release` 不会启动这些 job。仅配置 `[[release.build]]` 即可，不要求再写 `[release.assets]`。两者同时存在时，生成的工作流使用 `--assets-dir`，不会再次执行本地资产构建。
+| 发布模式 | 启动构建的条件 | 后续 job |
+| --- | --- | --- |
+| `pr` | `phase = publish`；`version` 和 `none` 均跳过 | `publish` 等待构建；`version` 仅依赖计划判断 |
+| `commit` | `phase` 不是 `none` | 单个 `release` job 等待构建，完成版本准备和发布 |
+
+这些条件让 PR 模式的主分支推送可以只更新发布 PR，把耗时的平台构建留到实际发布。生成文件中的具体流程见[GitHub Actions](../guide/github-actions#触发工作流后什么时候才构建)。
+
+这组配置在 `qegg init` 生成工作流时生效；本地运行 `qegg release` 不会启动这些 job。已有工作流需要使用包含此功能的工具版本重新生成，才能应用阶段条件。仅配置 `[[release.build]]` 即可，不要求再写 `[release.assets]`；实际发布时，工作流使用 `--assets-dir`，不会再次执行本地资产构建。
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |

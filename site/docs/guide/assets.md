@@ -6,13 +6,13 @@
 
 ## 如何选择构建方式
 
-`[release.assets]` 和 `[[release.build]]` 都能为 GitHub Release 准备附件，但构建发生的位置不同：前者让 `qegg release` 在当前机器上构建或收集文件，后者让生成的 GitHub Actions 工作流先启动独立的构建 job，再把产物交给发布进程。
+`[release.assets]` 和 `[[release.build]]` 都能为 GitHub Release 准备附件，但构建发生的位置不同：前者让 `qegg release` 在当前机器上构建或收集文件，后者让生成的 GitHub Actions 工作流先判断发布阶段，需要发布时再启动独立的构建 job，把产物交给发布进程。
 
 | 对比项 | `[release.assets]` | `[[release.build]]` |
 | --- | --- | --- |
 | 配置什么 | 当前发布进程如何构建或收集附件 | 工作流中有哪些独立构建 job |
 | 在哪里运行 | 执行 `qegg release` 的机器，本地或 CI 均可 | 各构建 job 的 runner，可分别使用 Windows、macOS、Linux |
-| 何时运行 | 实际发布阶段，在软件包发布之前 | release job 开始之前 |
+| 何时运行 | 实际发布阶段，在软件包发布之前 | PR 模式只在 `publish` 阶段启动，在 `publish` job 之前完成 |
 | 如何构建 | Go 交叉编译，或 `commands` 自定义命令 | `steps` 或 `yaml` |
 | 如何选择文件 | `files` 匹配当前机器上的文件；Go 模式自动生成归档 | `artifacts` 指定各 job 上传到 Actions 的文件 |
 | 如何配置多个平台 | Go 使用 `targets` 在当前机器交叉编译 | 重复添加 `[[release.build]]`，为各 job 指定 runner |
@@ -20,27 +20,34 @@
 
 例如，一个不依赖 CGO 的 Go 程序通常可以在 Linux 上一次构建多个平台，使用 `[release.assets]` 即可。Tauri 安装包需要各平台的工具链时，更适合用 `[[release.build]]`，分别在 Windows、macOS 等 runner 上构建。
 
+默认 PR 模式下，这两种方式都会把发布产物的构建留到实际发布时。合并功能 PR、刷新发布 PR 时，不会启动平台构建；发布 PR 合并后才构建，适合安装包等耗时较长的任务。`commit` 模式会在一次运行中直接发布，有发布任务时仍需构建。
+
 如果已有流水线负责构建，也可以直接用 `--assets-dir` 提供产物目录，无需让 QuailEgg 再构建一次。
 
 ### 两者如何配合
 
-配置 `[[release.build]]` 后，生成的工作流会按下面的顺序执行：
+配置 `[[release.build]]` 后，PR 模式生成的工作流先判断阶段：
 
 ```text
-各构建 job 执行 steps 或 yaml
-    ↓
-按 artifacts 上传文件到 GitHub Actions
-    ↓
-release job 下载所有产物
-    ↓
-qegg release --assets-dir <下载目录>
-    ↓
-收集文件、生成校验和、上传到 GitHub Release
+plan：判断本次发布阶段
+    ├─ version → 更新版本和发布 PR，跳过平台构建
+    ├─ none    → 结束，不构建
+    └─ publish → 各构建 job 执行 steps 或 yaml
+                     ↓
+                 按 artifacts 上传文件到 GitHub Actions
+                     ↓
+                 publish job 下载所有产物
+                     ↓
+                 qegg release --assets-dir <下载目录>
+                     ↓
+                 收集文件、生成校验和、上传到 GitHub Release
 ```
+
+`commit` 模式同样会先判断计划，但只在 `none` 时跳过构建；有任务时，由构建 job 和后续的 `release` job 在同一次运行中完成发布。
 
 这个流程不要求同时写 `[release.assets]`，也不需要在 `files` 中再次列出 `artifacts`。`artifacts` 用于在 Actions job 之间传递文件，真正的 Release 附件仍由 QuailEgg 上传。
 
-如果同时配置了两者，生成的工作流传入的 `--assets-dir` 会优先使用预构建产物，跳过 `[release.assets].commands`、`files` 和 Go 交叉编译设置。本地不带 `--assets-dir` 运行时，才会按 `[release.assets]` 构建或收集文件。
+如果同时配置了两者，实际发布的 job 传入的 `--assets-dir` 会优先使用预构建产物，跳过 `[release.assets].commands`、`files` 和 Go 交叉编译设置。本地不带 `--assets-dir` 且进入实际发布阶段时，才会按 `[release.assets]` 构建或收集文件。
 
 `[[release.build]]` 只适用于 `managed` 工作流，且不能与 `[release.assets].enabled = false` 同时配置。修改构建 job 后，需要重新运行 `qegg init --force` 才能更新生成的工作流。
 
@@ -126,11 +133,13 @@ steps = ["cargo build --release --bin my-app"]
 artifacts = ["target/release/my-app"]
 ```
 
-示例假设项目已经登记 Rust 包，且二进制名为 `my-app`。构建 job 使用当前工作流检出的提交；采用 PR 模式时，实际发布发生在版本提交合并之后。
+示例假设项目已经登记 Rust 包，且二进制名为 `my-app`。PR 模式下，先由 `plan` job 判断阶段：准备或更新发布 PR 时，两个构建 job 都会跳过；发布 PR 合并后，才从包含版本更新的提交构建产物。
 
 在 `commit` 模式中，这些 job 先于 release job 的版本提升执行。如果产物内嵌版本号，需要自行安排版本注入，或改用版本提升后执行的 `[release.assets].commands`。预构建产物应与最终发布版本一致。
 
-QuailEgg 会把各 job 的产物下载到 release job，再传给 `--assets-dir`。Tauri 等项目可以采用相同方式，但需要补齐前端工具、系统依赖、签名凭证和实际产物路径。
+构建成功后，QuailEgg 会把各 job 的产物下载到负责实际发布的 job，再传给 `--assets-dir`。Tauri 等项目可以采用相同方式，但需要补齐前端工具、系统依赖、签名凭证和实际产物路径。
+
+已有项目需要用包含此功能的工具版本重新生成工作流，才能获得按阶段跳过构建的条件。升级步骤见[GitHub Actions](./github-actions#重新生成与升级)。
 
 构建 job 的 `yaml` 接管范围与普通前置步骤不同，详细写法见[GitHub Actions](./github-actions#自定义构建-job-的-yaml)。
 

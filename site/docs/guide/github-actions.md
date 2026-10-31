@@ -60,6 +60,24 @@ steps = ["npm ci"]
 
 工作流还会跳过 `github-actions[bot]` 发起的运行，避免生成的版本提交循环触发。
 
+## 触发工作流后，什么时候才构建
+
+推送命中发布路径，只表示工作流需要检查本次变化。对于默认的 PR 模式，创建或更新发布 PR 时不需要先构建应用的发布产物。
+
+配置 `[[release.build]]` 后，生成的工作流会先执行 `plan` job，通过 `qegg plan --json` 判断当前阶段，再决定后续操作：
+
+| 当前情况 | 计划阶段 | 接下来做什么 | 平台构建 |
+| --- | --- | --- | --- |
+| 功能 PR 合并，需要准备或更新发布 PR | `version` | `version` job 更新版本、更新日志和发布 PR | 跳过 |
+| 发布 PR 合并，已有等待发布的版本 | `publish` | 各平台构建成功后，由 `publish` job 发布 | 执行 |
+| 没有待准备或待发布的任务 | `none` | 计划判断后结束 | 跳过 |
+
+例如，一个安装包需要构建半小时，连续合并几个功能 PR 时，只会刷新发布 PR，不必为每次合并都等待这轮安装包构建。等发布 PR 合并后，才为确定的发布版本启动各平台构建。
+
+`commit` 模式没有单独等待发布 PR 的环节：只要阶段不是 `none`，就会构建，再由一个 `release` job 完成版本准备和发布。没有配置 `[[release.build]]` 时，工作流保留单个 `release` job，不额外生成 `plan` job。
+
+这里控制的是发布产物的构建。版本准备阶段仍会执行 `[verify].commands`；其中若包含编译命令，也会照常运行。
+
 ## 发布 PR 的检查
 
 发布 PR 由自动化账号创建，并由 QuailEgg 管理。生成的 `qegg-pr` 检查会跳过配置的发布分支；请不要要求这个发布 PR 等待一项被跳过的检查。
@@ -69,6 +87,8 @@ steps = ["npm ci"]
 如果发布 PR 被仓库的必需检查或审批规则阻止，请查看具体规则和 workflow 日志。不要仅凭一项缺失的检查判断软件包已经发布。
 
 ## 定制 release job
+
+下文的 release job 泛指执行发布命令的 job。配置平台构建后，PR 模式会拆成 `version` 和 `publish` 两个 job，它们都使用 `[release.workflow]` 的 runner、超时和自定义前置步骤。
 
 `[release.workflow]` 可以修改 runner、超时和 `qegg release` 之前的步骤：
 
@@ -93,6 +113,8 @@ yaml = """
 
 `steps` 与 `yaml` 不能同时设置。shell 步骤的变量可以写在 `env` 中；使用 `yaml` 时，把 `env:` 写进 YAML 步骤。
 
+需要长时间执行的发布打包命令，应放在 `[[release.build]]`，或放在实际发布阶段执行的 `[release.assets].commands`。如果放在 `[release.workflow].steps` 或 `yaml` 中，准备发布 PR 的 job 也会执行它。
+
 ## 多平台构建 job
 
 `[release.assets]` 配置的是 `qegg release` 在当前机器上的资产构建与收集；`[[release.build]]` 配置的是发布之前独立运行的 CI job。只有后者可以为各 job 分别选择 runner。如何选择与同时配置时的优先级，见[发布资产](./assets#如何选择构建方式)。
@@ -109,13 +131,13 @@ artifacts = ["target/release/my-app.exe"]
 
 shell 模式下，QuailEgg 会添加 checkout、setup-go 和项目生态的 setup，然后执行 `steps` 并上传匹配的文件。
 
-release job 会等待构建完成，下载全部产物，再执行：
+PR 模式下，这些构建 job 只在 `plan` 判断阶段为 `publish` 时启动。`publish` job 等待所有构建成功，下载全部产物，再执行：
 
 ```bash
 qegg release --yes --assets-dir .quailegg/assets/downloaded
 ```
 
-因此，只使用 `[[release.build]]` 就可以把产物交给 QuailEgg 上传，不必再配置 `[release.assets].commands` 或 `files`。传入 `--assets-dir` 时，也不会再次执行这两项配置。
+准备版本的 `version` job 则直接运行 `qegg release --yes`，不等待平台构建，也不下载产物。因此，只使用 `[[release.build]]` 就可以把产物交给 QuailEgg 上传，不必再配置 `[release.assets].commands` 或 `files`。传入 `--assets-dir` 时，也不会再次执行这两项配置。
 
 产物收集、文件命名和共享版本要求见[发布资产](./assets)。
 
@@ -155,12 +177,16 @@ mode = "external"
 
 ## 重新生成与升级
 
-修改工作流相关配置后，先查看预期差异：
+按阶段跳过构建的逻辑写在生成的工作流中。已有项目需要使用包含此功能的 QuailEgg 版本重新生成文件；只升级运行发布命令的工具，不会改写仓库里已有的 job 依赖和条件。
+
+升级工具或修改工作流相关配置后，先查看预期差异：
 
 ```bash
 qegg init --dry-run --force
 qegg init --force
 ```
+
+配置了平台构建的 PR 模式，应能在生成结果中看到 `plan`、`version`、`publish` 和各 `build-*` job；构建 job 的条件应为 `needs.plan.outputs.phase == 'publish'`。检查这些差异后，将工作流提交到主分支。
 
 生成的工作流通常固定使用生成时的已发布 QuailEgg 版本。升级本地工具后，可以重新生成，或用 `--qegg-version` 指定一个已发布版本。
 
