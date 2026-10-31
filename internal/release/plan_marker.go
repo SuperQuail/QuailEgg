@@ -47,6 +47,22 @@ func (p *Plan) markerFile(d *Deps) *state.Marker {
 			PullNumber: change.PullNumber, PullURL: change.PullURL, Author: change.Author,
 		})
 	}
+	// A prerelease marker also records which pending records the previous
+	// prereleases already showed. The publish run reads the same marker and
+	// needs the baseline to render only this release's notes.
+	if p.Channel != "" && p.Marker != nil {
+		pending := make(map[string]bool, len(p.Changes))
+		for _, change := range p.Changes {
+			pending[change.File] = true
+		}
+		seen := make(map[string]bool, len(p.Marker.Changes))
+		for _, change := range p.Marker.Changes {
+			if pending[change.File] && !seen[change.File] {
+				marker.PreviousChanges = append(marker.PreviousChanges, change.File)
+				seen[change.File] = true
+			}
+		}
+	}
 	return marker
 }
 
@@ -66,9 +82,10 @@ func (p *Plan) pullRequestBody(d *Deps) string {
 		}
 		fmt.Fprintf(&b, i18n.T("release.pr.package")+"\n", pkg.Name, pkg.Current, pkg.Next, pkg.Bump)
 	}
-	if len(p.Changes) > 0 {
+	changes := p.displayChanges()
+	if len(changes) > 0 {
 		b.WriteString("\n" + i18n.T("release.pr.changes") + "\n\n")
-		for _, change := range p.Changes {
+		for _, change := range changes {
 			fmt.Fprintf(&b, i18n.T("release.pr.line")+"\n", change.Body)
 		}
 	}

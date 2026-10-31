@@ -84,6 +84,10 @@ type Marker struct {
 	Packages      []MarkerPackage `json:"packages"`
 	Releases      []MarkerRelease `json:"releases,omitempty"`
 	Changes       []MarkerChange  `json:"changes"`
+	// PreviousChanges lists the change files that earlier prereleases of the
+	// current line already showed. A later prerelease subtracts them from its
+	// notes while Changes keeps the full set for stable aggregation.
+	PreviousChanges []string `json:"previous_changes,omitempty"`
 	// Qegg records the build that wrote the marker.
 	Qegg *ToolInfo `json:"qegg,omitempty"`
 }
