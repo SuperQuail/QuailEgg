@@ -71,6 +71,12 @@ A Go file stays under 1000 lines. User-visible strings live only in
 
    `--no-commit` writes the record only; commit it yourself if you need a
    different message. Never commit a record without the code it describes.
+
+   One commit adds at most one record. Generate records with `qegg commit`; if
+   you must hand-write one, commit it alone and say in the commit body why
+   `qegg commit` was not used. Release notes link each record to the commit
+   that introduced it, so batching several records into one commit collapses
+   their links onto one hash.
 4. The pre-commit hook does two things: it rejects a commit that touches
    `[changes].scope` without a valid record, then runs `[verify].commands`
    (`go test ./...`, 15 minute timeout) only when the commit touches a file
