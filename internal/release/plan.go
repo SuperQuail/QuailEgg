@@ -450,10 +450,17 @@ func graduationUnits(ctx context.Context, d *Deps, plan *Plan, targets []target,
 		if err != nil {
 			continue
 		}
-		units = append(units, releaseUnit{
+		unit := releaseUnit{
 			name: release.Name, targets: unitTargets, bump: bump, current: current,
-			version: nextVersion, tag: tag, prevTag: release.Tag,
-		})
+			version: nextVersion, tag: tag,
+		}
+		unit.prevTag = stableBaseTag(ctx, d, plan.VersionScope, unit, tags)
+		if unit.prevTag == "" {
+			// A first stable release after a prerelease line has no earlier
+			// stable tag to link to; keep the prerelease tag as the baseline.
+			unit.prevTag = release.Tag
+		}
+		units = append(units, unit)
 	}
 	return units
 }

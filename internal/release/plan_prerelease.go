@@ -1,6 +1,7 @@
 package release
 
 import (
+	"context"
 	"strings"
 
 	"github.com/SuperQuail/QuailEgg/internal/changes"
@@ -103,6 +104,29 @@ func unitTagVersions(tags []string, cfg *config.Config, scope string, unit relea
 		}
 	}
 	return versions
+}
+
+// stableBaseTag returns the tag of the last stable release of a unit. The
+// graduation plan links its notes to that tag: the records aggregate everything
+// since the last stable release even though the manifest carries a prerelease
+// version. A missing stable tag returns "" so the caller can fall back to the
+// prerelease tag.
+func stableBaseTag(ctx context.Context, d *Deps, scope string, unit releaseUnit, tags []string) string {
+	if len(unit.targets) == 0 {
+		return ""
+	}
+	resolver := unit.targets[0].pkg.Resolver
+	versions := unitTagVersions(tags, d.Cfg, scope, unit)
+	base := stableBaseVersions(versions, resolver, "")
+	tag, err := packageTag(d.Cfg, scope, unit.targets[0].pkg, base)
+	if err != nil {
+		return ""
+	}
+	exists, err := d.Git.TagExists(ctx, tag)
+	if err != nil || !exists {
+		return ""
+	}
+	return tag
 }
 
 // sameChangeSet reports whether the pending records are exactly the ones the
