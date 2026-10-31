@@ -90,9 +90,10 @@ func TestRenderRoundTrip(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Support cache TTL":       "support-cache-ttl.md",
-		"feat(cache): new option": "feat-cache-new-option.md",
-		"???":                     "change.md",
+		"Support cache TTL":                   "support-cache-ttl.md",
+		"feat(cache): new option":             "feat-cache-new.md",
+		"???":                                 "change.md",
+		"Automate version bumps and releases": "automate-version-bumps.md",
 	}
 	for input, want := range cases {
 		if got := Slugify(input); got != want {
