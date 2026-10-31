@@ -16,6 +16,7 @@ internal/
   ecosystem/python/        # Python 适配器（PEP 621、Poetry、hatch/setuptools 动态版本、uv 多包仓库）
   ecosystem/rust/          # Rust 适配器（Cargo.toml、cargo 多包仓库）
   ecosystem/golang/        # Go 适配器（go.mod，版本来自 git tag，push tag 即发布）
+  ecosystem/java/          # Java 适配器（pom.xml、build.gradle[.kts]，Maven 发布）
   ecosystem/ecosystemtest/ # 测试共用的 fixture 复制工具
   ecosystem/testdata/      # 各生态的 fixture
   scaffold/                # init 的计划、应用、配置渲染、产物清单
@@ -43,7 +44,7 @@ cmd/qegg ──► cli ──► app ──► release ──► {release/state,
                      ├► scaffold ──► ecosystem/registry
                      └► {git, changes, changelog, verify}
 
-ecosystem/registry ──► ecosystem ◄── {npm, python, rust, golang}
+ecosystem/registry ──► ecosystem ◄── {npm, python, rust, golang, java}
 platform/*、i18n 与 versionfile 为叶子；不得反向依赖。config 只依赖 versionfile 的类型定义，读写实现由 release/app 调用。
 ```
 

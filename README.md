@@ -7,7 +7,7 @@ QuailEgg is an automated release tool. Once changes land on the main branch it c
 ## Features
 
 - Release records drive the flow, a pre-commit hook checks the record and runs `[verify].commands`
-- Detects npm, PyPI, crates.io and Go modules automatically, including manifests up to three directories deep
+- Detects npm, PyPI, crates.io, Go modules, Maven and Gradle projects automatically, including manifests up to three directories deep
 - Release as a pull request or a direct commit, interrupted runs resume safely
 - Prerelease channels (`alpha`, `beta`, `rc`) that keep the records for the stable release
 - `qegg init` generates GitHub Actions workflows, merging is enough to release
@@ -91,7 +91,7 @@ registries = ["npm"]
 [packages."npm@my-package"]
 name = "my-package"
 path = "."
-resolver = "npm"    # npm | python | rust | go
+resolver = "npm"    # npm | python | rust | go | java
 ```
 
 The package table name is the package identity: new configurations use `resolver@manifest-name` and record the real manifest name in `name`. Old configurations can keep using the manifest name as the key. Missing values come from detection or defaults; release credentials go through environment variables or CI secrets.

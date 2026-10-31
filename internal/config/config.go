@@ -41,6 +41,7 @@ const (
 	ResolverPython = "python"
 	ResolverRust   = "rust"
 	ResolverGo     = "go"
+	ResolverJava   = "java"
 )
 
 // ErrNotFound is returned when no configuration file exists.
