@@ -1,10 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.10.0-alpha.2",
-  "created_at": "2026-10-31T06:14:01.870356647Z",
+  "version": "0.10.0",
+  "created_at": "2026-10-31T06:42:34.153069384Z",
   "mode": "pr",
-  "channel": "alpha",
-  "fingerprint": "sha256:d70aaca059890d995cca25146399c1d421253648797839ac68229c257669667c",
+  "fingerprint": "sha256:1cb1d7d93a7bd8c97129e09b1aca63f8cd7eb1ac465214f93f61a2fdf628f9a2",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -16,29 +15,28 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-10-31T06:14:01.870357158Z"
+    "at": "2026-10-31T06:42:34.153069965Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.10.0-alpha.1",
-      "next": "0.10.0-alpha.2",
+      "current": "0.10.0-alpha.2",
+      "next": "0.10.0",
       "bump": "minor",
-      "tag": "v0.10.0-alpha.2",
+      "tag": "v0.10.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.10.0-alpha.2",
-      "tag": "v0.10.0-alpha.2",
-      "previous_tag": "v0.10.0-alpha.1",
+      "version": "0.10.0",
+      "tag": "v0.10.0",
+      "previous_tag": "v0.10.0-alpha.2",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
-      ],
-      "prerelease": "alpha"
+      ]
     }
   ],
   "changes": [

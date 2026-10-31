@@ -1,5 +1,21 @@
 # Changelog
 
+<!-- qegg:release 0.10.0 -->
+## v0.10.0 - 2026-10-31
+
+### Features
+
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Release packages that share a manifest name independently.
+- [`03448d8`](https://github.com/SuperQuail/QuailEgg/commit/03448d8012101498c40f43f3f7d7f07da0e4c308): Build release assets only in the publish run.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Register same-named frontend and backend packages together at initialisation.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Choose which discovered packages initialisation registers.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Key packages by resolver and record their manifest names.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Preview the packages initialisation can register without writing files.
+- [`8b3ba25`](https://github.com/SuperQuail/QuailEgg/commit/8b3ba25b4a6973c72446e36fb618aa946204f4aa): Discover package manifests in nested directories during initialisation.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.10.0-alpha.2...v0.10.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.9.0 -->
 ## v0.9.0 - 2026-10-30
 
