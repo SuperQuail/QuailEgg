@@ -212,6 +212,9 @@ Good and bad examples:
   in the committed `.quailegg/pre-release.lock`. A prerelease never writes
   `CHANGELOG.md` and never consumes change records; the stable release that
   follows `qegg pre exit` does both.
+- Prerelease notes list only the entries added since the previous prerelease.
+  The stable release aggregates every record since the last stable tag and
+  links its compare range to that tag.
 - Let CI release. In an emergency `qegg release --yes` works locally, but never
   while the release workflow is running.
 - If a release is interrupted, run `qegg resume`; do not re-tag or re-push by

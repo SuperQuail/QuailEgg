@@ -52,6 +52,7 @@ qegg plan
 
 - 变更记录会保留，供稳定版汇总。
 - `CHANGELOG.md` 不会更新。
+- 本渠道的 Release notes 只列出上一次预发布之后新增的记录；稳定版才汇总自上一个稳定 tag 以来的全部记录，compare 链接也从该 tag 起算。
 - 没有新的记录变化时，重复运行不会只为了增加编号而发布。
 
 ## 切换渠道
@@ -84,7 +85,7 @@ git commit -m "chore: finish prereleases"
 1.3.0-alpha.2 → 1.3.0
 ```
 
-稳定版会一次性更新 `CHANGELOG.md`，并删除已经收录的变更记录。
+稳定版会一次性更新 `CHANGELOG.md`，并删除已经收录的变更记录。稳定版的 Full Changelog 从最后一个稳定 tag 起算，正文汇总该区间的全部记录，而不是只汇总最后一个预发布之后的增量。
 
 ## 不同发布目标的表现
 
