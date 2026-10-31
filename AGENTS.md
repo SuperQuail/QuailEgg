@@ -185,7 +185,8 @@ Good and bad examples:
   must stay LF.
 - The generated release workflow runs only on release paths; the generated pull
   request workflow skips the release branch, whose verification is the publish
-  run.
+  run. With `[[release.build]]`, a leading plan job gates the platform builds on
+  the publish phase, so preparing a version never builds.
 - `CHANGELOG.md` headings follow the user's language setting, not the repository:
   run `qegg --lang en release` or set `QEGG_LANG=en` so released headings stay
   English.
