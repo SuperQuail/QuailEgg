@@ -126,7 +126,7 @@ func TestValidateSlugWordLimitMessage(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a four word slug")
 	}
-	if !strings.Contains(err.Error(), "three words") {
+	if !strings.Contains(err.Error(), "at most 3 words") {
 		t.Fatalf("error %q should state the real word limit", err)
 	}
 }
