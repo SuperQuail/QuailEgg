@@ -63,14 +63,17 @@ func (a *App) Commit(ctx context.Context, opts CommitOptions) (string, error) {
 		Release:  true,
 		Body:     strings.TrimSpace(opts.Body),
 	}
-	if err := record.Validate(a.Cfg.PackageNames()); err != nil {
-		return "", err
-	}
 	slug := changes.Slugify(opts.Body)
 	if opts.Message != "" {
 		slug = changes.Slugify(stripConventional(opts.Message))
 	}
 	path := changes.FileIn(filepath.Join(a.Root, a.Cfg.Changes.Dir), slug)
+	// Validate the generated name too: a record the validator rejects would
+	// only surface on the next plan, check or release.
+	record.Path = path
+	if err := record.Validate(a.Cfg.PackageNames()); err != nil {
+		return "", err
+	}
 	if fsx.Exists(path) {
 		return "", fmt.Errorf(i18n.T("commit.err.exists"), path)
 	}

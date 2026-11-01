@@ -90,9 +90,10 @@ func TestRenderRoundTrip(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Support cache TTL":       "support-cache-ttl.md",
-		"feat(cache): new option": "feat-cache-new-option.md",
-		"???":                     "change.md",
+		"Support cache TTL":                   "support-cache-ttl.md",
+		"feat(cache): new option":             "feat-cache-new.md",
+		"???":                                 "change.md",
+		"Automate version bumps and releases": "automate-version-bumps.md",
 	}
 	for input, want := range cases {
 		if got := Slugify(input); got != want {
@@ -125,7 +126,7 @@ func TestValidateSlugWordLimitMessage(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a four word slug")
 	}
-	if !strings.Contains(err.Error(), "three words") {
+	if !strings.Contains(err.Error(), "at most 3 words") {
 		t.Fatalf("error %q should state the real word limit", err)
 	}
 }
