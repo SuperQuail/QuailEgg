@@ -1,0 +1,14 @@
+allprojects {
+    version = mod_version
+}
+
+subprojects {
+    apply plugin: 'maven-publish'
+    publishing {
+        repositories {
+            maven {
+                url = uri('file:///tmp/qegg-repo')
+            }
+        }
+    }
+}

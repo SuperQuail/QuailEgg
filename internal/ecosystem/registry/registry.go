@@ -209,6 +209,16 @@ func VersionSyncerFor(resolver string) (ecosystem.VersionSyncer, bool) {
 	return syncer, ok
 }
 
+// VersionPathsFor resolves the version file reporter of a resolver.
+func VersionPathsFor(resolver string) (ecosystem.VersionPathReporter, bool) {
+	eco, ok := ByID(resolver)
+	if !ok {
+		return nil, false
+	}
+	reporter, ok := eco.(ecosystem.VersionPathReporter)
+	return reporter, ok
+}
+
 // AssetPlannerFor resolves the asset planner of a resolver.
 func AssetPlannerFor(resolver string) (ecosystem.AssetPlanner, bool) {
 	eco, ok := ByID(resolver)

@@ -1,0 +1,10 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    defaultConfig {
+        versionCode = 1
+        versionName = "1.0"
+    }
+}

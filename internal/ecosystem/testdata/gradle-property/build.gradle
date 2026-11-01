@@ -1,0 +1,14 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+version = project.property("VERSION_NAME")
+
+publishing {
+    repositories {
+        maven {
+            url = uri('file:///tmp/qegg-repo')
+        }
+    }
+}
