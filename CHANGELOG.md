@@ -1,5 +1,21 @@
 # Changelog
 
+<!-- qegg:release 0.11.0 -->
+## v0.11.0 - 2026-11-01
+
+### Features
+
+- [`d22be8a`](https://github.com/SuperQuail/QuailEgg/commit/d22be8a344fa73e3ab1b0e7d58ff827cb73e9c40): Release JVM projects built with Maven or Gradle and deploy them to their Maven repository.
+
+### Bug Fixes
+
+- [`d798275`](https://github.com/SuperQuail/QuailEgg/commit/d79827515bb97cb5380018231faf394cf943060b): Resolve Java versions across real-world project layouts without corrupting external references.
+- [`9b4f2ad`](https://github.com/SuperQuail/QuailEgg/commit/9b4f2ad84ca21d4187e7b3df29bdff09fd8dd308): Keep generated record file names within the three words the validator accepts. ([#23](https://github.com/SuperQuail/QuailEgg/pull/23) by @fl749731-lab)
+- [`8b93295`](https://github.com/SuperQuail/QuailEgg/commit/8b93295e633e5cd355c9dd56722ff7c7ac33c683): Report unresolvable Java versions before release and keep failed command output visible.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.10.0...v0.11.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.10.0 -->
 ## v0.10.0 - 2026-10-31
 
