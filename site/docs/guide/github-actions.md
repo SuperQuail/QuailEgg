@@ -30,7 +30,10 @@
 | npm | `NPM_TOKEN` | `NODE_AUTH_TOKEN` |
 | PyPI（uv） | `UV_PUBLISH_TOKEN` | `UV_PUBLISH_TOKEN` |
 | crates.io | `CARGO_REGISTRY_TOKEN` | `CARGO_REGISTRY_TOKEN` |
+| Maven | `MAVEN_USERNAME` / `MAVEN_PASSWORD` | `MAVEN_USERNAME` / `MAVEN_PASSWORD` |
 | Go 模块 | 不需要 registry 凭证 | 通过 Git 标签发布 |
+
+Maven 仅注入这两个变量还不足以认证：还需要 `~/.m2/settings.xml` 的 `<server>`，或在 setup-java 上配置 `server-id` / `server-username` / `server-password`。
 
 GitHub PR 与 Release 使用 Actions 自动提供的 `GITHUB_TOKEN`。生成的发布工作流声明了写入仓库内容和 PR 的权限，但组织策略与分支保护仍可能限制具体操作。
 

@@ -10,6 +10,7 @@ QuailEgg 用同一套变更记录管理不同语言的包，再按各生态的�
 | Python | `pyproject.toml` | `python` | `pypi` | 优先使用 `uv build` 与 `uv publish` |
 | Rust | `Cargo.toml` | `rust` | `crates` | `cargo publish` |
 | Go | `go.mod` | `go` | `go` | 创建并推送版本标签 |
+| Java | `pom.xml` / `build.gradle[.kts]` | `java` | `maven` | `mvn deploy` / `gradlew publish` |
 
 `qegg init` 用自动发现结果生成建议：根目录清单、workspace 声明，以及最多三层目录内发现的清单。`qegg scan` 可以提前查看候选和不可登记的原因。初始化后，发布计划主要按配置里登记的包和路径读取清单；超过扫描深度的包仍需显式写入配置。
 
@@ -123,6 +124,16 @@ Go 模块的版本来自标签，不写回 `go.mod` 中的版本字段。QuailEg
 
 如果项目是命令行程序，还可以使用内置的 Go 交叉编译，见[发布资产](./assets)。
 
+## Java
+
+Maven（`pom.xml`）与 Gradle（`build.gradle`、`build.gradle.kts`）共用 `resolver = "java"` 和发布目标 `maven`；同一目录两种构建系统共存时以 Maven 为准。
+
+- Maven：递归读取根 pom 的 `<modules>`；支持字面量版本、`<properties><revision>` 以及被管理的 parent 链。版本完全继承自仓库外 parent 的工程不会被登记，release 也不会改写外部 parent 的版本。内部 parent 引用与 dependency pin 会随 release 同步。
+- Gradle：读取 `settings.gradle[.kts]` 的普通 `include`；支持顶层和 `allprojects` / `subprojects` 块里的字面量、属性引用、`project.property("X")` 与根 `gradle.properties` 的 `version` 键。`version.txt`、任意计算式或 Android `versionCode` 不会被猜测，会显示为不可登记的原因。
+- 版本范围：存在继承版本时必须使用 `version_scope = "shared"`，`qegg init` 会自动选择。
+- 发布：Maven 按包部署（聚合根 `-N deploy`，子模块各自 deploy），Gradle 从仓库根按 `:sub:publish` 发布；wrapper 会向上查找。Maven 只有自身或被管理祖先配置了 `<distributionManagement>` 才默认发布，外部 parent 的仓库需要显式 `publish = true`；Gradle 需要同时应用发布插件并配置带 URL 的 `publishing.repositories`。
+- 凭证：Maven 使用 `MAVEN_USERNAME` / `MAVEN_PASSWORD`；生成的工作流还需要在 setup-java 上补 `server-id` / `server-username` / `server-password`，或提供 `~/.m2/settings.xml`。Gradle 需要在构建脚本的 publishing credentials 中读取这两个环境变量。
+- 许可证：qegg 生成的配置文件、记录说明和 CHANGELOG 没有项目 license header，Apache RAT 等项目需要自行 exclude。
 ## 下一步
 
 - 多个包的版本与发布顺序见[多包仓库](./monorepos)。
