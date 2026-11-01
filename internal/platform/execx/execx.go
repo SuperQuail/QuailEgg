@@ -95,17 +95,26 @@ func (e *Error) Error() string {
 	if line == "" {
 		return fmt.Sprintf("%s %s: %v", e.Name, strings.Join(e.Args, " "), e.Err)
 	}
-	return fmt.Sprintf("%s %s: %s", e.Name, strings.Join(e.Args, " "), firstLine(line))
+	return fmt.Sprintf("%s %s: %s", e.Name, strings.Join(e.Args, " "), tailOutput(line))
 }
 
 // Unwrap exposes the underlying error.
 func (e *Error) Unwrap() error { return e.Err }
 
-func firstLine(s string) string {
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return s[:i]
+// tailOutput keeps the end of a failed command output so the real error stays
+// visible instead of only the first progress line.
+func tailOutput(s string) string {
+	const maxLines = 20
+	const maxBytes = 4096
+	lines := strings.Split(s, "\n")
+	if len(lines) > maxLines {
+		lines = lines[len(lines)-maxLines:]
 	}
-	return s
+	out := strings.Join(lines, "\n")
+	if len(out) > maxBytes {
+		out = out[len(out)-maxBytes:]
+	}
+	return out
 }
 
 // LookPath reports whether an executable is available on PATH.

@@ -97,7 +97,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	}
 	if existing == nil && len(packages) == 0 {
 		if len(scan.Packages) > 0 {
-			return nil, errors.New(i18n.T("error.no_packages_selected"))
+			return nil, errors.New(i18n.Tf("error.no_selectable_packages", unselectableSummary(scan)))
 		}
 		return nil, errors.New(i18n.Tf("error.no_packages", registry.ManifestListText()))
 	}
@@ -112,6 +112,14 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		versionScope = existing.Release.VersionScope
 	} else if len(packages) > 1 && uniformVersions(detected) {
 		versionScope = config.VersionScopeShared
+	}
+	if (existing == nil || existing.Release.VersionScope == "") && versionScope == config.VersionScopePackage {
+		for _, candidate := range chosen {
+			if candidate.pkg.Inherited {
+				versionScope = config.VersionScopeShared
+				break
+			}
+		}
 	}
 	if versionScope == config.VersionScopeShared && len(packages) > 1 {
 		for _, name := range sortedPackageNames(packages) {
@@ -577,4 +585,32 @@ func sortedPackageNames(packages map[string]config.Package) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// unselectableSummary lists the first candidates and why init cannot use them.
+func unselectableSummary(scan *ScanResult) string {
+	if scan == nil {
+		return "run qegg scan --json"
+	}
+	parts := make([]string, 0, 5)
+	for _, candidate := range scan.Packages {
+		if candidate.Selectable {
+			continue
+		}
+		name := candidate.DisplayName()
+		if name == "" {
+			name = candidate.Path
+		}
+		if reason := candidate.ReasonText(); reason != "" {
+			name += " (" + reason + ")"
+		}
+		parts = append(parts, name)
+		if len(parts) == 5 {
+			break
+		}
+	}
+	if len(parts) == 0 {
+		return "run qegg scan --json"
+	}
+	return strings.Join(parts, "; ")
 }

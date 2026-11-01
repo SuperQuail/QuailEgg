@@ -118,6 +118,13 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 			continue
 		}
 		pkg.Version = version
+		if strings.Contains(version, "${") {
+			report.Problems = append(report.Problems, Problem{
+				Code:    "version-unresolved",
+				Message: i18n.Tf("check.problem.version_unresolved", pkg.IdentityName(), version),
+				Fix:     i18n.T("check.fix.version_unresolved"),
+			})
+		}
 		report.Entries = append(report.Entries, PackageEntry{
 			Name: pkg.IdentityName(), Resolver: pkg.Resolver, Version: pkg.Version, Manifest: pkg.Manifest,
 		})
