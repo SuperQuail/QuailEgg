@@ -149,6 +149,13 @@ type VersionSyncer interface {
 	SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []Package) ([]string, error)
 }
 
+// VersionPathReporter is implemented by ecosystems whose SetVersion writes
+// files other than pkg.Manifest, such as Gradle's gradle.properties. The
+// release commit includes the returned repository-relative paths.
+type VersionPathReporter interface {
+	VersionPaths(root string, pkg Package, next string) ([]string, error)
+}
+
 // AssetTarget is one os/arch pair of an asset plan an ecosystem builds.
 type AssetTarget struct {
 	OS   string `json:"os"`
@@ -225,6 +232,13 @@ const (
 	// ScanReasonWorkspaceVersion marks a member that inherits a missing
 	// workspace version.
 	ScanReasonWorkspaceVersion = "workspace_version_missing"
+	// ScanReasonNestedBuild marks a manifest that belongs to another build
+	// system than the repository root, such as a Maven test fixture inside a
+	// Gradle repository.
+	ScanReasonNestedBuild = "nested_build_unsupported"
+	// ScanReasonUnsupportedVersion marks a manifest whose version qegg cannot
+	// resolve safely, such as a computed Gradle version.
+	ScanReasonUnsupportedVersion = "unsupported_version_source"
 )
 
 // ManifestScanner parses one manifest file found by the bounded repository

@@ -8,19 +8,30 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 )
 
-// SetVersion writes next into the project version of the build file. A Maven
-// module that inherits its parent version is skipped: SyncVersions updates the
-// parent reference once the parent itself is bumped.
+// SetVersion writes next into the version source of the build file.
 func (driver) SetVersion(root string, pkg ecosystem.Package, next string) error {
-	if pkg.Inherited {
-		return nil
-	}
 	manifest, ok := packageManifest(root, pkg)
 	if !ok {
 		return errors.New(i18n.Tf("ecosystem.err.inspect_manifest", pkg.Name, fsx.Join(root, pkg.Path)))
 	}
-	if kindOf(manifest) == buildGradle {
-		return setGradleVersion(root, pkg, next)
+	if kindOf(manifest) == buildMaven {
+		return mavenSetVersion(root, pkg, next)
 	}
-	return setMavenVersion(root, pkg, next)
+	return gradleSetVersion(root, pkg, next)
 }
+
+// VersionPaths reports files written by SetVersion outside the manifest.
+func (driver) VersionPaths(root string, pkg ecosystem.Package, next string) ([]string, error) {
+	manifest, ok := packageManifest(root, pkg)
+	if !ok {
+		return nil, nil
+	}
+	if kindOf(manifest) == buildMaven {
+		return nil, nil
+	}
+	return gradleVersionPaths(root, pkg, next)
+}
+
+var (
+	_ ecosystem.VersionPathReporter = driver{}
+)

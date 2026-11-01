@@ -2,49 +2,43 @@ package java
 
 import (
 	"context"
-	"os"
-	"strings"
 
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
-	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 )
 
-// SyncVersions updates the <parent> reference of Maven modules that inherit
-// their version, so a bumped parent version stays consistent. Gradle
-// subprojects share the property that SetVersion already rewrote.
+// SyncVersions keeps internal references in sync after the manifests were
+// bumped. Maven and Gradle packages are handled separately.
 func (driver) SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []ecosystem.Package) ([]string, error) {
-	var changed []string
+	var mavenPkgs []ecosystem.Package
+	var gradlePkgs []ecosystem.Package
 	for _, pkg := range pkgs {
-		if !pkg.Inherited || pkg.Version == "" {
-			continue
-		}
 		manifest, ok := packageManifest(root, pkg)
-		if !ok || kindOf(manifest) != buildMaven {
-			continue
-		}
-		file := fsx.Join(root, manifest)
-		doc, err := readPom(file)
-		if err != nil || doc.Parent == nil {
-			continue
-		}
-		if strings.TrimSpace(doc.Parent.Version) == pkg.Version {
-			continue
-		}
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		updated, ok := setElementText(string(data), []string{"project", "parent", "version"}, pkg.Version)
 		if !ok {
 			continue
 		}
-		if err := fsx.WriteFileAtomic(file, []byte(updated), 0o644); err != nil {
+		if kindOf(manifest) == buildMaven {
+			mavenPkgs = append(mavenPkgs, pkg)
+			continue
+		}
+		gradlePkgs = append(gradlePkgs, pkg)
+	}
+	var changed []string
+	if len(mavenPkgs) > 0 {
+		paths, err := mavenSync(root, mavenPkgs)
+		if err != nil {
 			return nil, err
 		}
-		changed = append(changed, fsx.Rel(root, file))
+		changed = append(changed, paths...)
 	}
-	return changed, nil
+	if len(gradlePkgs) > 0 {
+		paths, err := gradleSync(root, gradlePkgs)
+		if err != nil {
+			return nil, err
+		}
+		changed = append(changed, paths...)
+	}
+	return uniqueSorted(changed), nil
 }
 
 var _ ecosystem.VersionSyncer = driver{}

@@ -119,8 +119,8 @@ func (e *executor) bump(ctx context.Context) error {
 		return err
 	}
 	if e.plan.VersionScope != config.VersionScopeShared {
-		if inherited := inheritedWorkspaceVersions(inspected); len(inherited) > 1 {
-			return errors.New(i18n.Tf("release.err.version_inherited", inherited[0], inherited[1]))
+		if inherited := inheritedWorkspaceVersions(inspected); len(inherited) > 0 {
+			return errors.New(i18n.Tf("release.err.version_inherited_scope", inherited[0]))
 		}
 	}
 	next := map[string]string{}
@@ -147,6 +147,13 @@ func (e *executor) bump(ctx context.Context) error {
 		}
 		if err := registry.SetVersion(e.d.Root, target, value); err != nil {
 			return err
+		}
+		if reporter, ok := registry.VersionPathsFor(target.Resolver); ok {
+			paths, err := reporter.VersionPaths(e.d.Root, target, value)
+			if err != nil {
+				return err
+			}
+			e.syncPaths = append(e.syncPaths, paths...)
 		}
 		e.d.UI.Info("%s: %s -> %s", pkg.Name, pkg.Current, value)
 	}

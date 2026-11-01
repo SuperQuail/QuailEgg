@@ -2,14 +2,9 @@ package java
 
 import (
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
-	"github.com/SuperQuail/QuailEgg/internal/i18n"
-	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 )
 
 // pomParent is the <parent> reference of a Maven module.
@@ -19,29 +14,45 @@ type pomParent struct {
 	Version    string `xml:"version"`
 }
 
-// pomProperties is the subset of <properties> qegg understands.
+// pomProperties is the subset of <properties> qegg understands. Maven only
+// allows these three placeholders in a version.
 type pomProperties struct {
-	Revision string `xml:"revision"`
+	Revision   string `xml:"revision"`
+	SHA1       string `xml:"sha1"`
+	Changelist string `xml:"changelist"`
+}
+
+// pomDependency is one <dependency> entry.
+type pomDependency struct {
+	GroupID    string `xml:"groupId"`
+	ArtifactID string `xml:"artifactId"`
+	Version    string `xml:"version"`
+	Scope      string `xml:"scope"`
+}
+
+// pomRepository is one deployable repository.
+type pomRepository struct {
+	ID  string `xml:"id"`
+	URL string `xml:"url"`
+}
+
+// pomDistributionManagement is the <distributionManagement> section.
+type pomDistributionManagement struct {
+	Repository *pomRepository `xml:"repository"`
 }
 
 // pom is the subset of pom.xml qegg reads.
 type pom struct {
-	GroupID      string        `xml:"groupId"`
-	ArtifactID   string        `xml:"artifactId"`
-	Version      string        `xml:"version"`
-	Packaging    string        `xml:"packaging"`
-	Parent       *pomParent    `xml:"parent"`
-	Properties   pomProperties `xml:"properties"`
-	Modules      []string      `xml:"modules>module"`
-	Dependencies []struct {
-		GroupID    string `xml:"groupId"`
-		ArtifactID string `xml:"artifactId"`
-	} `xml:"dependencies>dependency"`
-	DistributionManagement *struct {
-		Repository *struct {
-			URL string `xml:"url"`
-		} `xml:"repository"`
-	} `xml:"distributionManagement"`
+	GroupID                string                     `xml:"groupId"`
+	ArtifactID             string                     `xml:"artifactId"`
+	Version                string                     `xml:"version"`
+	Packaging              string                     `xml:"packaging"`
+	Parent                 *pomParent                 `xml:"parent"`
+	Properties             pomProperties              `xml:"properties"`
+	Modules                []string                   `xml:"modules>module"`
+	Dependencies           []pomDependency            `xml:"dependencies>dependency"`
+	ManagedDependencies    []pomDependency            `xml:"dependencyManagement>dependencies>dependency"`
+	DistributionManagement *pomDistributionManagement `xml:"distributionManagement"`
 }
 
 // readPom parses one pom.xml.
@@ -57,98 +68,6 @@ func readPom(file string) (*pom, error) {
 	return &doc, nil
 }
 
-// pomVersion resolves the project version. A module without a version of its
-// own inherits the parent version; a ${revision} placeholder resolves through
-// <properties><revision>.
-func pomVersion(doc *pom) (string, bool) {
-	raw := strings.TrimSpace(doc.Version)
-	if raw != "" {
-		if strings.HasPrefix(raw, "${") {
-			name := strings.TrimSuffix(strings.TrimPrefix(raw, "${"), "}")
-			if name == "revision" {
-				return strings.TrimSpace(doc.Properties.Revision), false
-			}
-			return "", false
-		}
-		return raw, false
-	}
-	if doc.Parent != nil {
-		return strings.TrimSpace(doc.Parent.Version), true
-	}
-	return "", false
-}
-
-// pomPublishes reports whether the project declares a Maven repository to
-// deploy to. A project without one is an application artifact.
-func pomPublishes(doc *pom) bool {
-	return doc.DistributionManagement != nil && doc.DistributionManagement.Repository != nil &&
-		strings.TrimSpace(doc.DistributionManagement.Repository.URL) != ""
-}
-
-// mavenPackage converts one pom.xml into an ecosystem package.
-func mavenPackage(dir, manifest string, doc *pom) (ecosystem.Package, bool) {
-	name := strings.TrimSpace(doc.ArtifactID)
-	if name == "" {
-		return ecosystem.Package{}, false
-	}
-	version, inherited := pomVersion(doc)
-	deps := make([]string, 0, len(doc.Dependencies))
-	for _, dep := range doc.Dependencies {
-		if id := strings.TrimSpace(dep.ArtifactID); id != "" {
-			deps = append(deps, id)
-		}
-	}
-	return ecosystem.Package{
-		Name:      name,
-		Path:      dir,
-		Resolver:  "java",
-		Version:   version,
-		Inherited: inherited,
-		Publish:   pomPublishes(doc),
-		Manifest:  manifest,
-		Deps:      deps,
-	}, true
-}
-
-// setMavenVersion rewrites the project version or its revision property.
-func setMavenVersion(root string, pkg ecosystem.Package, next string) error {
-	manifest, ok := packageManifest(root, pkg)
-	if !ok {
-		return errors.New(i18n.Tf("ecosystem.err.inspect_manifest", pkg.Name, fsx.Join(root, pkg.Path)))
-	}
-	file := fsx.Join(root, manifest)
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	doc, err := readPom(file)
-	if err != nil {
-		return err
-	}
-	raw := strings.TrimSpace(doc.Version)
-	switch {
-	case raw == "":
-		if doc.Parent != nil {
-			return nil
-		}
-		return errors.New(i18n.Tf("java.err.version_missing", file))
-	case strings.HasPrefix(raw, "${"):
-		if strings.TrimSuffix(strings.TrimPrefix(raw, "${"), "}") != "revision" {
-			return errors.New(i18n.Tf("java.err.version_form", raw, file))
-		}
-		updated, ok := setElementText(string(data), []string{"project", "properties", "revision"}, next)
-		if !ok {
-			return errors.New(i18n.Tf("java.err.revision_missing", file))
-		}
-		return fsx.WriteFileAtomic(file, []byte(updated), 0o644)
-	}
-	updated, ok := setElementText(string(data), []string{"project", "version"}, next)
-	if !ok {
-		return errors.New(i18n.Tf("java.err.version_missing", file))
-	}
-	return fsx.WriteFileAtomic(file, []byte(updated), 0o644)
-}
-
 // xmlToken is one tag of an XML document.
 type xmlToken struct {
 	kind       int
@@ -162,6 +81,12 @@ const (
 	tokenEnd
 	tokenSelf
 )
+
+// xmlElement is one element range in a document.
+type xmlElement struct {
+	name                                       string
+	outerStart, innerStart, innerEnd, outerEnd int
+}
 
 // tokenizeXML splits an XML document into tags, skipping comments, CDATA,
 // processing instructions and declarations.
@@ -256,42 +181,113 @@ func tagInfo(tag string) (string, int) {
 	return name, kind
 }
 
-// findElement returns the inner span of the element at path.
-func findElement(text string, path ...string) (int, int, bool) {
-	var stack []xmlToken
+// walkElements visits every element with its ancestor path.
+func walkElements(text string, visit func(path []string, el xmlElement)) {
+	type open struct {
+		name         string
+		start, inner int
+	}
+	var stack []open
 	for _, tok := range tokenizeXML(text) {
 		switch tok.kind {
 		case tokenStart:
-			stack = append(stack, tok)
+			stack = append(stack, open{name: tok.name, start: tok.start, inner: tok.end})
 		case tokenEnd:
 			if len(stack) == 0 {
 				continue
 			}
-			open := stack[len(stack)-1]
+			top := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
-			if open.name != tok.name || len(path) != len(stack)+1 {
+			if top.name != tok.name {
 				continue
 			}
-			match := true
-			for i, ancestor := range stack {
-				if ancestor.name != path[i] {
-					match = false
-					break
-				}
+			path := make([]string, 0, len(stack)+1)
+			for _, item := range stack {
+				path = append(path, item.name)
 			}
-			if match && open.name == path[len(path)-1] {
-				return open.end, tok.start, true
+			path = append(path, top.name)
+			visit(path, xmlElement{name: top.name, outerStart: top.start, innerStart: top.inner, innerEnd: tok.start, outerEnd: tok.end})
+		case tokenSelf:
+			path := make([]string, 0, len(stack)+1)
+			for _, item := range stack {
+				path = append(path, item.name)
 			}
+			path = append(path, tok.name)
+			visit(path, xmlElement{name: tok.name, outerStart: tok.start, innerStart: tok.end, innerEnd: tok.end, outerEnd: tok.end})
 		}
 	}
-	return 0, 0, false
 }
 
-// setElementText replaces the text content of the element at path.
-func setElementText(text string, path []string, value string) (string, bool) {
-	start, end, ok := findElement(text, path...)
-	if !ok || start > end {
-		return text, false
+// findElements returns every element at the exact path.
+func findElements(text string, path ...string) []xmlElement {
+	var out []xmlElement
+	walkElements(text, func(candidate []string, el xmlElement) {
+		if samePath(candidate, path) {
+			out = append(out, el)
+		}
+	})
+	return out
+}
+
+// findElement returns the first element at path.
+func findElement(text string, path ...string) (xmlElement, bool) {
+	all := findElements(text, path...)
+	if len(all) == 0 {
+		return xmlElement{}, false
 	}
-	return text[:start] + value + text[end:], true
+	return all[0], true
+}
+
+// directChildren returns the direct child elements called name.
+func directChildren(text string, parent xmlElement, name string) []xmlElement {
+	start := parent.innerStart
+	if start > len(text) {
+		return nil
+	}
+	end := parent.innerEnd
+	if end > len(text) {
+		end = len(text)
+	}
+	sub := text[start:end]
+	var out []xmlElement
+	walkElements(sub, func(path []string, el xmlElement) {
+		if len(path) != 1 || path[0] != name {
+			return
+		}
+		el.outerStart += start
+		el.outerEnd += start
+		el.innerStart += start
+		el.innerEnd += start
+		out = append(out, el)
+	})
+	return out
+}
+
+// elementText returns the trimmed text content of one element.
+func elementText(text string, el xmlElement) string {
+	if el.innerStart > len(text) || el.innerEnd > len(text) || el.innerStart > el.innerEnd {
+		return ""
+	}
+	return strings.TrimSpace(text[el.innerStart:el.innerEnd])
+}
+
+// setElementText replaces the text content of an element.
+func setElementText(text string, el xmlElement, value string) string {
+	if el.innerStart > len(text) || el.innerEnd > len(text) || el.innerStart > el.innerEnd {
+		return text
+	}
+	return text[:el.innerStart] + value + text[el.innerEnd:]
+}
+
+// samePath reports whether a and b contain the same element names.
+func samePath(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
