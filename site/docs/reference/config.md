@@ -174,7 +174,7 @@ artifacts = ["target/release/my-app"]
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `registries` | string[] | 按包推断 | 发布目标，支持 `npm`、`pypi`、`crates`、`go` |
+| `registries` | string[] | 按包推断 | 发布目标，支持 `npm`、`pypi`、`crates`、`go`、`maven` |
 
 初始化渲染工作流时，显式发布目标优先决定生态 setup 和凭证；没有目标时再参考包的 resolver。跨生态项目应检查生成工作流是否覆盖所需的工具链。
 
@@ -199,7 +199,7 @@ publish = true
 | --- | --- | --- | --- |
 | `name` | string | 键本身 | 清单里的真实包名；键与清单名不同时必填 |
 | `path` | string | 必填 | 包所在目录，根包使用 `"."` |
-| `resolver` | string | 必填 | `npm`、`python`、`rust` 或 `go` |
+| `resolver` | string | 必填 | `npm`、`python`、`rust`、`go` 或 `java` |
 | `publish` | bool | `true` | 是否发布软件包；关闭后仍可管理版本 |
 | `depends-on` | string[] | `[]` | 其他已登记包的身份键，用于发布排序 |
 

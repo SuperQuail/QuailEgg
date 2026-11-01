@@ -8,7 +8,7 @@
 | Python | `pyproject.toml` | PyPI | `[project].version`、`[tool.poetry].version`、hatch/setuptools 动态版本文件 | `uv publish` / `twine upload` |
 | Rust | `Cargo.toml` | crates.io | `[package].version`；继承时写根 `[workspace.package].version` | `cargo publish` |
 | Go | `go.mod` | proxy.golang.org | 无（版本来自 git tag） | 无（push tag 即发布），默认附带交叉编译的二进制资产 |
-| Java | `pom.xml` / `build.gradle[.kts]` | 项目里配置的 Maven 仓库 | `<project><version>`、`${revision}`、`version = ...`、`gradle.properties` 属性 | `mvn deploy` / `gradlew publish` |
+| Java | `pom.xml` / `build.gradle[.kts]` | 项目里配置的 Maven 仓库 | `<project><version>`、`${revision}`、Gradle 字面量/属性引用、`gradle.properties` 的 `version` | `mvn deploy` / `gradlew publish` |
 
 ## 工作流里注入什么，由项目决定
 
@@ -21,6 +21,8 @@
 | Rust | `CARGO_REGISTRY_TOKEN` | `CARGO_REGISTRY_TOKEN` |
 | Go | —（模块代理公开，无凭证） | — |
 | Java | `MAVEN_USERNAME` / `MAVEN_PASSWORD` | `MAVEN_USERNAME` / `MAVEN_PASSWORD` |
+
+仅注入 `MAVEN_USERNAME` / `MAVEN_PASSWORD` 不会让 Maven 自动认证：`mvn deploy` 只从 `~/.m2/settings.xml` 的 `<server>` 读取凭证（id 对应 `distributionManagement/repository/id`）。需要在生成的 workflow 的 setup-java 上补 `server-id` / `server-username` / `server-password`，或由项目提供 settings.xml；Gradle 则需要在构建脚本的 publishing credentials 中读取这两个变量。
 
 ## 为什么不是硬编码
 
@@ -114,11 +116,14 @@ key = "version"
 
 Java 适配器同时认识 Maven（`pom.xml`）和 Gradle（`build.gradle`、`build.gradle.kts`）；同一目录同时存在两者时以 Maven 为准。
 
-- **发现**：Maven 读根 pom 的 `<modules>`，Gradle 读 `settings.gradle[.kts]` 的 `include`，每个子工程各自成为一个包。
-- **版本**：Maven 写 `<project><version>`；用 `${revision}` 的项目改写 `<properties><revision>`。Gradle 改写 `version = 'x'`/`version = "x"` 字面量；写成 `version = mod_version` 时改写 `gradle.properties` 里的属性（先找包目录，再找仓库根）。继承父版本的 Maven 子模块在 bump 时跳过，由 `SyncVersions` 更新其 `<parent><version>`。
-- **是否发布**：Maven 只有声明了 `<distributionManagement><repository><url>` 才默认发布；Gradle 只有出现 `maven-publish` 或 `publishing {` 才默认发布。游戏 Mod、桌面应用这类只产出 jar 的工程因此默认 `publish = false`，可以改用 `[release.assets]` 的 `commands` + `files` 把 jar 挂到 GitHub Release。
-- **发布**：`mvn -B -DskipTests deploy`，仓库自带 wrapper 时用 `mvnw`；Gradle 用 `publish`（`gradlew` 优先）。凭证走 `MAVEN_USERNAME` / `MAVEN_PASSWORD`，生成的 workflow 注入 `actions/setup-java`（Temurin 17；JDK 21 项目把它改成 `'21'` 即可）。
-- **预检查**：Maven 仓库地址写在构建文件里而不是包名里，`Precheck` 无法可靠推导，统一返回 `Unknown`，由 deploy 的结果负责幂等（同名版本重复 deploy 会失败，release 状态记录会阻止重跑时重复发布）。
+- **发现**：Maven 读根 pom 的 `<modules>` 并递归子模块；Gradle 读 `settings.gradle[.kts]` 的普通 `include`，也接受 `<name>.gradle[.kts]` 形式的构建文件。Gradle 仓库根下嵌套的 Maven `pom.xml`（测试夹具、示例工程）默认不登记，需要显式配置。
+- **Maven 版本**：写 `<project><version>`；`<version>${revision}</version>` 写 `<properties><revision>`；子模块的版本由被管理的 parent 链解析并标为继承。版本继承自仓库外的 parent、或使用不支持的计算式时，该候选不可登记并给出原因；release 不会改写外部 parent 的版本。内部 `<parent><version>` 与 dependency pin 由 `SyncVersions` 同步，因此自带 `<version>` 的模块也不会留下过期 parent 引用。
+- **Gradle 版本**：识别顶层与 `allprojects` / `subprojects` 块里的字面量、`version = mod_version`、`project.property("X")`、`property("X")`、GString 以及根 `gradle.properties` 的 `version` 键。版本来自 `version.txt`、任意 Groovy 计算或 Android `versionCode` 时不会被猜测，会在 `qegg scan` 中给出原因。写回属性时只修改根 `gradle.properties`，并把该文件并入 release commit。
+- **版本范围**：只要存在继承版本的包，`version_scope` 必须是 `shared`（`qegg init` 会自动选择）；`package` scope 下注册继承版本的包会在 plan 阶段报错，避免只 bump 父包、子模块引用过期。
+- **是否发布**：Maven 只有项目自身或被管理的祖先声明了 `<distributionManagement><repository><url>` 才默认发布；外部 parent（例如 Apache / Spring 的 parent）继承来的仓库无法离线解析，需要显式设置 `publish = true`。Gradle 只有在生效的构建脚本里同时应用 `maven-publish`（或等价插件）并配置了带 URL 的 `publishing.repositories` 才默认发布；注释、空 `publishing {}`、仅 `subprojects {}` 的 root 都不会误报。游戏 Mod、桌面应用这类只产出 jar 的工程默认 `publish = false`，可改用 `[release.assets]`。
+- **发布**：Maven 按包部署，聚合根使用 `mvn -N deploy`，子模块各自 deploy，避免同一版本重复发布；wrapper 从仓库根向上查找。Gradle 按 project path 从 root 执行 `:sub:publish`，同样优先项目 wrapper。凭证走 `MAVEN_USERNAME` / `MAVEN_PASSWORD`；生成的 workflow 目前只注入 env 和 `actions/setup-java`，Maven 仍需在 workflow 的 setup-java 上补 `server-id` / `server-username` / `server-password`，或提供 `~/.m2/settings.xml`；Gradle 需要构建脚本自行读取这两个环境变量。
+- **许可证检查**：qegg 生成的 `.quailegg.toml`、`.changes/README.md`、`CHANGELOG.md` 没有项目 license header，启用 Apache RAT 等检查的仓库需要在项目侧加 exclude 或跳过该检查。
+- **预检查**：Maven 仓库地址写在构建文件里而不是包名里，`Precheck` 无法可靠推导，统一返回 `Unknown`，由 deploy 的结果负责幂等（远端仓库拒绝重复 deploy；resume 会重跑 publish，需要远端仓库自身幂等）。
 - **校验命令**：适配器不写默认 `[verify].commands`（`gradlew` / `mvnw` 的调用方式随平台与 CI 不同），请在配置里显式写，例如 `commands = ["./gradlew build"]`（Windows 本地用 `gradlew.bat build`）。
 
 ## Go 的边界

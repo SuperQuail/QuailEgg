@@ -94,7 +94,7 @@ qegg verify
 registries = ["npm"]
 ```
 
-发布目标使用 `npm`、`pypi`、`crates` 或 `go`。注意，它们与 `resolver` 的名字不完全相同，例如 Python 使用 `resolver = "python"` 和 `registries = ["pypi"]`。
+发布目标使用 `npm`、`pypi`、`crates`、`go` 或 `maven`。注意，它们与 `resolver` 的名字不完全相同，例如 Python 使用 `resolver = "python"` 和 `registries = ["pypi"]`，Java 使用 `resolver = "java"` 和 `registries = ["maven"]`。
 
 凭证通过环境变量或 CI secrets 提供：
 
@@ -103,9 +103,10 @@ registries = ["npm"]
 | npm | `NODE_AUTH_TOKEN` | `NPM_TOKEN` |
 | Python（uv） | `UV_PUBLISH_TOKEN` | `UV_PUBLISH_TOKEN` |
 | Rust | `CARGO_REGISTRY_TOKEN` | `CARGO_REGISTRY_TOKEN` |
+| Java（Maven） | `MAVEN_USERNAME` / `MAVEN_PASSWORD` | `MAVEN_USERNAME` / `MAVEN_PASSWORD` |
 | GitHub PR 与 Release | `GITHUB_TOKEN`，或已登录的 `gh` | Actions 自动提供的 `GITHUB_TOKEN` |
 
-npm 的环境变量还需要相应的 npm 认证配置；生成的 Actions 工作流会通过 setup-node 配置它。本地使用时可沿用已有的 npm 登录与认证配置。
+npm 的环境变量还需要相应的 npm 认证配置；生成的 Actions 工作流会通过 setup-node 配置它。本地使用时可沿用已有的 npm 登录与认证配置。Maven 的凭证需要写入 `~/.m2/settings.xml` 的 `<server>`（id 对应 `distributionManagement/repository/id`），或在生成的 workflow 的 setup-java 步骤上补 `server-id` / `server-username` / `server-password`；仅注入环境变量不会让 `mvn deploy` 自动认证。Gradle 需要在构建脚本的 publishing credentials 中读取这两个变量。
 
 ## 多包仓库
 
