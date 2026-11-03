@@ -8,7 +8,7 @@ go vet ./...        # 静态检查
 go test ./...       # 测试
 ```
 
-`qegg init` 会安装 `.git/hooks/pre-commit`：先要求有变更记录，再执行 `[verify].commands`（本仓库是 `go test ./...`）。校验失败会拒绝提交；只想跳过 hook 时用 `git commit --no-verify`。
+`qegg init` 会安装 `.git/hooks/pre-commit`：先要求有变更记录，再按配置执行提交校验（默认是 `[verify].commands`，本仓库是 `go test ./...`；`[verify] hook = false` 可关闭）。校验失败会拒绝提交；不要用 `git commit --no-verify` 绕过记录检查。
 
 本地联调可以在临时仓库里跑完整流程：
 

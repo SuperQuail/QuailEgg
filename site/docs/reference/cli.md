@@ -41,6 +41,8 @@ qegg <command> --help
 | `--scope <dirs>` | 记录检查和提交前校验覆盖的目录，逗号分隔 |
 | `--verify-cmd <cmd>` | 校验命令，可重复传入 |
 | `--no-verify-cmd` | 不为初始化结果选择校验命令 |
+| `--hook-verify` | 提交时运行校验命令（恢复被关闭的提交校验） |
+| `--no-hook-verify` | 提交时不运行校验命令 |
 | `--no-hook` | 不生成本地 hook |
 | `--no-workflows` | 不生成工作流 |
 | `--no-status-workflow` | 不生成状态查询工作流 |
@@ -138,7 +140,7 @@ JSON 输出的 `phase` 为 `version`（准备版本）、`publish`（实际发�
 
 ## qegg verify
 
-执行 `[verify].commands`，遵循配置的超时和 `fail_fast`。即使当前没有暂存文件，也可以手动运行。
+执行完整的 `[verify].commands`，遵循配置的超时和 `fail_fast`；不受 `[verify] hook` 开关影响。即使当前没有暂存文件，也可以手动运行。
 
 ## qegg hook
 
@@ -146,7 +148,7 @@ JSON 输出的 `phase` 为 `version`（准备版本）、`publish`（实际发�
 qegg hook pre-commit
 ```
 
-执行与安装的 hook 相同的检查。记录强制规则针对项目克隆的默认分支；校验命令则按暂存文件是否命中 scope 决定，不受这个分支条件限制。
+执行与安装的 hook 相同的检查。记录强制规则针对项目克隆的默认分支；校验命令则按暂存文件是否命中 scope、以及 `[verify] hook` 是否开启决定，不受这个分支条件限制。开启时执行 `hook_commands`（配置了的话），否则执行 `commands`。
 
 详见[提交前检查](../guide/change-records#提交前会检查什么)。
 

@@ -77,9 +77,20 @@ timeout = "15m"
 fail_fast = true
 ```
 
-QuailEgg 在准备版本之前执行这些命令。安装本地 hook 后，暂存区命中 `[changes].scope` 时也会执行它们。
+QuailEgg 在准备版本之前执行这些命令，`qegg verify` 也执行同一组命令。安装本地 hook 后，暂存区命中 `[changes].scope` 时默认也会执行它们。
 
-请把示例中的 `npm test` 换成项目实际可用的命令。`timeout` 是整组命令的总超时；`fail_fast = true` 表示遇到第一个失败就停止。
+如果整套命令很慢（例如 `pnpm test`、`cargo test` 超过半小时），不要让 hook 在每次提交时都跑：
+
+```toml
+[verify]
+commands = ["pnpm test"]        # 发版门禁不变
+timeout = "2h"                  # 够覆盖整组命令
+hook = false                    # 提交时不跑；缺省为 true
+# hook_commands = ["pnpm lint"]  # 或者只给提交一份快命令
+# hook_timeout = "2m"
+```
+
+关闭提交校验后，完整校验仍会在准备版本时和 `qegg verify` 中执行，仓库自己的 CI 也应继续跑测试。`timeout` 是整组命令的总预算，慢套件要相应调大。
 
 配置后可以手动检查：
 

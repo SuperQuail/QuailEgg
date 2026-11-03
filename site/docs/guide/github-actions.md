@@ -79,7 +79,7 @@ steps = ["npm ci"]
 
 `commit` 模式没有单独等待发布 PR 的环节：只要阶段不是 `none`，就会构建，再由一个 `release` job 完成版本准备和发布。没有配置 `[[release.build]]` 时，工作流保留单个 `release` job，不额外生成 `plan` job。
 
-这里控制的是发布产物的构建。版本准备阶段仍会执行 `[verify].commands`；其中若包含编译命令，也会照常运行。
+这里控制的是发布产物的构建。版本准备阶段仍会执行 `[verify].commands`；其中若包含编译命令，也会照常运行。关闭提交校验（`[verify] hook = false`）不影响这里；生成的功能 PR 工作流只执行 `qegg check --ci`，完整校验仍由仓库自己的 CI 和发布流程负责。
 
 ## 发布 PR 的检查
 

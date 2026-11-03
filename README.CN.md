@@ -6,7 +6,7 @@ QuailEgg 是一个自动发版工具。合并到主分支后，它汇总 `.chang
 
 ## 特性
 
-- 变更记录驱动发版，pre-commit hook 检查记录并执行 `[verify].commands`
+- 变更记录驱动发版，pre-commit hook 检查记录并可选执行 `[verify].commands`
 - 自动识别 npm、PyPI、crates.io、Go module、Maven 与 Gradle 工程，并扫描根目录下最多三层的包清单
 - 发布方式可选：发布 PR 或直接提交，失败可断点续跑
 - 预发布渠道（`alpha`、`beta`、`rc`），记录留到稳定版一起发布

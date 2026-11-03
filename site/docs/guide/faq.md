@@ -36,15 +36,39 @@ go env GOPATH
 | --- | --- |
 | 缺少变更记录 | 用 `git diff --cached --name-only` 查看暂存文件是否命中 `[changes].scope`，再为对应改动生成记录 |
 | 记录解析失败 | 检查包名、升级级别和 front matter，运行 `qegg check` |
-| 校验命令失败 | 单独运行 `qegg verify`，修复失败的命令后再提交 |
+| 校验命令失败 | 单独运行 `qegg verify`，修复失败的命令后再提交；命令太慢时见下一节 |
 
 `qegg commit` 不会替你暂存代码。先暂存代码，再运行它，才能让记录与代码进入同一次提交。
 
 如果改动长期不需要发布，应调整合理的 scope，而不是把跳过 hook 当作日常流程。
 
+## 校验命令太慢，不想每次提交都跑
+
+`[verify].commands` 默认既做发版门禁，也在暂存命中 scope 时由 hook 执行。如果整套命令要跑半小时以上，提交会无法接受。两种做法：
+
+完全不在提交时跑：
+
+```toml
+[verify]
+commands = ["pnpm test"]
+timeout = "2h"
+hook = false
+```
+
+提交只跑快命令，发版仍跑完整套：
+
+```toml
+[verify]
+commands = ["pnpm test"]
+hook_commands = ["pnpm lint"]
+hook_timeout = "2m"
+```
+
+两种做法都不影响变更记录检查，也不影响发版：准备版本前和 `qegg verify` 仍执行完整命令。关闭提交校验后，请确认仓库自己的 CI 会跑测试。`timeout` 是整组命令的总超时，慢套件要调到能覆盖它。
+
 ## fork 或普通分支上为什么仍会运行校验
 
-普通分支和 fork 克隆只跳过本地的**记录强制检查**。暂存文件命中 scope 时，`[verify].commands` 仍会执行，失败也会阻止提交。
+普通分支和 fork 克隆只跳过本地的**记录强制检查**。暂存文件命中 scope 时，`[verify].commands` 仍会执行（除非 `[verify] hook = false`），失败也会阻止提交。
 
 功能 PR 合并前，CI 会按整个 PR 的差异检查记录。详细条件见[变更记录](./change-records#提交前会检查什么)。
 

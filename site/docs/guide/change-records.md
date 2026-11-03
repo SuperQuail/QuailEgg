@@ -104,7 +104,9 @@ release: false
 | 检查 | 生效条件 | 失败后的行为 |
 | --- | --- | --- |
 | 变更记录检查 | 在项目克隆的默认分支提交，且暂存文件命中 `[changes].scope` | 缺少有效记录时拒绝提交 |
-| 校验命令 | 暂存文件命中 `[changes].scope`，且配置了 `[verify].commands` | 命令失败时拒绝提交 |
+| 校验命令 | 暂存文件命中 `[changes].scope`，且 `[verify] hook` 未关闭 | 命令失败时拒绝提交 |
+
+`hook = false` 只关闭提交校验，不关闭变更记录检查，也不影响发版：准备版本前和 `qegg verify` 仍执行完整的 `[verify].commands`。命令太慢时可以关闭提交校验，或配置 `hook_commands` 只跑快命令，把完整校验留给 CI 和发布流程。
 
 普通分支和 fork 克隆跳过的是**变更记录强制检查**，不是校验命令。功能 PR 合并前，`qegg check --ci` 会根据整个 PR 的差异检查记录。
 
