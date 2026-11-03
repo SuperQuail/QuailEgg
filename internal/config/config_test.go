@@ -401,3 +401,51 @@ func TestProjectRepoValidation(t *testing.T) {
 		t.Fatal("expected an error for a repo without host/owner/name")
 	}
 }
+
+func TestVerifyHookDefaults(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[verify]\ncommands = [\"go test ./...\"]\ntimeout = \"30m\"\n")
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if !cfg.Verify.HookEnabled() {
+		t.Fatal("the commit gate must default to enabled")
+	}
+	if got := cfg.Verify.HookCommandList(); len(got) != 1 || got[0] != "go test ./..." {
+		t.Fatalf("hook command list = %v", got)
+	}
+	if cfg.Verify.HookTimeout != "30m" {
+		t.Fatalf("hook timeout = %q, want the release timeout", cfg.Verify.HookTimeout)
+	}
+}
+
+func TestVerifyHookDisabled(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n\n[verify]\ncommands = [\"go test ./...\"]\nhook = false\nhook_commands = [\"go vet ./...\"]\nhook_timeout = \"2m\"\n")
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if cfg.Verify.HookEnabled() {
+		t.Fatal("hook = false must disable the commit gate")
+	}
+	if cfg.Verify.HookTimeout != "2m" {
+		t.Fatalf("hook timeout = %q", cfg.Verify.HookTimeout)
+	}
+	if got := cfg.Verify.HookCommandList(); len(got) != 1 || got[0] != "go vet ./..." {
+		t.Fatalf("hook command list = %v", got)
+	}
+}
+
+func TestVerifyHookTimeoutInvalid(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n[verify]\nhook_timeout = \"soon\"\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for a malformed hook timeout")
+	}
+}
+
+func TestVerifyHookCommandsRejectEmpty(t *testing.T) {
+	path := writeConfig(t, "schema_version = 1\n[verify]\nhook_commands = [\"\"]\n")
+	if _, err := LoadFile(path); err == nil {
+		t.Fatal("expected an error for an empty hook command")
+	}
+}

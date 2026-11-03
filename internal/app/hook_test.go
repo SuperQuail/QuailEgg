@@ -26,6 +26,12 @@ func writeHookFile(t *testing.T, path, content string) {
 // hookRepo builds a repository with a valid staged change record and the given
 // verification command.
 func hookRepo(t *testing.T, verifyCommand string) string {
+	return hookRepoConfig(t, "commands = [\""+verifyCommand+"\"]\ntimeout = \"1m\"")
+}
+
+// hookRepoConfig is hookRepo with a full [verify] section body, so tests can
+// exercise hook, hook_commands and hook_timeout.
+func hookRepoConfig(t *testing.T, verifyBody string) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
@@ -43,7 +49,7 @@ func hookRepo(t *testing.T, verifyCommand string) string {
 	run("init", "-q")
 	run("config", "user.email", "hook@example.com")
 	run("config", "user.name", "hook")
-	config := "schema_version = 1\n[changes]\ndir = \".changes\"\nscope = [\"src\"]\n\n[verify]\ncommands = [\"" + verifyCommand + "\"]\ntimeout = \"1m\"\n\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
+	config := "schema_version = 1\n[changes]\ndir = \".changes\"\nscope = [\"src\"]\n\n[verify]\n" + verifyBody + "\n\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
 	writeHookFile(t, filepath.Join(dir, ".quailegg.toml"), config)
 	writeHookFile(t, filepath.Join(dir, ".changes", "change.md"), "---\ntype: feat\npackages:\n  demo: patch\n---\n\nA change.\n")
 	run("add", "-A")
@@ -111,6 +117,11 @@ func hookGit(t *testing.T, dir string, args ...string) {
 // hookProjectRepo builds a committed repository whose config records the given
 // project identity and whose origin points at remoteURL.
 func hookProjectRepo(t *testing.T, remoteURL, configRepo string) string {
+	return hookProjectRepoConfig(t, remoteURL, configRepo, "commands = []\ntimeout = \"1m\"")
+}
+
+// hookProjectRepoConfig is hookProjectRepo with a full [verify] section body.
+func hookProjectRepoConfig(t *testing.T, remoteURL, configRepo, verifyBody string) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
@@ -124,7 +135,7 @@ func hookProjectRepo(t *testing.T, remoteURL, configRepo string) string {
 	if configRepo != "" {
 		cfg += "repo = \"" + configRepo + "\"\n"
 	}
-	cfg += "\n[changes]\ndir = \".changes\"\nscope = [\"cmd\"]\n\n[verify]\ncommands = []\ntimeout = \"1m\"\n\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
+	cfg += "\n[changes]\ndir = \".changes\"\nscope = [\"cmd\"]\n\n[verify]\n" + verifyBody + "\n\n[packages.demo]\npath = \".\"\nresolver = \"npm\"\n"
 	writeHookFile(t, filepath.Join(dir, ".quailegg.toml"), cfg)
 	writeHookFile(t, filepath.Join(dir, "package.json"), "{\n  \"name\": \"demo\",\n  \"version\": \"1.0.0\"\n}\n")
 	hookGit(t, dir, "add", "-A")
@@ -214,5 +225,66 @@ func TestHookPreCommitSkipsVerificationForDocsOnly(t *testing.T) {
 	}
 	if err := a.HookPreCommit(context.Background()); err != nil {
 		t.Fatalf("a docs-only commit must skip verification: %v", err)
+	}
+}
+
+func TestHookPreCommitSkipsVerificationWhenDisabled(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRepoConfig(t, "commands = [\"exit 1\"]\ntimeout = \"1m\"\nhook = false")
+	stageHookSource(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err != nil {
+		t.Fatalf("a disabled commit gate must allow the commit: %v", err)
+	}
+}
+
+func TestHookPreCommitRunsHookCommands(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRepoConfig(t, "commands = [\"exit 1\"]\nhook_commands = [\"exit 0\"]\ntimeout = \"1m\"")
+	stageHookSource(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err != nil {
+		t.Fatalf("the hook must use hook_commands instead of commands: %v", err)
+	}
+}
+
+func TestHookPreCommitFailsOnHookCommands(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRepoConfig(t, "commands = [\"exit 0\"]\nhook_commands = [\"exit 1\"]\ntimeout = \"1m\"")
+	stageHookSource(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	err = a.HookPreCommit(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "verification failed") {
+		t.Fatalf("expected a hook_commands failure, got %v", err)
+	}
+}
+
+func TestHookPreCommitDisabledStillRequiresRecord(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookProjectRepoConfig(t, "https://github.com/example/demo", "github.com/example/demo", "commands = []\ntimeout = \"1m\"\nhook = false")
+	stageHookScope(t, dir)
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := a.HookPreCommit(context.Background()); err == nil {
+		t.Fatal("turning the verification gate off must not disable the change record rule")
 	}
 }

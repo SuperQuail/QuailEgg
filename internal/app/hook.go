@@ -15,9 +15,9 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/verify"
 )
 
-// HookPreCommit enforces the change record rule and then runs the verification
-// commands when the commit touches release-scoped files, so a failing test
-// blocks the commit.
+// HookPreCommit enforces the change record rule and then runs the commit-time
+// verification tier when the commit touches release-scoped files, so a failing
+// test blocks the commit unless the tier is turned off in the configuration.
 func (a *App) HookPreCommit(ctx context.Context) error {
 	staged, err := a.Git.StagedNames(ctx)
 	if err != nil {
@@ -27,7 +27,13 @@ func (a *App) HookPreCommit(ctx context.Context) error {
 		return err
 	}
 	execx.SanitizeGitHookEnv()
-	if len(a.Cfg.Verify.Commands) == 0 {
+	if !a.Cfg.Verify.HookEnabled() {
+		if a.touchesScope(staged) {
+			a.UI.Info("%s", i18n.T("hook.verify_disabled"))
+		}
+		return nil
+	}
+	if len(a.Cfg.Verify.HookCommandList()) == 0 {
 		return nil
 	}
 	if !a.touchesScope(staged) {
@@ -101,21 +107,27 @@ func (a *App) isProjectClone(ctx context.Context) (bool, string) {
 	return strings.EqualFold(current, expected), current
 }
 
-// verifyBeforeCommit runs [verify].commands. The release pipeline runs the same
-// commands before bumping; the hook makes them a commit-time gate as well.
+// verifyBeforeCommit runs the commit-time verification tier: HookCommands when
+// configured, otherwise the release commands. The release pipeline always runs
+// the full command list before bumping a version.
 func (a *App) verifyBeforeCommit(ctx context.Context) error {
-	if len(a.Cfg.Verify.Commands) == 0 {
+	commands := a.Cfg.Verify.HookCommandList()
+	if len(commands) == 0 {
 		return nil
 	}
-	timeout, err := time.ParseDuration(a.Cfg.Verify.Timeout)
+	timeoutValue := a.Cfg.Verify.HookTimeout
+	if timeoutValue == "" {
+		timeoutValue = a.Cfg.Verify.Timeout
+	}
+	timeout, err := time.ParseDuration(timeoutValue)
 	if err != nil {
 		timeout = 15 * time.Minute
 	}
-	result, err := verify.RunVerification(ctx, a.Run, a.Root, a.Cfg.Verify.Commands, timeout, a.Cfg.Verify.FailFast, os.Stdout)
+	result, err := verify.RunVerification(ctx, a.Run, a.Root, commands, timeout, a.Cfg.Verify.FailFast, os.Stdout)
 	if err != nil {
 		failed := result.FailedCommand
 		if failed == "" {
-			failed = a.Cfg.Verify.Commands[0]
+			failed = commands[0]
 		}
 		return errors.New(i18n.Tf("hook.verify_failed", failed))
 	}

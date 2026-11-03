@@ -190,11 +190,34 @@ type Changes struct {
 	Scope []string `toml:"scope"`
 }
 
-// Verify configures commands that must pass before a version is bumped.
+// Verify configures commands that must pass before a version is bumped and
+// the commands the pre-commit hook runs.
 type Verify struct {
 	Commands []string `toml:"commands"`
 	Timeout  string   `toml:"timeout"`
 	FailFast bool     `toml:"fail_fast"`
+	// Hook is the commit-time gate. Nil keeps the hook running Commands, the
+	// behaviour configurations had before the field existed; false turns the
+	// gate off without touching the release commands.
+	Hook *bool `toml:"hook"`
+	// HookCommands replaces Commands in the hook when it is not empty.
+	HookCommands []string `toml:"hook_commands"`
+	// HookTimeout bounds the hook gate. Empty inherits Timeout.
+	HookTimeout string `toml:"hook_timeout"`
+}
+
+// HookEnabled reports whether the pre-commit hook runs verification.
+func (v Verify) HookEnabled() bool {
+	return v.Hook == nil || *v.Hook
+}
+
+// HookCommandList returns the commands the pre-commit hook runs: the hook
+// subset when configured, otherwise the release commands.
+func (v Verify) HookCommandList() []string {
+	if len(v.HookCommands) > 0 {
+		return v.HookCommands
+	}
+	return v.Commands
 }
 
 // Publish selects registries.
@@ -360,6 +383,9 @@ func (c *Config) applyDefaults() {
 	if c.Verify.Timeout == "" {
 		c.Verify.Timeout = d.Verify.Timeout
 	}
+	if c.Verify.HookTimeout == "" {
+		c.Verify.HookTimeout = c.Verify.Timeout
+	}
 	if c.Packages == nil {
 		c.Packages = map[string]Package{}
 	}
@@ -418,6 +444,14 @@ func (c *Config) Validate() error {
 	}
 	if _, err := time.ParseDuration(c.Verify.Timeout); err != nil {
 		return fmt.Errorf("verify.timeout %q is not a valid duration", c.Verify.Timeout)
+	}
+	if _, err := time.ParseDuration(c.Verify.HookTimeout); err != nil {
+		return fmt.Errorf("verify.hook_timeout %q is not a valid duration", c.Verify.HookTimeout)
+	}
+	for _, command := range c.Verify.HookCommands {
+		if strings.TrimSpace(command) == "" {
+			return errors.New("verify.hook_commands must not contain an empty command")
+		}
 	}
 	if err := c.Release.Assets.validate(); err != nil {
 		return err
