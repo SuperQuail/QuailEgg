@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
@@ -32,6 +33,8 @@ func RunVerification(ctx context.Context, run execx.Runner, root string, command
 	start := time.Now()
 	defer func() { result.Duration = time.Since(start) }()
 
+	var failures []string
+	var firstErr error
 	for _, command := range commands {
 		fmt.Fprintf(out, "▶ %s\n", command)
 		stepStart := time.Now()
@@ -44,15 +47,27 @@ func RunVerification(ctx context.Context, run execx.Runner, root string, command
 			fmt.Fprint(out, res.Stderr)
 		}
 		if err != nil {
-			result.FailedCommand = command
+			if len(failures) == 0 {
+				result.FailedCommand = command
+				firstErr = err
+			}
+			failures = append(failures, command)
 			fmt.Fprintf(out, "✗ %s (%s)\n", command, time.Since(stepStart).Round(time.Millisecond))
 			if ctx.Err() == context.DeadlineExceeded {
 				return result, fmt.Errorf("verification command timed out: %s", command)
 			}
-			return result, fmt.Errorf("verification command failed: %s: %w", command, err)
+			if failFast {
+				return result, fmt.Errorf("verification command failed: %s: %w", command, err)
+			}
+			continue
 		}
 		fmt.Fprintf(out, "✓ %s (%s)\n", command, time.Since(stepStart).Round(time.Millisecond))
-		_ = failFast
+	}
+	if len(failures) > 0 {
+		if len(failures) == 1 {
+			return result, fmt.Errorf("verification command failed: %s: %w", failures[0], firstErr)
+		}
+		return result, fmt.Errorf("verification commands failed: %s", strings.Join(failures, ", "))
 	}
 	return result, nil
 }
