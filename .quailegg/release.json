@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.11.0",
-  "created_at": "2026-11-01T09:08:50.940237972Z",
+  "version": "0.12.0",
+  "created_at": "2026-11-03T05:38:33.804111825Z",
   "mode": "pr",
-  "fingerprint": "sha256:bf9c1f57951cae46081240fdf2a264de6a0e5f612e980d601eb428d0541c4259",
+  "fingerprint": "sha256:dbc7535074ffab9c0902ed71cc54050694d95b23d8090cfd97904ad61e4961b7",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-11-01T09:08:50.940238272Z"
+    "at": "2026-11-03T05:38:33.804112436Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.10.0",
-      "next": "0.11.0",
+      "current": "0.11.0",
+      "next": "0.12.0",
       "bump": "minor",
-      "tag": "v0.11.0",
+      "tag": "v0.12.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.11.0",
-      "tag": "v0.11.0",
-      "previous_tag": "v0.10.0",
+      "version": "0.12.0",
+      "tag": "v0.12.0",
+      "previous_tag": "v0.11.0",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,62 +41,46 @@
   ],
   "changes": [
     {
-      "file": ".changes/harden-java-versions.md",
-      "type": "fix",
-      "scope": "ecosystem",
-      "bump": "patch",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Resolve Java versions across real-world project layouts without corrupting external references.",
-      "commit": "d79827515bb97cb5380018231faf394cf943060b",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/d79827515bb97cb5380018231faf394cf943060b",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/java-ecosystem.md",
+      "file": ".changes/decouple-the-commit.md",
       "type": "feat",
-      "scope": "ecosystem",
       "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Release JVM projects built with Maven or Gradle and deploy them to their Maven repository.",
-      "commit": "d22be8a344fa73e3ab1b0e7d58ff827cb73e9c40",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/d22be8a344fa73e3ab1b0e7d58ff827cb73e9c40",
-      "author": "fl749731-lab"
+      "body": "Keep release verification while letting the commit hook skip it.",
+      "commit": "42903be3910b944b4599451a2af84c95b9014b16",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/42903be3910b944b4599451a2af84c95b9014b16",
+      "author": "Wsrsq"
     },
     {
-      "file": ".changes/record-slug-length.md",
+      "file": ".changes/honour-fail-fast.md",
       "type": "fix",
-      "scope": "changes",
+      "scope": "release",
       "bump": "patch",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Keep generated record file names within the three words the validator accepts.",
-      "commit": "9b4f2ad84ca21d4187e7b3df29bdff09fd8dd308",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/9b4f2ad84ca21d4187e7b3df29bdff09fd8dd308",
-      "pull_number": 23,
-      "pull_url": "https://github.com/SuperQuail/QuailEgg/pull/23",
-      "author": "fl749731-lab"
+      "body": "Keep running the remaining verification commands when fail_fast is false.",
+      "commit": "a658ac1aece9404b765c33a025ee6d9f22cb535b",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a658ac1aece9404b765c33a025ee6d9f22cb535b",
+      "author": "Wsrsq"
     },
     {
-      "file": ".changes/surface-java-errors.md",
-      "type": "fix",
-      "bump": "patch",
+      "file": ".changes/write-the-commit.md",
+      "type": "feat",
+      "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Report unresolvable Java versions before release and keep failed command output visible.",
-      "commit": "8b93295e633e5cd355c9dd56722ff7c7ac33c683",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/8b93295e633e5cd355c9dd56722ff7c7ac33c683",
+      "body": "Let qegg init choose whether the commit hook runs verification.",
+      "commit": "4df88001504abf2c639f1eb9f3a9fbaca367f48b",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/4df88001504abf2c639f1eb9f3a9fbaca367f48b",
       "author": "Wsrsq"
     }
   ],
   "qegg": {
-    "version": "0.10.1-0.20261101090820-d47d984c5da4",
-    "commit": "d47d984",
+    "version": "0.11.1-0.20261103053751-98ac425a9c87",
+    "commit": "98ac425",
     "develop": true
   }
 }

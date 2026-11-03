@@ -1,5 +1,20 @@
 # Changelog
 
+<!-- qegg:release 0.12.0 -->
+## v0.12.0 - 2026-11-03
+
+### Features
+
+- [`42903be`](https://github.com/SuperQuail/QuailEgg/commit/42903be3910b944b4599451a2af84c95b9014b16): Keep release verification while letting the commit hook skip it.
+- [`4df8800`](https://github.com/SuperQuail/QuailEgg/commit/4df88001504abf2c639f1eb9f3a9fbaca367f48b): Let qegg init choose whether the commit hook runs verification.
+
+### Bug Fixes
+
+- [`a658ac1`](https://github.com/SuperQuail/QuailEgg/commit/a658ac1aece9404b765c33a025ee6d9f22cb535b): Keep running the remaining verification commands when fail_fast is false.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.11.0...v0.12.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.11.0 -->
 ## v0.11.0 - 2026-11-01
 
