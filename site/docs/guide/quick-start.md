@@ -59,7 +59,7 @@ qegg scan --json   # 脚本或 AI 使用
 | --- | --- |
 | `.quailegg.toml` | 保存包、发布方式和校验命令等配置 |
 | `.changes/README.md` | 说明如何编写变更记录 |
-| `.git/hooks/pre-commit` | 检查记录，并在相关文件发生改动时运行校验命令 |
+| `.git/hooks/pre-commit` | 检查记录，并在相关文件发生改动时按配置运行提交校验 |
 | `.github/workflows/qegg-*.yml` | 检查功能 PR、执行发布和查询发布状态 |
 | `.gitignore` 中的托管区块 | 忽略本地运行状态、锁文件和构建产物 |
 
@@ -71,7 +71,7 @@ qegg scan --json   # 脚本或 AI 使用
 
 ## 检查并提交初始化结果
 
-打开 `.quailegg.toml`，确认包名、主分支和 `[verify].commands` 符合项目情况，再运行：
+打开 `.quailegg.toml`，确认包名、主分支和 `[verify].commands` 符合项目情况。如果完整测试很慢，可以设置 `[verify] hook = false`（或重新运行 `qegg init --no-hook-verify`）关闭提交校验，只保留发版校验。然后运行：
 
 ```bash
 qegg check

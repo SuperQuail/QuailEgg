@@ -164,11 +164,14 @@ artifacts = ["target/release/my-app"]
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `commands` | string[] | `[]` | 准备版本前执行的校验命令 |
+| `commands` | string[] | `[]` | 准备版本前执行的校验命令，`qegg verify` 也使用它 |
 | `timeout` | string | `"15m"` | 整组命令的总超时，使用 Go duration 格式 |
-| `fail_fast` | bool | `true` | 第一个命令失败后停止 |
+| `fail_fast` | bool | `true` | 为 `false` 时，一条命令失败后仍执行剩余命令 |
+| `hook` | bool | `true` | 提交时是否执行校验；`false` 关闭提交校验 |
+| `hook_commands` | string[] | 沿用 `commands` | 非空时，提交时只执行这些命令 |
+| `hook_timeout` | string | 沿用 `timeout` | 提交校验的总超时 |
 
-安装 hook 后，暂存文件命中 scope 时也会执行这些命令。`qegg verify` 可手动运行，不要求存在暂存改动。
+安装 hook 后，暂存文件命中 `[changes].scope` 且 `hook` 未关闭时，会执行提交校验。`hook = false` 不影响发版门禁：准备版本前和 `qegg verify` 仍执行完整的 `commands`。命令太慢时，把 `timeout` 调到能覆盖整组，或只给提交配置一份快命令。
 
 ## [publish]
 

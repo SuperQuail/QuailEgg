@@ -65,7 +65,7 @@ mode = "commit"
 | 阶段 | 步骤 | 作用 |
 | --- | --- | --- |
 | 准备版本 | preflight | 检查工作区和适用的分支条件 |
-| 准备版本 | verify | 执行 `[verify].commands` |
+| 准备版本 | verify | 执行完整的 `[verify].commands`（不受 `[verify] hook` 影响） |
 | 准备版本 | bump | 更新包清单及额外版本文件，检查版本与计划是否一致 |
 | 准备版本 | changelog | 稳定版更新 `CHANGELOG.md`，删除已收录的记录 |
 | 准备版本 | commit | 提交版本变化和发布标记 |

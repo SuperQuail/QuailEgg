@@ -78,9 +78,13 @@ A Go file stays under 1000 lines. User-visible strings live only in
    that introduced it, so batching several records into one commit collapses
    their links onto one hash.
 4. The pre-commit hook does two things: it rejects a commit that touches
-   `[changes].scope` without a valid record, then runs `[verify].commands`
-   (`go test ./...`, 15 minute timeout) only when the commit touches a file
-   inside `[changes].scope` (an empty scope means the whole repository). Let it
+   `[changes].scope` without a valid record, then runs the commit-time
+   verification tier (`[verify].hook_commands` when set, otherwise
+   `[verify].commands`; `go test ./...`, 15 minute timeout) only when the commit
+   touches a file inside `[changes].scope` (an empty scope means the whole
+   repository). `[verify] hook = false` turns the tier off for repositories
+   whose suite is too slow for every commit; those repositories must keep the
+   full verification in CI and the release pipeline instead. Otherwise let it
    run; do not bypass it.
    The record rule only applies on the project clone's default branch: the
    hook compares the `origin` remote with `[project] repo` from the config, so
