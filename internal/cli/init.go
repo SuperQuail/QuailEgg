@@ -16,7 +16,7 @@ import (
 
 func newInitCommand(rt *Runtime) *cobra.Command {
 	var opts app.InitOptions
-	var jsonOut, dryRun, force, noHook, noWorkflows, noStatus, noAddPackages, noInput, develop bool
+	var jsonOut, dryRun, force, noHook, noWorkflows, noStatus, noAddPackages, noInput, develop, hookVerify, noHookVerify bool
 	var qeggVersion string
 	var packages, exclude []string
 	var depth int
@@ -28,6 +28,17 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 			cwd, err := rt.Workdir()
 			if err != nil {
 				return fail(2, err)
+			}
+			if cmd.Flags().Changed("hook-verify") && cmd.Flags().Changed("no-hook-verify") {
+				return fail(2, errors.New(i18n.T("init.err.hook_verify_conflict")))
+			}
+			if cmd.Flags().Changed("hook-verify") {
+				value := hookVerify
+				opts.Hook = &value
+			}
+			if cmd.Flags().Changed("no-hook-verify") {
+				value := !noHookVerify
+				opts.Hook = &value
 			}
 			opts.WithHook = !noHook
 			opts.WithWorkflows = !noWorkflows
@@ -108,6 +119,8 @@ func newInitCommand(rt *Runtime) *cobra.Command {
 	cmd.Flags().StringSliceVar(&opts.Scope, "scope", nil, i18n.T("flag.scope"))
 	cmd.Flags().StringSliceVar(&opts.VerifyCommands, "verify-cmd", nil, i18n.T("flag.verify_cmd"))
 	cmd.Flags().BoolVar(&opts.NoVerify, "no-verify-cmd", false, i18n.T("flag.no_verify_cmd"))
+	cmd.Flags().BoolVar(&hookVerify, "hook-verify", false, i18n.T("flag.hook_verify"))
+	cmd.Flags().BoolVar(&noHookVerify, "no-hook-verify", false, i18n.T("flag.no_hook_verify"))
 	cmd.Flags().BoolVar(&noHook, "no-hook", false, i18n.T("flag.no_hook"))
 	cmd.Flags().BoolVar(&noWorkflows, "no-workflows", false, i18n.T("flag.no_workflows"))
 	cmd.Flags().BoolVar(&noStatus, "no-status-workflow", false, i18n.T("flag.no_status_workflow"))

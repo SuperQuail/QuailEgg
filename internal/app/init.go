@@ -31,14 +31,17 @@ type InitOptions struct {
 	Scope          []string
 	VerifyCommands []string
 	NoVerify       bool
-	WithHook       bool
-	WithWorkflows  bool
-	WithStatus     bool
-	AddPackages    bool
-	Force          bool
-	DryRun         bool
-	QeggVersion    string
-	Environment    string
+	// Hook selects the commit-time verification gate. Nil keeps the value
+	// already in the configuration.
+	Hook          *bool
+	WithHook      bool
+	WithWorkflows bool
+	WithStatus    bool
+	AddPackages   bool
+	Force         bool
+	DryRun        bool
+	QeggVersion   string
+	Environment   string
 	// Develop selects the development qegg in the generated workflows. Nil
 	// keeps the value already in the configuration.
 	Develop *bool
@@ -212,6 +215,10 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if verifyCommands == nil {
 		verifyCommands = registry.DefaultVerifyCommands(root, resolverIDs(detected, packages))
 	}
+	hook := opts.Hook
+	if hook == nil && existing != nil {
+		hook = existing.Verify.Hook
+	}
 
 	releaseBranch := config.Default().Release.Branch
 	if existing != nil && existing.Release.Branch != "" {
@@ -248,6 +255,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		ChangesDir:      changesDir,
 		Scope:           scope,
 		VerifyCommands:  verifyCommands,
+		Hook:            hook,
 		Ecosystem:       ecosystemID,
 		QeggVersion:     version,
 		Develop:         develop,
