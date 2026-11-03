@@ -48,7 +48,11 @@ func renderConfig(opts Options, packages map[string]config.Package) []byte {
 	b.WriteString("[verify]\n")
 	b.WriteString("commands = " + stringSlice(opts.VerifyCommands) + "\n")
 	b.WriteString("timeout = " + strconv.Quote("15m") + "\n")
-	b.WriteString("fail_fast = true\n\n")
+	b.WriteString("fail_fast = true\n")
+	if opts.Hook != nil && !*opts.Hook {
+		b.WriteString("hook = false\n")
+	}
+	b.WriteString("\n")
 	b.WriteString("[publish]\n")
 	b.WriteString("registries = " + stringSlice(opts.Registries) + "\n")
 
@@ -210,6 +214,55 @@ func MergeDevelop(existing []byte, value bool) []byte {
 	}
 	lines = append(lines[:at:at], append([]string{"develop = true"}, lines[at:]...)...)
 	return []byte(strings.Join(lines, "\n"))
+}
+
+// verifyHookLine matches the hook switch inside the [verify] section.
+var verifyHookLine = regexp.MustCompile(`^[ \t]*hook[ \t]*=`)
+
+// MergeVerifyHook writes the [verify] hook switch into an existing
+// configuration. A nil value leaves the file untouched, so a plain init run
+// keeps a hand-set policy. The line is always written explicitly, so a later
+// reader does not depend on the default.
+func MergeVerifyHook(existing []byte, hook *bool) []byte {
+	if hook == nil || len(existing) == 0 {
+		return existing
+	}
+	value := "hook = " + strconv.FormatBool(*hook)
+	lines := strings.Split(string(existing), "\n")
+	start := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "[verify]" {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return []byte(strings.TrimRight(string(existing), "\n") + "\n\n[verify]\n" + value + "\n")
+	}
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		if strings.HasPrefix(strings.TrimSpace(lines[i]), "[") {
+			end = i
+			break
+		}
+	}
+	for i := start + 1; i < end; i++ {
+		if verifyHookLine.MatchString(lines[i]) {
+			if lines[i] == value {
+				return existing
+			}
+			lines[i] = value
+			return []byte(strings.Join(lines, "\n"))
+		}
+	}
+	at := start + 1
+	for i := start + 1; i < end; i++ {
+		if strings.TrimSpace(lines[i]) != "" {
+			at = i + 1
+		}
+	}
+	merged := append(lines[:at:at], append([]string{value}, lines[at:]...)...)
+	return []byte(strings.Join(merged, "\n"))
 }
 
 // projectRepoLine matches an existing project.repo assignment.

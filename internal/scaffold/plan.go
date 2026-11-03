@@ -24,6 +24,7 @@ type Options struct {
 	ChangesDir      string
 	Scope           []string
 	VerifyCommands  []string
+	Hook            *bool
 	Ecosystem       string
 	VersionScope    string
 	Environment     string
@@ -103,6 +104,7 @@ func Build(opts Options) (*Plan, error) {
 		merged := MergeProjectRepo(MergePackages(opts.ExistingContent, opts, packages), opts.Repo)
 		merged = MergeVersionFiles(merged, opts.VersionFiles)
 		merged = MergeDevelop(merged, opts.Develop)
+		merged = MergeVerifyHook(merged, opts.Hook)
 		configContent = merged
 		if bytes.Equal(opts.ExistingContent, merged) {
 			action = ActionSkip

@@ -251,6 +251,31 @@ func TestGoPreCommitHookBlocksFailingTests(t *testing.T) {
 	}
 }
 
+// TestGoHookVerificationCanBeDisabled pins the opt-out: with hook = false the
+// failing test no longer blocks the commit, but qegg verify still runs the
+// release commands.
+func TestGoHookVerificationCanBeDisabled(t *testing.T) {
+	bin := buildBinary(t)
+	dir := newGoRepo(t)
+	t.Setenv("PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	addOrigin(t, dir)
+
+	runStrict(t, bin, dir, "init", "--no-input", "--mode", "commit", "--registries", "go", "--no-hook-verify")
+
+	failing := "package demo\n\nimport \"testing\"\n\nfunc TestBroken(t *testing.T) { t.Fatal(\"boom\") }\n"
+	if err := os.WriteFile(filepath.Join(dir, "demo_test.go"), []byte(failing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", "-A")
+
+	runStrict(t, bin, dir, "commit", "--no-input", "-m", "feat: add a failing test", "--packages", "example.com/demo:patch")
+
+	cmd := exec.Command(bin, "--cwd", dir, "verify")
+	if out, err := cmd.CombinedOutput(); err == nil {
+		t.Fatalf("qegg verify must run the release commands even when the hook is off:\n%s", out)
+	}
+}
+
 // TestGoReleaseAgainstLocalRemote exercises the whole Go release pipeline
 // without GitHub or a package registry: a bare repository plays origin, so the
 // tag, push and release-asset steps are covered before the first real release.

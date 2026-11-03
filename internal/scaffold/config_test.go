@@ -180,3 +180,80 @@ func TestMergeDevelop(t *testing.T) {
 		t.Fatal("an absent flag must leave the config untouched")
 	}
 }
+
+func TestRenderConfigVerifyHook(t *testing.T) {
+	off := false
+	out := renderConfig(Options{
+		BaseBranch:     "main",
+		Mode:           config.ModePR,
+		TagPrefix:      "v",
+		Remote:         "origin",
+		ChangesDir:     ".changes",
+		VerifyCommands: []string{"go test ./..."},
+		Hook:           &off,
+	}, nil)
+	if !strings.Contains(string(out), "hook = false") {
+		t.Fatalf("generated config is missing hook = false:\n%s", out)
+	}
+	path := filepath.Join(t.TempDir(), config.FileName)
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("generated config does not load: %v\n%s", err, out)
+	}
+	if cfg.Verify.HookEnabled() {
+		t.Fatal("hook = false did not survive the round trip")
+	}
+}
+
+func TestRenderConfigOmitsDefaultVerifyHook(t *testing.T) {
+	out := renderConfig(Options{
+		BaseBranch:     "main",
+		Mode:           config.ModePR,
+		TagPrefix:      "v",
+		Remote:         "origin",
+		ChangesDir:     ".changes",
+		VerifyCommands: []string{"go test ./..."},
+	}, nil)
+	if strings.Contains(string(out), "hook =") {
+		t.Fatalf("the default hook policy must stay implicit:\n%s", out)
+	}
+}
+
+func TestMergeVerifyHook(t *testing.T) {
+	existing := []byte("# keep me\nschema_version = 1\n\n[verify]\ncommands = [\"go test ./...\"]\ntimeout = \"15m\"\n\n[packages.demo]\npath = \".\"\nresolver = \"go\"\n")
+	off := false
+	merged := MergeVerifyHook(existing, &off)
+	text := string(merged)
+	if !strings.Contains(text, "[verify]\ncommands = [\"go test ./...\"]\ntimeout = \"15m\"\nhook = false\n") {
+		t.Fatalf("hook was not inserted into the verify section:\n%s", text)
+	}
+	if !strings.HasPrefix(text, "# keep me") {
+		t.Fatalf("existing content was rewritten:\n%s", text)
+	}
+	if again := MergeVerifyHook(merged, &off); string(again) != text {
+		t.Fatalf("merge is not idempotent:\n%s", again)
+	}
+	on := true
+	onText := string(MergeVerifyHook(merged, &on))
+	if !strings.Contains(onText, "hook = true") || strings.Contains(onText, "hook = false") {
+		t.Fatalf("hook was not switched back on:\n%s", onText)
+	}
+	if string(MergeVerifyHook(existing, nil)) != string(existing) {
+		t.Fatal("a nil policy must leave the config untouched")
+	}
+	withCommands := []byte("[verify]\ncommands = []\nhook_commands = [\"go vet ./...\"]\n")
+	mergedCommands := string(MergeVerifyHook(withCommands, &off))
+	if !strings.Contains(mergedCommands, "hook_commands = [\"go vet ./...\"]") {
+		t.Fatalf("hook_commands was touched:\n%s", mergedCommands)
+	}
+	if !strings.Contains(mergedCommands, "hook = false") {
+		t.Fatalf("hook was not inserted next to hook_commands:\n%s", mergedCommands)
+	}
+	bare := string(MergeVerifyHook([]byte("schema_version = 1\n"), &off))
+	if !strings.Contains(bare, "[verify]\nhook = false") {
+		t.Fatalf("a config without a verify section needs one:\n%s", bare)
+	}
+}
