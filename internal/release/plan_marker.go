@@ -95,6 +95,9 @@ func (p *Plan) pullRequestBody(d *Deps) string {
 			fmt.Fprintf(&b, i18n.T("release.pr.command")+"\n", command)
 		}
 	}
+	if !d.Cfg.Release.ChangelogEnabled() {
+		return b.String()
+	}
 	b.WriteString("\n" + i18n.T("release.pr.changelog") + "\n\n")
 	for _, section := range ChangelogSections(p, d.Now()) {
 		b.WriteString(changelog.RenderBody(section))

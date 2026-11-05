@@ -13,18 +13,21 @@ import (
 
 // Options describes what init should produce.
 type Options struct {
-	Root            string
-	BaseBranch      string
-	Repo            string
-	ReleaseBranch   string
-	Mode            string
-	TagPrefix       string
-	Remote          string
-	Registries      []string
-	ChangesDir      string
-	Scope           []string
-	VerifyCommands  []string
-	Hook            *bool
+	Root           string
+	BaseBranch     string
+	Repo           string
+	ReleaseBranch  string
+	Mode           string
+	TagPrefix      string
+	Remote         string
+	Registries     []string
+	ChangesDir     string
+	Scope          []string
+	VerifyCommands []string
+	Hook           *bool
+	// Changelog selects the release CHANGELOG.md update. Nil keeps the value
+	// already in the configuration.
+	Changelog       *bool
 	Ecosystem       string
 	VersionScope    string
 	Environment     string
@@ -41,6 +44,11 @@ type Options struct {
 	Build           []config.BuildJob
 	Existing        *config.Config
 	ExistingContent []byte
+}
+
+// ChangelogEnabled reports whether a release writes CHANGELOG.md.
+func (o Options) ChangelogEnabled() bool {
+	return o.Changelog == nil || *o.Changelog
 }
 
 // Action names one file outcome.
@@ -105,6 +113,7 @@ func Build(opts Options) (*Plan, error) {
 		merged = MergeVersionFiles(merged, opts.VersionFiles)
 		merged = MergeDevelop(merged, opts.Develop)
 		merged = MergeVerifyHook(merged, opts.Hook)
+		merged = MergeChangelog(merged, opts.Changelog)
 		configContent = merged
 		if bytes.Equal(opts.ExistingContent, merged) {
 			action = ActionSkip

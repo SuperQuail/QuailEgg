@@ -88,6 +88,11 @@ type Release struct {
 	Mode          string `toml:"mode"`
 	Branch        string `toml:"branch"`
 	GitHubRelease bool   `toml:"github_release"`
+	// Changelog turns the automatic CHANGELOG.md update on or off. Nil keeps
+	// the file written, the behaviour configurations had before the field
+	// existed; false skips the changelog step and leaves the GitHub Release
+	// notes with the version line only.
+	Changelog     *bool  `toml:"changelog"`
 	CommitMessage string `toml:"commit_message"`
 	// VersionScope is "package" (default) or "shared".
 	VersionScope string `toml:"version_scope"`
@@ -98,6 +103,11 @@ type Release struct {
 	Workflow Workflow `toml:"workflow"`
 	// Build lists the per-platform builds of the managed workflow.
 	Build []BuildJob `toml:"build"`
+}
+
+// ChangelogEnabled reports whether a release writes CHANGELOG.md.
+func (r Release) ChangelogEnabled() bool {
+	return r.Changelog == nil || *r.Changelog
 }
 
 // Workflow modes.

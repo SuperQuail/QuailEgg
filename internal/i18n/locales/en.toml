@@ -38,6 +38,8 @@
 "flag.no_verify_cmd" = "do not write verification commands"
 "flag.hook_verify" = "run verification in the commit hook"
 "flag.no_hook_verify" = "do not run verification in the commit hook"
+"flag.changelog" = "write CHANGELOG.md during a release"
+"flag.no_changelog" = "do not write CHANGELOG.md during a release"
 "flag.no_hook" = "do not install the git hook"
 "flag.no_workflows" = "do not generate GitHub Actions workflows"
 "flag.no_status_workflow" = "do not generate the status workflow"
@@ -164,6 +166,7 @@
 "changelog.nothing" = "no pending changes to render"
 "changelog.updated" = "updated CHANGELOG.md (v%s)"
 "changelog.updated_multi" = "updated CHANGELOG.md with %d sections"
+"changelog.disabled_warn" = "release.changelog = false turns off automatic CHANGELOG.md updates; this command still writes the file"
 
 # --- verify command ---------------------------------------------------------
 "verify.none_configured" = "no [verify].commands configured"
@@ -252,6 +255,7 @@
 "release.warn.assets_not_uploaded" = "release assets were built but not uploaded because the GitHub Release is disabled"
 "release.warn.sync_failed" = "syncing the release branch failed: %v"
 "release.skip.prerelease_changelog" = "the stable release writes the changelog"
+"release.skip.changelog_disabled" = "release.changelog=false"
 "release.warn.prerelease_unlocked" = "the manifest version is a prerelease but no prerelease channel is active; run qegg pre <channel> to continue that line"
 "release.err.prerelease_lock_mismatch" = "prerelease lock version %s is not a %s prerelease"
 "release.warn.prerelease_idle" = "prerelease channel %s is active but no change records are pending"
@@ -399,6 +403,7 @@ Create records with qegg commit.
 "init.err.package_unselectable" = "package %s cannot be registered: %s"
 "init.err.packages_no_add" = "--packages cannot be combined with --no-add-packages"
 "init.err.hook_verify_conflict" = "--hook-verify and --no-hook-verify cannot be combined"
+"init.err.changelog_conflict" = "--changelog and --no-changelog cannot be combined"
 "init.warn.scan_skipped" = "%d candidate(s) were not registered; run qegg scan for the reasons"
 "init.warn.version_file_skipped" = "version files are only written for one package or shared versions: %s"
 "init.warn.workspace_version_shared" = "workspace members %s are not registered; their version changes together with the workspace"

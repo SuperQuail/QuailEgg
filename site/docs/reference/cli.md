@@ -38,6 +38,8 @@ qegg <command> --help
 | `--registries <list>` | 发布目标，逗号分隔，例如 `npm,pypi` |
 | `--changes-dir <dir>` | 记录目录，默认 `.changes` |
 | `--environment <name>` | release job 使用的 GitHub Actions environment |
+| `--changelog` | 发布时写入 `CHANGELOG.md` |
+| `--no-changelog` | 发布时不写入 `CHANGELOG.md` |
 | `--scope <dirs>` | 记录检查和提交前校验覆盖的目录，逗号分隔 |
 | `--verify-cmd <cmd>` | 校验命令，可重复传入 |
 | `--no-verify-cmd` | 不为初始化结果选择校验命令 |
@@ -52,6 +54,8 @@ qegg <command> --help
 | `--exclude <globs>` | 扫描时跳过的路径，逗号分隔 |
 | `--qegg-version <version>` | 工作流使用的 QuailEgg 版本，接受已发布版本或 `latest` |
 | `--develop` | 生成使用开发版 qegg 的工作流；`--develop=false` 关闭并恢复固定版本 |
+
+`--changelog` 与 `--no-changelog` 不能同时传入；都不提供时，重新初始化会保留配置中的当前值。
 
 ```bash
 qegg init --no-input --mode pr --registries npm

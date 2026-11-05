@@ -33,7 +33,10 @@ type InitOptions struct {
 	NoVerify       bool
 	// Hook selects the commit-time verification gate. Nil keeps the value
 	// already in the configuration.
-	Hook          *bool
+	Hook *bool
+	// Changelog selects the release CHANGELOG.md update. Nil keeps the value
+	// already in the configuration.
+	Changelog     *bool
 	WithHook      bool
 	WithWorkflows bool
 	WithStatus    bool
@@ -219,6 +222,10 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if hook == nil && existing != nil {
 		hook = existing.Verify.Hook
 	}
+	changelog := opts.Changelog
+	if changelog == nil && existing != nil {
+		changelog = existing.Release.Changelog
+	}
 
 	releaseBranch := config.Default().Release.Branch
 	if existing != nil && existing.Release.Branch != "" {
@@ -256,6 +263,7 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		Scope:           scope,
 		VerifyCommands:  verifyCommands,
 		Hook:            hook,
+		Changelog:       changelog,
 		Ecosystem:       ecosystemID,
 		QeggVersion:     version,
 		Develop:         develop,

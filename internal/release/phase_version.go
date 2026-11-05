@@ -238,6 +238,10 @@ func (e *executor) writeChangelog(ctx context.Context) error {
 		e.skip("changelog", i18n.T("release.skip.prerelease_changelog"))
 		return nil
 	}
+	if !e.d.Cfg.Release.ChangelogEnabled() {
+		e.skip("changelog", i18n.T("release.skip.changelog_disabled"))
+		return nil
+	}
 	sections := ChangelogSections(e.plan, e.d.Now())
 	path := filepath.Join(e.d.Root, "CHANGELOG.md")
 	existing, err := fsx.ReadOrEmpty(path)
@@ -263,7 +267,9 @@ func (e *executor) commit(ctx context.Context) error {
 			return err
 		}
 		paths = append(paths, state.PreReleasePath(e.d.Root))
-	} else {
+	} else if e.d.Cfg.Release.ChangelogEnabled() {
+		// The file is only added when a release writes it: staging a missing
+		// CHANGELOG.md would fail for a repository that turned the changelog off.
 		paths = append(paths, filepath.Join(e.d.Root, "CHANGELOG.md"))
 	}
 	for _, pkg := range e.plan.Packages {

@@ -221,6 +221,9 @@ func (e *executor) warnAssetsNotUploaded() {
 }
 
 func (e *executor) releaseNotes(release ReleasePlan) (string, bool) {
+	if !e.d.Cfg.Release.ChangelogEnabled() {
+		return "", false
+	}
 	if e.plan.Channel != "" || release.Prerelease != "" {
 		for _, section := range ChangelogSections(e.plan, e.d.Now()) {
 			if section.Package == release.Name && section.Version == release.Version {

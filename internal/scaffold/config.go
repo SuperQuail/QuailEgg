@@ -30,6 +30,9 @@ func renderConfig(opts Options, packages map[string]config.Package) []byte {
 	b.WriteString("mode = " + strconv.Quote(opts.Mode) + "\n")
 
 	b.WriteString("github_release = true\n")
+	if opts.Changelog != nil && !*opts.Changelog {
+		b.WriteString("changelog = false\n")
+	}
 	commitMessage := "chore(release): v{{version}}"
 	if len(packages) > 1 && opts.VersionScope != config.VersionScopeShared {
 		commitMessage = "chore(release): bump versions"
@@ -248,6 +251,57 @@ func MergeVerifyHook(existing []byte, hook *bool) []byte {
 	}
 	for i := start + 1; i < end; i++ {
 		if verifyHookLine.MatchString(lines[i]) {
+			if lines[i] == value {
+				return existing
+			}
+			lines[i] = value
+			return []byte(strings.Join(lines, "\n"))
+		}
+	}
+	at := start + 1
+	for i := start + 1; i < end; i++ {
+		if strings.TrimSpace(lines[i]) != "" {
+			at = i + 1
+		}
+	}
+	merged := append(lines[:at:at], append([]string{value}, lines[at:]...)...)
+	return []byte(strings.Join(merged, "\n"))
+}
+
+// releaseChangelogLine matches the changelog switch inside the [release] section.
+var releaseChangelogLine = regexp.MustCompile(`^[ \t]*changelog[ \t]*=`)
+
+// MergeChangelog writes the [release] changelog switch into an existing
+// configuration. A nil value leaves the file untouched, so a plain init run
+// keeps a hand-set policy. The line is always written explicitly, so a later
+// reader does not depend on the default.
+func MergeChangelog(existing []byte, changelog *bool) []byte {
+	if changelog == nil || len(existing) == 0 {
+		return existing
+	}
+	value := "changelog = " + strconv.FormatBool(*changelog)
+	lines := strings.Split(string(existing), "\n")
+	start := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "[release]" {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return []byte(strings.TrimRight(string(existing), "\n") + "\n\n[release]\n" + value + "\n")
+	}
+	// The section ends at the next table, so [release.assets] and
+	// [release.workflow] are never mistaken for the release settings.
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		if strings.HasPrefix(strings.TrimSpace(lines[i]), "[") {
+			end = i
+			break
+		}
+	}
+	for i := start + 1; i < end; i++ {
+		if releaseChangelogLine.MatchString(lines[i]) {
 			if lines[i] == value {
 				return existing
 			}

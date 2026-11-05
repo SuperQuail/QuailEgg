@@ -56,6 +56,21 @@ tag_prefix = "v"
 
 `repo` 是 `qegg init` 写入的项目身份，用于本地 hook 识别 fork 克隆；它不是认证凭证。
 
+## 关闭更新日志
+
+不想在仓库里维护 `CHANGELOG.md` 时，可以关闭自动更新：
+
+```toml
+[release]
+changelog = false
+```
+
+变更记录仍会被读取和消费：发布提交会删除 `.changes/*.md`，并照常按记录决定版本升级。已有的 `CHANGELOG.md` 保持原样，不删除、不截断，也不进入版本提交；发布 PR 正文不再显示 “### Changelog” 小节。
+
+GitHub Release 的正文只剩标签行 `Release <tag>`，标题为标签，因此发布页只显示版本号。生成的发布工作流也会从触发路径中去掉 `CHANGELOG.md`，所以修改这个设置后需要重新运行 `qegg init --force` 才能更新工作流。
+
+手动运行 `qegg changelog` 仍然会写入文件，只是会提示自动更新已关闭；`qegg plan --markdown` 不受影响。
+
 ## 指定哪些改动需要记录
 
 ```toml

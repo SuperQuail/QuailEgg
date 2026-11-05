@@ -38,7 +38,9 @@ func releasePaths(opts Options) []string {
 	add(config.FileName)
 	add(markerPath)
 	add(prereleaseLockPath)
-	add("CHANGELOG.md")
+	if opts.ChangelogEnabled() {
+		add("CHANGELOG.md")
+	}
 
 	names := make([]string, 0, len(opts.Packages))
 	for name := range opts.Packages {

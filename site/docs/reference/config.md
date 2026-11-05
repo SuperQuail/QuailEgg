@@ -35,6 +35,7 @@
 | `mode` | string | `"pr"` | `pr` 为发布 PR，`commit` 为直接提交并发布 |
 | `branch` | string | `"release"` | PR 模式的发布分支，不能与主分支相同 |
 | `github_release` | bool | `true` | 是否创建 GitHub Release 并上传资产 |
+| `changelog` | bool | `true` | 稳定版发布是否写入 `CHANGELOG.md`；为 `false` 时 GitHub Release 正文只保留版本号 |
 | `commit_message` | string | `"chore(release): v{{version}}"` | 版本提交标题模板 |
 | `version_scope` | string | `"package"` | `package` 为独立版本，`shared` 为共享版本 |
 | `environment` | string | 空 | release job 使用的 GitHub Actions environment |

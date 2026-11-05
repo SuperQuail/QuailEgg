@@ -21,6 +21,9 @@ func (a *App) Changelog(ctx context.Context, dryRun bool) error {
 		a.UI.Info("%s", i18n.T("changelog.nothing"))
 		return nil
 	}
+	if !a.Cfg.Release.ChangelogEnabled() {
+		a.UI.Warn("%s", i18n.T("changelog.disabled_warn"))
+	}
 	sections := release.ChangelogSections(plan, a.Now())
 	var rendered strings.Builder
 	for _, section := range sections {

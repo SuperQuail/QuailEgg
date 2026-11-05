@@ -38,6 +38,8 @@
 "flag.no_verify_cmd" = "不写入校验命令"
 "flag.hook_verify" = "提交时运行校验命令"
 "flag.no_hook_verify" = "提交时不运行校验命令"
+"flag.changelog" = "发布时写入 CHANGELOG.md"
+"flag.no_changelog" = "发布时不写 CHANGELOG.md"
 "flag.no_hook" = "不生成 git hook"
 "flag.no_workflows" = "不生成 GitHub Actions 工作流"
 "flag.no_status_workflow" = "不生成 status 工作流"
@@ -164,6 +166,7 @@
 "changelog.nothing" = "没有可生成 CHANGELOG 的待发变更"
 "changelog.updated" = "已更新 CHANGELOG.md（v%s）"
 "changelog.updated_multi" = "已用 %d 个版本段更新 CHANGELOG.md"
+"changelog.disabled_warn" = "release.changelog = false 已关闭自动更新 CHANGELOG.md；本命令仍会写文件"
 
 # --- verify 命令 ------------------------------------------------------------
 "verify.none_configured" = "未配置 [verify].commands"
@@ -252,6 +255,7 @@
 "release.warn.assets_not_uploaded" = "发布资产已构建，但 GitHub Release 被禁用，因此没有上传"
 "release.warn.sync_failed" = "同步发布分支失败：%v"
 "release.skip.prerelease_changelog" = "CHANGELOG 由稳定版发布写入"
+"release.skip.changelog_disabled" = "release.changelog=false"
 "release.warn.prerelease_unlocked" = "清单版本是预发布版本但没有启用预发布渠道；运行 qegg pre <渠道> 可继续该版本线"
 "release.err.prerelease_lock_mismatch" = "预发布锁文件版本 %s 不是 %s 渠道的预发布版本"
 "release.warn.prerelease_idle" = "预发布渠道 %s 已启用，但没有待发布的记录"
@@ -399,6 +403,7 @@
 "init.err.package_unselectable" = "包 %s 不能登记：%s"
 "init.err.packages_no_add" = "--packages 不能与 --no-add-packages 同时使用"
 "init.err.hook_verify_conflict" = "--hook-verify 与 --no-hook-verify 不能同时使用"
+"init.err.changelog_conflict" = "--changelog 与 --no-changelog 不能同时使用"
 "init.warn.scan_skipped" = "%d 个候选没有登记；原因见 qegg scan"
 "init.warn.version_file_skipped" = "多个包使用 package 版本范围时不会写版本文件：%s"
 "init.warn.workspace_version_shared" = "未登记的 workspace 成员 %s 会随 workspace 版本一起变化"

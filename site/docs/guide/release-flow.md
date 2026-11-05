@@ -76,6 +76,8 @@ mode = "commit"
 | 发布 | push | 推送标签；`commit` 模式同时推送分支 |
 | 发布 | github-release | 创建 GitHub Release 并上传资产 |
 
+设置 `[release].changelog = false` 后，稳定版会跳过 changelog 步骤，运行日志把跳过原因记为 `release.changelog=false`；`CHANGELOG.md` 不写入，也不进入版本提交，但变更记录仍会被消费。
+
 PR 模式还会准备发布分支、创建 PR，并在发布后同步仍然存在的发布分支。这些步骤由 QuailEgg 处理。
 
 发布资产在软件包发布前构建。预发布会保留变更记录，也不会改写更新日志，详见[预发布](./prereleases)。
