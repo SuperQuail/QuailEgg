@@ -1,5 +1,20 @@
 # Changelog
 
+<!-- qegg:release 0.13.0 -->
+## v0.13.0 - 2026-11-07
+
+### Features
+
+- [`2921a0b`](https://github.com/SuperQuail/QuailEgg/commit/2921a0b33b6339d579dd55dde9e8e3bed8cdcf2a): Skip the changelog file when the configuration turns it off.
+- [`7bc4973`](https://github.com/SuperQuail/QuailEgg/commit/7bc4973f1563c2fe9dbaf5cd67ef360aac9b9793): Prepare each generated workflow job with its own runner, timeout and steps.
+
+### Bug Fixes
+
+- [`0d4df54`](https://github.com/SuperQuail/QuailEgg/commit/0d4df5494ec8080639250e6ed9a725bcd369dc87): Install the ecosystem toolchain in the pull request workflow so checks no longer fail on missing tools.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.12.0...v0.13.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.12.0 -->
 ## v0.12.0 - 2026-11-03
 
