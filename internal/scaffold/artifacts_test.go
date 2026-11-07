@@ -210,7 +210,7 @@ func TestGitHubExpressionsArePreserved(t *testing.T) {
 	}
 }
 
-func TestEcosystemSetupIsWiredIntoReleaseWorkflow(t *testing.T) {
+func TestEcosystemSetupIsWiredIntoWorkflows(t *testing.T) {
 	for _, spec := range registry.Specs() {
 		if strings.TrimSpace(spec.WorkflowSetup) == "" {
 			// Every generated workflow already installs Go to build qegg, so
@@ -228,18 +228,51 @@ func TestEcosystemSetupIsWiredIntoReleaseWorkflow(t *testing.T) {
 		if uses == "" {
 			t.Fatalf("%s: workflow setup step has no uses", spec.ID)
 		}
-		opts := withEcosystem(testOptions(t), spec.ID)
-		release := string(planFileByPath(t, mustBuild(t, opts), releaseWorkflowPlanPath).Content)
-		if !strings.Contains(release, "      - uses: "+uses) {
-			t.Errorf("%s: setup step %q is missing from the release workflow", spec.ID, uses)
+		plan := mustBuild(t, withEcosystem(testOptions(t), spec.ID))
+		for _, rel := range []string{releaseWorkflowPlanPath, prWorkflowPlanPath} {
+			if content := string(planFileByPath(t, plan, rel).Content); !strings.Contains(content, "      - uses: "+uses) {
+				t.Errorf("%s: setup step %q is missing from %s", spec.ID, uses, rel)
+			}
+		}
+		// qegg check discovers the ecosystem tools on PATH, so the pull
+		// request workflow has to install them before the check runs.
+		pr := string(planFileByPath(t, plan, prWorkflowPlanPath).Content)
+		setupAt := strings.Index(pr, "      - uses: "+uses)
+		checkAt := strings.Index(pr, "run: qegg check --ci")
+		if setupAt < 0 || checkAt < 0 || setupAt > checkAt {
+			t.Errorf("%s: the ecosystem setup must precede the check in the pull request workflow", spec.ID)
 		}
 	}
 
-	opts := withEcosystem(testOptions(t), "")
-	release := string(planFileByPath(t, mustBuild(t, opts), releaseWorkflowPlanPath).Content)
-	for _, unexpected := range []string{"actions/setup-node", "astral-sh/setup-uv", "dtolnay/rust-toolchain"} {
-		if strings.Contains(release, unexpected) {
-			t.Errorf("release workflow without an ecosystem contains %q", unexpected)
+	plan := mustBuild(t, withEcosystem(testOptions(t), ""))
+	for _, rel := range []string{releaseWorkflowPlanPath, prWorkflowPlanPath} {
+		content := string(planFileByPath(t, plan, rel).Content)
+		for _, unexpected := range []string{"actions/setup-node", "astral-sh/setup-uv", "dtolnay/rust-toolchain"} {
+			if strings.Contains(content, unexpected) {
+				t.Errorf("%s without an ecosystem contains %q", rel, unexpected)
+			}
+		}
+	}
+}
+
+func TestPullRequestWorkflowHasNoPublishSecrets(t *testing.T) {
+	for _, spec := range registry.Specs() {
+		if strings.TrimSpace(spec.WorkflowEnv) == "" {
+			continue
+		}
+		var env map[string]string
+		if err := yaml.Unmarshal([]byte(spec.WorkflowEnv), &env); err != nil {
+			t.Fatalf("%s: workflow env is not a YAML mapping: %v", spec.ID, err)
+		}
+		if len(env) == 0 {
+			t.Fatalf("%s: workflow env is empty", spec.ID)
+		}
+		opts := withEcosystem(testOptions(t), spec.ID)
+		pr := string(planFileByPath(t, mustBuild(t, opts), prWorkflowPlanPath).Content)
+		for key := range env {
+			if strings.Contains(pr, key+":") {
+				t.Errorf("%s: the pull request workflow carries the publish credential %s", spec.ID, key)
+			}
 		}
 	}
 }

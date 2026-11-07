@@ -178,6 +178,7 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 - 配置了构建 job 时会先生成一个 `plan` job，用 `qegg plan --json` 判断本次运行的阶段：`pr` 模式的准备版本运行只执行 `version` job，不启动构建；只有发布运行（`phase = publish`）才执行各构建 job，并由 `publish` job 下载 artifact 到 `.quailegg/assets/downloaded`、执行 `qegg release --yes --assets-dir ...`。`commit` 模式保持单个 `release` job，`phase = none` 时跳过
 - 没有配置 `[[release.build]]` 时不生成 `plan` job，生成的 workflow 与以前一致
 - `mode = "external"` 时不生成 `qegg-release.yml`，只生成 PR 与 status 工作流；发布工作流由仓库自己维护，仍需调用 `qegg release --yes`
+- `qegg-pr.yml` 同样渲染各生态的 setup 步骤（不渲染发布凭证），因为 `qegg check --ci` 会检查 `uv` 这类工具是否已在 PATH 上；缺了 setup 的 PR 检查会一直报 `tool-missing`
 
 | 配置 | 默认 |
 | --- | --- |
