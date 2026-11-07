@@ -233,9 +233,15 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	}
 	workflow := config.Default().Release.Workflow
 	var buildJobs []config.BuildJob
+	// The check-only workflows carry no release mode, so a re-init keeps
+	// whatever the configuration already sets for them.
+	prWorkflow := config.Default().PR.Workflow
+	statusWorkflow := config.Default().Status.Workflow
 	if existing != nil {
 		workflow = existing.Release.Workflow
 		buildJobs = existing.Release.Build
+		prWorkflow = existing.PR.Workflow
+		statusWorkflow = existing.Status.Workflow
 	}
 
 	version := opts.QeggVersion
@@ -277,6 +283,8 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 		Packages:        packages,
 		VersionFiles:    versionFiles,
 		Workflow:        workflow,
+		PRWorkflow:      prWorkflow,
+		StatusWorkflow:  statusWorkflow,
 		Build:           buildJobs,
 		Existing:        existing,
 		ExistingContent: existingContent,

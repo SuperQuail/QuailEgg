@@ -110,6 +110,24 @@ PR 模式的版本准备 job 也会执行这些前置步骤。需要按发布阶
 
 `external` 模式不生成发布工作流，仍可生成 PR 和状态工作流；已有发布文件不会自动删除。外部工作流需要自行安装工具并调用发布命令，见[GitHub Actions](../guide/github-actions)。
 
+## [pr.workflow] 与 [status.workflow]
+
+分别控制生成的 `qegg-pr.yml` 与 `qegg-status.yml` 中 job 的 runner、超时和前置步骤。字段与 [`[release.workflow]`](#releaseworkflow) 的前置步骤部分相同，但没有 `mode`：这两个工作流总是由 QuailEgg 生成。
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `runner` | string | `"ubuntu-latest"` | job 的 runner |
+| `timeout_minutes` | int | `15` | job 超时，范围为 1–1440 分钟 |
+| `steps` | string[] | `[]` | `qegg check` 或 `qegg status` 之前的 shell 步骤 |
+| `yaml` | string | 空 | 自定义前置步骤的原始 YAML，可调用 action |
+| `env` | table | `{}` | shell 模式的环境变量，不能与 `yaml` 同时使用 |
+
+`steps` 和 `yaml` 互斥。内置步骤仍然保留：checkout、setup-go、QuailEgg 安装，以及 PR 工作流中各生态的 setup；PR 工作流不渲染发布凭证。
+
+PR 工作流会安装项目所用生态的工具链，因为 `qegg check --ci` 需要找到 `uv` 这类命令。status 工作流只安装 QuailEgg，需要其他工具时用 `yaml` 自行添加。
+
+修改后需重新运行 `qegg init --force`；清理、安装依赖这类准备工作适合写在这里，耗时构建仍应放进 `[[release.build]]`。
+
 ## [[release.build]]
 
 为 `managed` 工作流增加原生构建 job，可以重复配置。工作流先用 `plan` job 判断阶段，再决定是否启动构建。各 job 上传文件，负责实际发布的 job 下载后通过 `--assets-dir` 交给 QuailEgg。

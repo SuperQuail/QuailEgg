@@ -359,3 +359,95 @@ func TestDevelopWorkflowBuildsLocalQegg(t *testing.T) {
 		}
 	}
 }
+
+func TestPullRequestWorkflowRendersStage(t *testing.T) {
+	plan := buildPlan(t, Options{
+		PRWorkflow: config.StageWorkflow{
+			Runner:         "windows-latest",
+			TimeoutMinutes: 20,
+			Steps:          []string{"uv sync --locked"},
+			Env:            map[string]string{"UV_PYTHON": "3.14"},
+		},
+	})
+	content := string(workflowFile(t, plan, "qegg-pr.yml").Content)
+	for _, want := range []string{
+		"    runs-on: windows-latest",
+		"    timeout-minutes: 20",
+		"    env:\n      UV_PYTHON: \"3.14\"",
+		"      - run: 'uv sync --locked'",
+		"      - name: Check\n        run: qegg check --ci",
+		"      - name: Preview\n        shell: bash",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("pull request workflow is missing %q:\n%s", want, content)
+		}
+	}
+	if strings.Index(content, "uv sync --locked") > strings.Index(content, "qegg check --ci") {
+		t.Fatalf("the custom step must run before the check:\n%s", content)
+	}
+	var doc struct {
+		Jobs map[string]struct {
+			RunsOn string            `yaml:"runs-on"`
+			Env    map[string]string `yaml:"env"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
+		t.Fatalf("pull request workflow is invalid YAML: %v\n%s", err, content)
+	}
+	if job := doc.Jobs["check"]; job.RunsOn != "windows-latest" || job.Env["UV_PYTHON"] != "3.14" {
+		t.Fatalf("check job = %+v", job)
+	}
+}
+
+func TestPullRequestWorkflowRendersYAMLSteps(t *testing.T) {
+	plan := buildPlan(t, Options{
+		PRWorkflow: config.StageWorkflow{YAML: "- uses: astral-sh/setup-uv@v5"},
+	})
+	content := string(workflowFile(t, plan, "qegg-pr.yml").Content)
+	if !strings.Contains(content, "      - uses: astral-sh/setup-uv@v5") {
+		t.Fatalf("pull request workflow is missing the yaml step:\n%s", content)
+	}
+	if strings.Contains(content, "[[") {
+		t.Fatalf("workflow contains an unrendered action:\n%s", content)
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
+		t.Fatalf("pull request workflow is invalid YAML: %v\n%s", err, content)
+	}
+}
+
+func TestStatusWorkflowRendersStage(t *testing.T) {
+	plan := buildPlan(t, Options{
+		WithStatus: true,
+		StatusWorkflow: config.StageWorkflow{
+			TimeoutMinutes: 5,
+			Steps:          []string{"echo status"},
+		},
+	})
+	content := string(workflowFile(t, plan, "qegg-status.yml").Content)
+	for _, want := range []string{
+		"    timeout-minutes: 5",
+		"      - run: 'echo status'",
+		"      - run: qegg status --json",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("status workflow is missing %q:\n%s", want, content)
+		}
+	}
+	if strings.Index(content, "echo status") > strings.Index(content, "qegg status --json") {
+		t.Fatalf("the custom step must run before the status command:\n%s", content)
+	}
+}
+
+func TestCheckWorkflowsUseDefaultStage(t *testing.T) {
+	plan := buildPlan(t, Options{WithStatus: true})
+	for _, name := range []string{"qegg-pr.yml", "qegg-status.yml"} {
+		content := string(workflowFile(t, plan, name).Content)
+		if !strings.Contains(content, "    runs-on: ubuntu-latest") {
+			t.Errorf("%s does not use the default runner:\n%s", name, content)
+		}
+		if !strings.Contains(content, "    timeout-minutes: 15") {
+			t.Errorf("%s does not use the default timeout:\n%s", name, content)
+		}
+	}
+}

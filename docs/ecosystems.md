@@ -174,6 +174,7 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 `qegg init` 生成 `qegg-release.yml`、`qegg-pr.yml`、`qegg-status.yml`。release 工作流的内容由 `[release.workflow]` 和 `[[release.build]]` 决定：
 
 - `[release.workflow]`：`mode`（`managed` / `external`）、`runner`、`timeout_minutes`、`steps`（release job 的前置 shell 步骤）或 `yaml`（原样 steps 块，与 `steps` 互斥）、`env`
+- `[pr.workflow]` 与 `[status.workflow]`：PR 与状态工作流各自的 `runner`、`timeout_minutes`、`steps` 或 `yaml`、`env`，没有 `mode`；它们只替换自定义前置步骤，内置的 checkout、setup-go、生态 setup 与 qegg 调用保留，默认超时 15 分钟
 - `[[release.build]]`：每平台一个构建 job，`name` / `runner` / `timeout_minutes` / `steps` 或 `yaml` / `env` / `artifacts`；shell 模式下 job 固定跑 checkout、setup-go、各生态 setup，再跑自定义步骤；`yaml` 模式完全接管 steps（仍需自己写 checkout），qegg 只补 `qegg-assets-<name>` 上传
 - 配置了构建 job 时会先生成一个 `plan` job，用 `qegg plan --json` 判断本次运行的阶段：`pr` 模式的准备版本运行只执行 `version` job，不启动构建；只有发布运行（`phase = publish`）才执行各构建 job，并由 `publish` job 下载 artifact 到 `.quailegg/assets/downloaded`、执行 `qegg release --yes --assets-dir ...`。`commit` 模式保持单个 `release` job，`phase = none` 时跳过
 - 没有配置 `[[release.build]]` 时不生成 `plan` job，生成的 workflow 与以前一致
