@@ -65,6 +65,10 @@ type Config struct {
 	Publish  Publish            `toml:"publish"`
 	Packages map[string]Package `toml:"packages"`
 	Version  Version            `toml:"version"`
+	// PR and Status configure the generated check-only workflows. They have no
+	// release mode, so each project prepares dependencies per job.
+	PR     WorkflowSection `toml:"pr"`
+	Status WorkflowSection `toml:"status"`
 }
 
 // Project holds project level settings.
@@ -118,8 +122,13 @@ const (
 	WorkflowExternal = "external"
 )
 
-// DefaultWorkflowRunner is the runner the release job uses.
+// DefaultWorkflowRunner is the runner the generated jobs use.
 const DefaultWorkflowRunner = "ubuntu-latest"
+
+// DefaultCheckWorkflowTimeout is the timeout of the generated pull request and
+// status jobs. They only inspect the repository, so they need far less time
+// than a release.
+const DefaultCheckWorkflowTimeout = 15
 
 // Workflow configures the generated release workflow.
 type Workflow struct {
@@ -137,6 +146,41 @@ type Workflow struct {
 	YAML string `toml:"yaml"`
 	// Env sets environment variables of the shell steps.
 	Env map[string]string `toml:"env"`
+}
+
+// stage returns the settings shared with the other generated workflows.
+func (w Workflow) stage() StageWorkflow {
+	return StageWorkflow{
+		Runner:         w.Runner,
+		TimeoutMinutes: w.TimeoutMinutes,
+		Steps:          w.Steps,
+		YAML:           w.YAML,
+		Env:            w.Env,
+	}
+}
+
+// StageWorkflow configures the job of one generated workflow: where it runs and
+// what it prepares before the tool's own step. The release, pull request and
+// status workflows each carry their own section, so preparing dependencies for
+// one of them never changes the others.
+type StageWorkflow struct {
+	// Runner is the runner of the job. Empty keeps the default.
+	Runner string `toml:"runner"`
+	// TimeoutMinutes limits the job.
+	TimeoutMinutes int `toml:"timeout_minutes"`
+	// Steps run in the job before the tool's own command.
+	Steps []string `toml:"steps"`
+	// YAML replaces Steps with a raw steps block, so custom actions
+	// (uses: ...) are possible. The two fields are mutually exclusive.
+	YAML string `toml:"yaml"`
+	// Env sets environment variables of the shell steps.
+	Env map[string]string `toml:"env"`
+}
+
+// WorkflowSection groups the stage settings of a generated workflow that has no
+// release mode of its own.
+type WorkflowSection struct {
+	Workflow StageWorkflow `toml:"workflow"`
 }
 
 // BuildJob is one platform build of the managed workflow. The generated job
@@ -288,6 +332,12 @@ func (c *Config) PackageKeyFor(value string) (string, bool) {
 	return "", false
 }
 
+// defaultCheckStage is the stage of the workflows that only inspect the
+// repository.
+func defaultCheckStage() StageWorkflow {
+	return StageWorkflow{Runner: DefaultWorkflowRunner, TimeoutMinutes: DefaultCheckWorkflowTimeout}
+}
+
 // Default returns the built-in defaults.
 func Default() *Config {
 	return &Config{
@@ -306,6 +356,8 @@ func Default() *Config {
 				TimeoutMinutes: 60,
 			},
 		},
+		PR:       WorkflowSection{Workflow: defaultCheckStage()},
+		Status:   WorkflowSection{Workflow: defaultCheckStage()},
 		Changes:  Changes{Dir: ".changes"},
 		Verify:   Verify{Timeout: "15m", FailFast: true},
 		Packages: map[string]Package{},
@@ -379,6 +431,18 @@ func (c *Config) applyDefaults() {
 	if c.Release.Workflow.TimeoutMinutes == 0 {
 		c.Release.Workflow.TimeoutMinutes = d.Release.Workflow.TimeoutMinutes
 	}
+	if c.PR.Workflow.Runner == "" {
+		c.PR.Workflow.Runner = d.PR.Workflow.Runner
+	}
+	if c.PR.Workflow.TimeoutMinutes == 0 {
+		c.PR.Workflow.TimeoutMinutes = d.PR.Workflow.TimeoutMinutes
+	}
+	if c.Status.Workflow.Runner == "" {
+		c.Status.Workflow.Runner = d.Status.Workflow.Runner
+	}
+	if c.Status.Workflow.TimeoutMinutes == 0 {
+		c.Status.Workflow.TimeoutMinutes = d.Status.Workflow.TimeoutMinutes
+	}
 	for i := range c.Release.Build {
 		if c.Release.Build[i].Runner == "" {
 			c.Release.Build[i].Runner = c.Release.Workflow.Runner
@@ -441,6 +505,12 @@ func (c *Config) Validate() error {
 		return errors.New("release.assets needs release.version_scope = \"shared\" once several packages are registered")
 	}
 	if err := c.Release.Workflow.validate(c.Release.Build); err != nil {
+		return err
+	}
+	if err := c.PR.Workflow.validate("pr.workflow"); err != nil {
+		return err
+	}
+	if err := c.Status.Workflow.validate("status.workflow"); err != nil {
 		return err
 	}
 	if len(c.Release.Build) > 0 && len(c.Packages) > 1 && c.Release.VersionScope != VersionScopeShared {
@@ -538,6 +608,20 @@ func (a Assets) validate() error {
 // buildJobNameRE allows the characters GitHub accepts in a job id.
 var buildJobNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
+// validate checks the stage settings that do not need the filesystem.
+func (w StageWorkflow) validate(section string) error {
+	if strings.TrimSpace(w.Runner) == "" {
+		return fmt.Errorf("%s.runner must not be empty", section)
+	}
+	if w.TimeoutMinutes < 1 || w.TimeoutMinutes > 1440 {
+		return fmt.Errorf("%s.timeout_minutes %d must be between 1 and 1440", section, w.TimeoutMinutes)
+	}
+	if err := validateStepForms(section, w.Steps, w.YAML); err != nil {
+		return err
+	}
+	return validateStepEnv(section+".env", w.Env, w.YAML)
+}
+
 // validate checks the workflow settings that do not need the filesystem.
 func (w Workflow) validate(builds []BuildJob) error {
 	switch w.Mode {
@@ -545,16 +629,7 @@ func (w Workflow) validate(builds []BuildJob) error {
 	default:
 		return fmt.Errorf("release.workflow.mode must be %q or %q, got %q", WorkflowManaged, WorkflowExternal, w.Mode)
 	}
-	if strings.TrimSpace(w.Runner) == "" {
-		return errors.New("release.workflow.runner must not be empty")
-	}
-	if w.TimeoutMinutes < 1 || w.TimeoutMinutes > 1440 {
-		return fmt.Errorf("release.workflow.timeout_minutes %d must be between 1 and 1440", w.TimeoutMinutes)
-	}
-	if err := validateStepForms("release.workflow", w.Steps, w.YAML); err != nil {
-		return err
-	}
-	if err := validateStepEnv("release.workflow.env", w.Env, w.YAML); err != nil {
+	if err := w.stage().validate("release.workflow"); err != nil {
 		return err
 	}
 	if len(builds) > 0 && w.Mode != WorkflowManaged {

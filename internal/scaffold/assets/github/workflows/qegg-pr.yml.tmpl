@@ -14,8 +14,12 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: [[ .PRWorkflow.Runner ]]
+    timeout-minutes: [[ .PRWorkflow.TimeoutMinutes ]]
+[[- if .PREnv ]]
+    env:
+[[ indent 6 .PREnv ]]
+[[- end ]]
     if: github.head_ref != '[[ .ReleaseBranch ]]'
     steps:
       - uses: actions/checkout@v4
@@ -26,9 +30,17 @@ jobs:
 [[ indent 6 . ]]
 [[- end ]]
 [[ indent 6 .QeggSetup ]]
+[[- if .PRWorkflow.YAML ]]
+[[ indent 6 .PRWorkflow.YAML ]]
+[[- else ]]
+[[- range .PRWorkflow.Steps ]]
+      - run: [[ shquote . ]]
+[[- end ]]
+[[- end ]]
       - name: Check
         run: qegg check --ci
       - name: Preview
+        shell: bash
         run: |
           qegg plan --markdown > plan.md
           if [ -s plan.md ]; then

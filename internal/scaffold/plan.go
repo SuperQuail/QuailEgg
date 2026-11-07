@@ -44,6 +44,10 @@ type Options struct {
 	Build           []config.BuildJob
 	Existing        *config.Config
 	ExistingContent []byte
+	// PRWorkflow and StatusWorkflow configure the check-only workflows. They
+	// carry no release mode, so a project can prepare dependencies per job.
+	PRWorkflow     config.StageWorkflow
+	StatusWorkflow config.StageWorkflow
 }
 
 // ChangelogEnabled reports whether a release writes CHANGELOG.md.

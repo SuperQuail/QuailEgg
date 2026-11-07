@@ -7,11 +7,23 @@ permissions:
 
 jobs:
   status:
-    runs-on: ubuntu-latest
+    runs-on: [[ .StatusWorkflow.Runner ]]
+    timeout-minutes: [[ .StatusWorkflow.TimeoutMinutes ]]
+[[- if .StatusEnv ]]
+    env:
+[[ indent 6 .StatusEnv ]]
+[[- end ]]
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26', cache: true }
 [[ indent 6 .QeggSetup ]]
+[[- if .StatusWorkflow.YAML ]]
+[[ indent 6 .StatusWorkflow.YAML ]]
+[[- else ]]
+[[- range .StatusWorkflow.Steps ]]
+      - run: [[ shquote . ]]
+[[- end ]]
+[[- end ]]
       - run: qegg status --json

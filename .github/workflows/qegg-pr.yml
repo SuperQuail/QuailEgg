@@ -36,6 +36,7 @@ jobs:
       - name: Check
         run: qegg check --ci
       - name: Preview
+        shell: bash
         run: |
           qegg plan --markdown > plan.md
           if [ -s plan.md ]; then

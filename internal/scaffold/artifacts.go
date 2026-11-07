@@ -82,6 +82,8 @@ type view struct {
 	EcosystemEnvs   []string
 	BuildJobs       []buildJobView
 	ReleaseEnv      string
+	PREnv           string
+	StatusEnv       string
 	ReleasePaths    []string
 	HookNote        string
 	// ActorGuard skips runs started by the release commit itself.
@@ -127,6 +129,11 @@ const (
 
 // newView collects the template data for one plan.
 func newView(opts Options) view {
+	// The check-only stages may be left out by callers that do not read the
+	// configuration; fill their defaults here so the templates never render an
+	// empty runner or a zero timeout.
+	opts.PRWorkflow = stageWithDefaults(opts.PRWorkflow, config.DefaultCheckWorkflowTimeout)
+	opts.StatusWorkflow = stageWithDefaults(opts.StatusWorkflow, config.DefaultCheckWorkflowTimeout)
 	data := view{
 		Options:        opts,
 		QeggSetup:      qeggSetup(opts),
@@ -137,6 +144,8 @@ func newView(opts Options) view {
 		ReleaseJobs:    []releaseJobView{{Name: "release", Condition: actorGuard}},
 	}
 	data.ReleaseEnv = envBlock(opts.Workflow.Env)
+	data.PREnv = envBlock(opts.PRWorkflow.Env)
+	data.StatusEnv = envBlock(opts.StatusWorkflow.Env)
 	for _, job := range opts.Build {
 		data.BuildJobs = append(data.BuildJobs, buildJobView{
 			ID:        job.Name,
@@ -244,6 +253,18 @@ func workflowEcosystems(opts Options) []string {
 		add(opts.Ecosystem)
 	}
 	return ids
+}
+
+// stageWithDefaults fills the fields a caller left empty, so the templates can
+// render a stage without repeating the defaults.
+func stageWithDefaults(stage config.StageWorkflow, timeout int) config.StageWorkflow {
+	if strings.TrimSpace(stage.Runner) == "" {
+		stage.Runner = config.DefaultWorkflowRunner
+	}
+	if stage.TimeoutMinutes == 0 {
+		stage.TimeoutMinutes = timeout
+	}
+	return stage
 }
 
 // envBlock renders a job environment mapping, sorted by variable name.

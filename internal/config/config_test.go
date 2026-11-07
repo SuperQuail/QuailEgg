@@ -449,3 +449,84 @@ func TestVerifyHookCommandsRejectEmpty(t *testing.T) {
 		t.Fatal("expected an error for an empty hook command")
 	}
 }
+func TestCheckWorkflowSections(t *testing.T) {
+	path := writeConfig(t, `schema_version = 1
+
+[pr.workflow]
+runner = "windows-latest"
+timeout_minutes = 20
+steps = ["uv sync --locked"]
+env = { UV_PYTHON = "3.14" }
+
+[status.workflow]
+yaml = """
+- uses: actions/setup-node@v4
+"""
+`)
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	pr := cfg.PR.Workflow
+	if pr.Runner != "windows-latest" || pr.TimeoutMinutes != 20 {
+		t.Fatalf("pr workflow = %+v", pr)
+	}
+	if len(pr.Steps) != 1 || pr.Steps[0] != "uv sync --locked" || pr.Env["UV_PYTHON"] != "3.14" {
+		t.Fatalf("pr workflow steps or env = %+v", pr)
+	}
+	if !strings.Contains(cfg.Status.Workflow.YAML, "setup-node") {
+		t.Fatalf("status workflow yaml = %q", cfg.Status.Workflow.YAML)
+	}
+	if cfg.Status.Workflow.Runner != DefaultWorkflowRunner || cfg.Status.Workflow.TimeoutMinutes != DefaultCheckWorkflowTimeout {
+		t.Fatalf("status workflow defaults = %+v", cfg.Status.Workflow)
+	}
+}
+
+func TestCheckWorkflowDefaults(t *testing.T) {
+	cfg, err := LoadFile(writeConfig(t, "schema_version = 1\n"))
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	sections := map[string]WorkflowSection{"pr": cfg.PR, "status": cfg.Status}
+	for name, section := range sections {
+		if section.Workflow.Runner != DefaultWorkflowRunner || section.Workflow.TimeoutMinutes != DefaultCheckWorkflowTimeout {
+			t.Errorf("%s workflow defaults = %+v", name, section.Workflow)
+		}
+	}
+}
+
+func TestCheckWorkflowRejectsBadSettings(t *testing.T) {
+	cases := []struct {
+		name    string
+		body    string
+		section string
+	}{
+		{
+			name:    "steps and yaml",
+			body:    "[pr.workflow]\nsteps = [\"echo hi\"]\nyaml = \"\"\"\n- run: echo hi\n\"\"\"\n",
+			section: "pr.workflow",
+		},
+		{
+			name:    "env with yaml",
+			body:    "[status.workflow]\nenv = { A = \"b\" }\nyaml = \"\"\"\n- run: echo hi\n\"\"\"\n",
+			section: "status.workflow",
+		},
+		{
+			name:    "timeout out of range",
+			body:    "[pr.workflow]\ntimeout_minutes = 5000\n",
+			section: "pr.workflow",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := LoadFile(writeConfig(t, "schema_version = 1\n\n"+tc.body))
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.Contains(err.Error(), tc.section) {
+				t.Fatalf("error should name %s: %v", tc.section, err)
+			}
+		})
+	}
+}
+

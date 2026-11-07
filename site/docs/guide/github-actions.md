@@ -120,6 +120,18 @@ yaml = """
 
 需要长时间执行的发布打包命令，应放在 `[[release.build]]`，或放在实际发布阶段执行的 `[release.assets].commands`。如果放在 `[release.workflow].steps` 或 `yaml` 中，准备发布 PR 的 job 也会执行它。
 
+### PR 与状态工作流
+
+`[pr.workflow]` 和 `[status.workflow]` 提供同样的 `runner`、`timeout_minutes`、`steps`／`yaml` 与 `env`，分别作用于 `qegg-pr.yml` 和 `qegg-status.yml`。它们只替换自定义前置步骤：PR 工作流保留 checkout、setup-go、各生态 setup 和 `qegg check --ci`，自定义步骤排在检查之前；status 工作流保留安装 QuailEgg 和 `qegg status --json`。
+
+```toml
+[pr.workflow]
+timeout_minutes = 25
+steps = ["uv sync --locked"]
+```
+
+PR 工作流会自动安装项目所用生态的工具链，因此 `qegg check --ci` 能找到 `uv`、`cargo` 这类命令。这里适合放依赖安装；耗时构建仍应放进 `[[release.build]]`。
+
 ## 多平台构建 job
 
 `[release.assets]` 配置的是 `qegg release` 在当前机器上的资产构建与收集；`[[release.build]]` 配置的是发布之前独立运行的 CI job。只有后者可以为各 job 分别选择 runner。如何选择与同时配置时的优先级，见[发布资产](./assets#如何选择构建方式)。
