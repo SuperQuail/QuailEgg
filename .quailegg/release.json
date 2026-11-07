@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.12.0",
-  "created_at": "2026-11-03T05:38:33.804111825Z",
+  "version": "0.13.0",
+  "created_at": "2026-11-07T03:37:04.823457022Z",
   "mode": "pr",
-  "fingerprint": "sha256:dbc7535074ffab9c0902ed71cc54050694d95b23d8090cfd97904ad61e4961b7",
+  "fingerprint": "sha256:f28715e17d0edeb00fe6432fee84ca80d037836e0eaf49b6c3020ed2bd2f7d5b",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-11-03T05:38:33.804112436Z"
+    "at": "2026-11-07T03:37:04.823457336Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.11.0",
-      "next": "0.12.0",
+      "current": "0.12.0",
+      "next": "0.13.0",
       "bump": "minor",
-      "tag": "v0.12.0",
+      "tag": "v0.13.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.12.0",
-      "tag": "v0.12.0",
-      "previous_tag": "v0.11.0",
+      "version": "0.13.0",
+      "tag": "v0.13.0",
+      "previous_tag": "v0.12.0",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,46 +41,48 @@
   ],
   "changes": [
     {
-      "file": ".changes/decouple-the-commit.md",
+      "file": ".changes/add-a-switch.md",
       "type": "feat",
+      "scope": "release",
       "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Keep release verification while letting the commit hook skip it.",
-      "commit": "42903be3910b944b4599451a2af84c95b9014b16",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/42903be3910b944b4599451a2af84c95b9014b16",
+      "body": "Skip the changelog file when the configuration turns it off.",
+      "commit": "2921a0b33b6339d579dd55dde9e8e3bed8cdcf2a",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/2921a0b33b6339d579dd55dde9e8e3bed8cdcf2a",
       "author": "Wsrsq"
     },
     {
-      "file": ".changes/honour-fail-fast.md",
+      "file": ".changes/customize-the-generated.md",
+      "type": "feat",
+      "scope": "scaffold",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Prepare each generated workflow job with its own runner, timeout and steps.",
+      "commit": "7bc4973f1563c2fe9dbaf5cd67ef360aac9b9793",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/7bc4973f1563c2fe9dbaf5cd67ef360aac9b9793",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/install-ecosystem-tools.md",
       "type": "fix",
-      "scope": "release",
+      "scope": "scaffold",
       "bump": "patch",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Keep running the remaining verification commands when fail_fast is false.",
-      "commit": "a658ac1aece9404b765c33a025ee6d9f22cb535b",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/a658ac1aece9404b765c33a025ee6d9f22cb535b",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/write-the-commit.md",
-      "type": "feat",
-      "bump": "minor",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Let qegg init choose whether the commit hook runs verification.",
-      "commit": "4df88001504abf2c639f1eb9f3a9fbaca367f48b",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/4df88001504abf2c639f1eb9f3a9fbaca367f48b",
+      "body": "Install the ecosystem toolchain in the pull request workflow so checks no longer fail on missing tools.",
+      "commit": "0d4df5494ec8080639250e6ed9a725bcd369dc87",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/0d4df5494ec8080639250e6ed9a725bcd369dc87",
       "author": "Wsrsq"
     }
   ],
   "qegg": {
-    "version": "0.11.1-0.20261103053751-98ac425a9c87",
-    "commit": "98ac425",
+    "version": "0.12.1-0.20261107033619-8250b74def0a",
+    "commit": "8250b74",
     "develop": true
   }
 }
