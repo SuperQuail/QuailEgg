@@ -22,6 +22,9 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26', cache: true }
+[[- range .EcosystemSetups ]]
+[[ indent 6 . ]]
+[[- end ]]
 [[ indent 6 .QeggSetup ]]
       - name: Check
         run: qegg check --ci
