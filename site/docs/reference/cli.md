@@ -80,7 +80,7 @@ qegg scan --json
 qegg scan --depth 2 --exclude 'examples/**'
 ```
 
-JSON 里每个候选带稳定的 `id`（`resolver:path`）、真实清单名 `name`、身份键 `key`（已登记时为现有键，未登记时为 `resolver@清单名`）、`selectable`、`reason` 与 `source`（`workspace` 或 `scan`）；`default_packages` 是不加参数运行 `qegg init` 时会登记的那些包。
+JSON 里每个候选带稳定的 `id`（`resolver:path`）、真实清单名 `name`、身份键 `key`（已登记时为现有键，未登记时为 `resolver@清单名`）、`selectable`、`reason` 与 `source`（`workspace` 或 `scan`）；`default_packages` 是不加参数运行 `qegg init` 时会登记的那些包。`version_scope` 是 `qegg init` 会写入的版本范围，人读输出里对应“版本范围”一行；它和 `qegg init` 用同一套规则预测，两边不会给出不同的结果。
 
 `--packages`、`qegg commit --packages` 和变更记录里的包键都使用 `key`；同一个清单名出现在多个候选时（例如 npm 与 Rust 包同名），按清单名选择会产生歧义，需改用 `key` 或 `id`。
 
@@ -130,6 +130,10 @@ qegg commit --no-input -m "feat: support configurable expiration" --body "Allow 
 | --- | --- |
 | `--json` | 输出 JSON |
 | `--ci` | 额外按 PR 差异检查是否缺少记录 |
+
+`--json` 输出里的 `pending_version` 只在有待发布版本时出现；人读输出在同样的情形下会多一行 `pending release`（中文界面为 `待发布版本`），说明当前正在准备的版本。
+
+检查会读取发布标记，并用 `git tag` 判断标记里的版本是否已经打过标签。浅克隆（`fetch-depth: 1`）里看不到历史标签，已完成的标记会被当成待发布，因此手工运行检查前要先取全标签；生成的工作流使用 `fetch-depth: 0`。标记读不出来或待发布版本无法解析时，检查无法确定预期版本，配置了 `[[version.file]]` 的话版本文件检查报 `version-file-unverified`，不会把各包版本不一致误报成 `version-file-ambiguous`。
 
 ## qegg plan
 

@@ -342,8 +342,11 @@ func TestPackageScopeRejectsTagVersionedPackage(t *testing.T) {
 	dir := newGoFrontendRepo(t, "0.0.0")
 	writeRecord(t, dir, "app-feature.md", "Add the first desktop feature.", map[string]string{"example.com/app": "minor"}, true)
 	_, err := Build(context.Background(), goFrontendDeps(t, dir, config.VersionScopePackage))
-	if err == nil || !strings.Contains(err.Error(), "tag") {
-		t.Fatalf("Build error = %v, want a tag-versioned rejection", err)
+	// "tag" alone is not evidence: every wording of this message mentions tags,
+	// and the package scope is the part that decides. Assert the sentence the
+	// user is shown.
+	if err == nil || !strings.Contains(err.Error(), "package-scoped multi-package releases need") {
+		t.Fatalf("Build error = %v, want a package-scoped tag-versioned rejection", err)
 	}
 }
 

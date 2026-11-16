@@ -74,9 +74,28 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := validateTargets(scope, targets); err != nil {
+	// The marker is read before the targets are validated: a shared release that
+	// already ran its version phase has the manifest versions ahead of a
+	// tag-versioned package, and only the pending version makes them comparable.
+	relMarker, err := state.LoadMarker(d.Root)
+	if err != nil {
 		return nil, err
 	}
+	candidates, err := openMarkerReleases(ctx, d.Cfg, d.Git, relMarker, sharedPackages(targets))
+	if err != nil {
+		return nil, err
+	}
+	pendingVersion := ""
+	var uncovered []string
+	if scope == config.VersionScopeShared {
+		pendingVersion, uncovered = sharedPendingVersion(candidates, targetNames(targets))
+	}
+	if err := validateTargets(scope, targets, pendingVersion, uncovered); err != nil {
+		return nil, err
+	}
+	// Only a release that still applies to the checked out tree may be
+	// published; an open one that no longer does is drift, not a pending plan.
+	pending := applyingReleases(candidates, sharedPackages(targets))
 
 	records, err := changes.LoadDir(changesDir(d))
 	if err != nil {
@@ -113,10 +132,6 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 	repo, _ := github.Detect(ctx, d.Run, d.Root, d.Cfg.Git.Remote)
 	plan.Repo = repo
 
-	relMarker, err := state.LoadMarker(d.Root)
-	if err != nil {
-		return nil, err
-	}
 	if relMarker != nil {
 		plan.Marker = relMarker
 		if relMarker.Repo.Valid() {
@@ -150,7 +165,7 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		}
 	}
 
-	if err := buildReleases(ctx, d, plan, targets, records, consumed, bumps, relMarker, pre); err != nil {
+	if err := buildReleases(ctx, d, plan, targets, records, consumed, bumps, relMarker, pending, pre); err != nil {
 		return nil, err
 	}
 	if plan.Phase != PhaseNone {
@@ -173,11 +188,24 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 
 	plan.Steps = stepsFor(plan.Phase, d.Cfg.Release.Mode, plan.Assets != nil || d.Options.AssetsDir != "")
 	plan.Warnings = append(plan.Warnings, packageWarnings(registered, detected)...)
-	plan.Warnings = append(plan.Warnings, versionFileWarnings(d.Root, d.Cfg.Version.File, plan.Version.Current)...)
-	if len(targets) == 1 && targets[0].tagVersioned() {
-		if spec, ok := registry.SpecFor(targets[0].pkg.Resolver); ok && spec.TagPrefix != "" && d.Cfg.Git.TagPrefix != spec.TagPrefix {
-			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.tag_prefix", spec.Language, spec.TagPrefix, d.Cfg.Git.TagPrefix))
-		}
+	// The version phase writes the new version into the version files, so the
+	// publish phase has to expect Next: comparing against Current would report
+	// every version file as drift right after the version phase updated it.
+	// The fallback to Current is only for a publish plan whose marker carries no
+	// single Next version, which is the package-scoped multi-package marker;
+	// those repositories do not register a version file, so it is not reached.
+	expectedVersionFile := plan.Version.Current
+	if plan.Phase == PhasePublish && plan.Version.Next != "" {
+		expectedVersionFile = plan.Version.Next
+	}
+	plan.Warnings = append(plan.Warnings, versionFileWarnings(d.Root, d.Cfg.Version.File, expectedVersionFile)...)
+	// A tag-versioned package reads its version from a tag with a fixed prefix,
+	// so a different git.tag_prefix hides every release from it: CurrentVersion
+	// keeps answering 0.0.0, each release succeeds, and the module never moves.
+	// Every such package is checked, not just a single-package repository, since
+	// a shared release may carry one next to manifest-versioned packages.
+	if warning := tagPrefixWarning(targets, d.Cfg.Git.TagPrefix); warning != "" {
+		plan.Warnings = append(plan.Warnings, warning)
 	}
 	if d.Cfg.Release.Mode == config.ModeCommit {
 		plan.Warnings = append(plan.Warnings, i18n.T("release.warn.commit_mode"))
@@ -191,6 +219,24 @@ func Build(ctx context.Context, d *Deps) (*Plan, error) {
 		}
 	}
 	return plan, nil
+}
+
+// tagPrefixWarning returns the warning for the first tag-versioned package whose
+// ecosystem requires a tag prefix the configuration does not use. One warning is
+// enough: the same setting hides the tags of every tag-versioned package, and
+// repeating it per package would bury the other plan warnings.
+func tagPrefixWarning(targets []target, configured string) string {
+	for _, t := range targets {
+		if !t.tagVersioned() {
+			continue
+		}
+		spec, ok := registry.SpecFor(t.pkg.Resolver)
+		if !ok || spec.TagPrefix == "" || spec.TagPrefix == configured {
+			continue
+		}
+		return i18n.Tf("release.warn.tag_prefix", spec.Language, spec.TagPrefix, configured)
+	}
+	return ""
 }
 
 func resolveTargets(ctx context.Context, d *Deps, inspected []ecosystem.Package, registered map[string]config.Package) ([]target, error) {
@@ -237,7 +283,7 @@ func inspectConfigured(root string, registered map[string]config.Package) ([]eco
 	return registry.InspectAll(root, inputs)
 }
 
-func validateTargets(scope string, targets []target) error {
+func validateTargets(scope string, targets []target, pending string, uncovered []string) error {
 	if len(targets) <= 1 {
 		return nil
 	}
@@ -254,54 +300,75 @@ func validateTargets(scope string, targets []target) error {
 		}
 		return nil
 	}
-	first := targets[0]
-	for _, t := range targets[1:] {
-		if t.pkg.Version != first.pkg.Version {
-			return errors.New(i18n.Tf("release.err.shared_version_mismatch", t.name, t.pkg.Version, first.name, first.pkg.Version))
-		}
-		// One tag carries the version of every package in the unit, so the
-		// ecosystems must spell that version the same way in a tag.
-		want := registry.TagVersion(t.pkg.Resolver, t.pkg.Version)
-		have := registry.TagVersion(first.pkg.Resolver, first.pkg.Version)
-		if want != have {
-			return errors.New(i18n.Tf("release.err.shared_tag_spelling", t.name, want, first.name, have))
-		}
+	// A shared release writes one version into every manifest and creates one
+	// tag for the whole repository, so every package has to agree on the version
+	// that is about to ship. The pending release is the reference: the version
+	// phase already moved the manifest versions ahead of a tag-versioned
+	// package, and comparing their current versions would read that as drift.
+	// uncovered only comes from a pending release, so it implies one.
+	if len(uncovered) > 0 {
+		// The pending release leaves packages out, so they never reach its
+		// version and the comparison below would blame the wrong thing. Name
+		// them instead: the release has to be planned again to cover them.
+		return errors.New(i18n.Tf("release.err.pending_uncovered", pending, strings.Join(uncovered, ", ")))
+	}
+	if violations := CheckSharedVersions(sharedPackages(targets), pending); len(violations) > 0 {
+		return sharedViolationError(violations[0])
 	}
 	return nil
 }
 
-func buildReleases(ctx context.Context, d *Deps, plan *Plan, targets []target, records, consumed []*changes.Record, bumps map[string]semver.Bump, relMarker *state.Marker, pre *state.PreRelease) error {
+// sharedViolationError renders the first broken shared-version rule.
+func sharedViolationError(v SharedViolation) error {
+	switch v.Code {
+	case SharedTagSpelling:
+		return errors.New(i18n.Tf("release.err.shared_tag_spelling", v.Package, v.PackageTag, v.Other, v.ReferenceTag))
+	case SharedVersionPending:
+		return errors.New(i18n.Tf("release.err.shared_version_pending", v.Package, v.Version, v.OtherVersion))
+	case SharedVersionMismatch:
+		return errors.New(i18n.Tf("release.err.shared_version_mismatch", v.Package, v.Version, v.Other, v.OtherVersion))
+	default:
+		// Every code shared.go can report has to be registered above; this
+		// fallback is kept on purpose. A new code renders as a mismatch until it
+		// is added, so the plan still names the packages it refuses instead of
+		// failing without a message.
+		return errors.New(i18n.Tf("release.err.shared_version_mismatch", v.Package, v.Version, v.Other, v.OtherVersion))
+	}
+}
+
+func buildReleases(ctx context.Context, d *Deps, plan *Plan, targets []target, records, consumed []*changes.Record, bumps map[string]semver.Bump, relMarker *state.Marker, pending []ReleasePlan, pre *state.PreRelease) error {
 	tags, err := d.Git.ListTags(ctx, d.Cfg.Git.TagPrefix)
 	if err != nil {
 		return err
 	}
 	scope := plan.VersionScope
 
-	if relMarker != nil {
-		pending := pendingMarkerReleases(ctx, d, relMarker, targets)
-		if len(pending) > 0 {
-			plan.Phase = PhasePublish
-			plan.Releases = pending
-			plan.Packages = markerPackages(relMarker.Packages)
-			plan.Changes = markerChanges(relMarker.Changes)
-			plan.Channel = relMarker.Channel
-			if plan.Channel == "" {
-				for _, release := range pending {
-					if release.Prerelease != "" {
-						plan.Channel = release.Prerelease
-						break
-					}
+	// A pending release is published as planned. Without one the plan starts
+	// over, even when a marker exists: its tags may already be in place.
+	if len(pending) > 0 {
+		// Only the marker can produce a pending release (openMarkerReleases
+		// returns nil for a nil marker), so relMarker is set here.
+		plan.Phase = PhasePublish
+		plan.Releases = pending
+		plan.Packages = markerPackages(relMarker.Packages)
+		plan.Changes = markerChanges(relMarker.Changes)
+		plan.Channel = relMarker.Channel
+		if plan.Channel == "" {
+			for _, release := range pending {
+				if release.Prerelease != "" {
+					plan.Channel = release.Prerelease
+					break
 				}
 			}
-			if relMarker.Version != "" {
-				plan.Version = VersionInfo{Current: targets[0].pkg.Version, Next: relMarker.Version}
-				if len(pending) == 1 {
-					plan.Tag = pending[0].Tag
-					plan.PreviousTag = pending[0].PrevTag
-				}
-			}
-			return nil
 		}
+		if relMarker.Version != "" {
+			plan.Version = VersionInfo{Current: targets[0].pkg.Version, Next: relMarker.Version}
+			if len(pending) == 1 {
+				plan.Tag = pending[0].Tag
+				plan.PreviousTag = pending[0].PrevTag
+			}
+		}
+		return nil
 	}
 
 	if pre != nil {
@@ -311,9 +378,15 @@ func buildReleases(ctx context.Context, d *Deps, plan *Plan, targets []target, r
 			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.prerelease_idle", pre.Channel))
 			return nil
 		}
-		if relMarker != nil && allMarkerTagsExist(ctx, d, relMarker, targets) && sameChangeSet(d.Root, relMarker, consumed) {
-			plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.prerelease_unchanged", relMarker.Version))
-			return nil
+		if relMarker != nil {
+			tagsExist, err := allMarkerTagsExist(ctx, d, relMarker, targets)
+			if err != nil {
+				return err
+			}
+			if tagsExist && sameChangeSet(d.Root, relMarker, consumed) {
+				plan.Warnings = append(plan.Warnings, i18n.Tf("release.warn.prerelease_unchanged", relMarker.Version))
+				return nil
+			}
 		}
 		for i := range units {
 			units[i].current = unitCurrent(units[i])
@@ -333,7 +406,10 @@ func buildReleases(ctx context.Context, d *Deps, plan *Plan, targets []target, r
 	}
 
 	if relMarker != nil {
-		units := graduationUnits(ctx, d, plan, targets, bumps, consumed, relMarker, tags)
+		units, err := graduationUnits(ctx, d, plan, targets, bumps, consumed, relMarker, tags)
+		if err != nil {
+			return err
+		}
 		if len(units) > 0 {
 			plan.Graduating = true
 			return applyUnits(ctx, d, plan, targets, units, records)
@@ -414,11 +490,18 @@ func nextPrereleaseVersion(d *Deps, plan *Plan, unit releaseUnit, pre *state.Pre
 	return registry.PrereleaseVersion(resolver, baseVersion, pre.Channel, counterNext)
 }
 
-func graduationUnits(ctx context.Context, d *Deps, plan *Plan, targets []target, bumps map[string]semver.Bump, consumed []*changes.Record, marker *state.Marker, tags []string) []releaseUnit {
+// graduationUnits lists the units whose prerelease tag already exists and that
+// now graduate to the stable version. A failed tag lookup is returned instead of
+// read as "no tag": the same lookup is fatal in openMarkerReleases, and guessing
+// here would graduate a release whose tag was never created.
+func graduationUnits(ctx context.Context, d *Deps, plan *Plan, targets []target, bumps map[string]semver.Bump, consumed []*changes.Record, marker *state.Marker, tags []string) ([]releaseUnit, error) {
 	units := []releaseUnit{}
 	for _, release := range markerReleasePlans(d, marker, targets) {
 		exists, err := d.Git.TagExists(ctx, release.Tag)
-		if err != nil || !exists {
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
 			continue
 		}
 		if !semver.IsPrerelease(release.Version) {
@@ -451,9 +534,12 @@ func graduationUnits(ctx context.Context, d *Deps, plan *Plan, targets []target,
 				}
 			}
 		}
+		// A tag that cannot be rendered is fatal for the same reason the lookup
+		// above is: dropping the unit here would silently skip the graduation and
+		// leave the repository on its prerelease forever.
 		tag, err := packageTag(d.Cfg, plan.VersionScope, unitTargets[0].pkg, nextVersion)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		unit := releaseUnit{
 			name: release.Name, targets: unitTargets, bump: bump, current: current,
@@ -467,7 +553,7 @@ func graduationUnits(ctx context.Context, d *Deps, plan *Plan, targets []target,
 		}
 		units = append(units, unit)
 	}
-	return units
+	return units, nil
 }
 
 func applyUnits(ctx context.Context, d *Deps, plan *Plan, targets []target, units []releaseUnit, records []*changes.Record) error {
@@ -480,6 +566,21 @@ func applyUnits(ctx context.Context, d *Deps, plan *Plan, targets []target, unit
 		for _, t := range unit.targets {
 			if err := registry.CheckVersion(t.pkg, unit.version); err != nil {
 				return err
+			}
+		}
+		// One tag carries the planned version for every package in the unit, so
+		// the ecosystems have to spell that version the same way. The planned
+		// version is what matters here: a tag-versioned package still sits on
+		// its previous tag, so its current version says nothing about the tag
+		// this release creates. Only a shared release puts several packages in
+		// one unit; the scope check spells that out so the condition reads as
+		// the rule it enforces.
+		if plan.VersionScope == config.VersionScopeShared && len(unit.targets) > 1 {
+			want := registry.TagVersion(unit.targets[0].pkg.Resolver, unit.version)
+			for _, t := range unit.targets[1:] {
+				if have := registry.TagVersion(t.pkg.Resolver, unit.version); have != want {
+					return errors.New(i18n.Tf("release.err.shared_tag_spelling", t.name, have, unit.targets[0].name, want))
+				}
 			}
 		}
 	}
@@ -711,81 +812,6 @@ func previousTag(ctx context.Context, d *Deps, scope string, unit releaseUnit) s
 	return ""
 }
 
-func markerReleasePlans(d *Deps, marker *state.Marker, targets []target) []ReleasePlan {
-	if len(marker.Releases) > 0 {
-		out := make([]ReleasePlan, 0, len(marker.Releases))
-		for _, release := range marker.Releases {
-			out = append(out, ReleasePlan{
-				Name: release.Name, Version: release.Version, Tag: release.Tag,
-				PrevTag: release.PrevTag, Packages: append([]string(nil), release.Packages...),
-				Prerelease: release.Prerelease,
-			})
-		}
-		return out
-	}
-	if marker.Version == "" {
-		return nil
-	}
-	resolver := ""
-	packages := make([]string, 0, len(marker.Packages))
-	for _, pkg := range marker.Packages {
-		if resolver == "" {
-			resolver = pkg.Resolver
-		}
-		packages = append(packages, pkg.Name)
-	}
-	if resolver == "" && len(targets) > 0 {
-		resolver = targets[0].pkg.Resolver
-	}
-	if len(packages) == 0 {
-		for _, t := range targets {
-			packages = append(packages, t.name)
-		}
-	}
-	return []ReleasePlan{{
-		Version:    marker.Version,
-		Tag:        tagName(d.Cfg, resolver, marker.Version),
-		Packages:   packages,
-		Prerelease: marker.Channel,
-	}}
-}
-
-func pendingMarkerReleases(ctx context.Context, d *Deps, marker *state.Marker, targets []target) []ReleasePlan {
-	pending := []ReleasePlan{}
-	for _, release := range markerReleasePlans(d, marker, targets) {
-		exists, err := d.Git.TagExists(ctx, release.Tag)
-		if err != nil || exists {
-			continue
-		}
-		applies := len(release.Packages) > 0
-		for _, name := range release.Packages {
-			t := findTarget(targets, name)
-			if t == nil || !markerApplies(release.Version, t.pkg.Version, t.tagVersioned()) {
-				applies = false
-				break
-			}
-		}
-		if applies {
-			pending = append(pending, release)
-		}
-	}
-	return pending
-}
-
-func allMarkerTagsExist(ctx context.Context, d *Deps, marker *state.Marker, targets []target) bool {
-	releases := markerReleasePlans(d, marker, targets)
-	if len(releases) == 0 {
-		return false
-	}
-	for _, release := range releases {
-		exists, err := d.Git.TagExists(ctx, release.Tag)
-		if err != nil || !exists {
-			return false
-		}
-	}
-	return true
-}
-
 func validateCommitMessage(cfg *config.Config, plan *Plan) error {
 	if plan.Phase == PhaseNone {
 		return nil
@@ -867,31 +893,6 @@ func buildChanges(ctx context.Context, d *Deps, records []*changes.Record, repo 
 	return out, nil
 }
 
-func markerPackages(packages []state.MarkerPackage) []PackagePlan {
-	out := make([]PackagePlan, 0, len(packages))
-	for _, pkg := range packages {
-		out = append(out, PackagePlan{
-			Name: pkg.Name, Path: pkg.Path, Resolver: pkg.Resolver,
-			Publish: pkg.Publish, Current: pkg.Current, Next: pkg.Next, Bump: pkg.Bump,
-			Tag: pkg.Tag,
-		})
-	}
-	return out
-}
-
-func markerChanges(changes []state.MarkerChange) []ChangePlan {
-	out := make([]ChangePlan, 0, len(changes))
-	for _, change := range changes {
-		out = append(out, ChangePlan{
-			File: change.File, Type: change.Type, Scope: change.Scope,
-			Bump: change.Bump, Packages: append([]string(nil), change.Packages...), Body: change.Body,
-			Commit: change.Commit, CommitURL: change.CommitURL,
-			PullNumber: change.PullNumber, PullURL: change.PullURL, Author: change.Author,
-		})
-	}
-	return out
-}
-
 func packageWarnings(registered map[string]config.Package, detected []ecosystem.Package) []string {
 	known := make(map[string]bool, len(registered))
 	for key, pkg := range registered {
@@ -951,7 +952,9 @@ func pullRequestNumber(message string) int {
 // still corresponds to the checked out tree. Manifest ecosystems require an
 // exact match because the bump commit wrote the version into the manifest;
 // tag-versioned ecosystems (Go) keep the previous tag until the pending tag is
-// created, so any version at or above the current one applies.
+// created, so a package counts as in step while its current version does not
+// exceed the pending one. A package ahead of the plan cannot join it: the tag it
+// would create already exists.
 func markerApplies(pending, current string, tagVersioned bool) bool {
 	if !tagVersioned {
 		return pending == current
