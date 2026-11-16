@@ -117,7 +117,7 @@ Go 模块的版本来自标签，不写回 `go.mod` 中的版本字段。QuailEg
 
 - `git.tag_prefix` 必须为 `v`。
 - 只支持仓库根目录的 `go.mod`，暂不支持子目录模块与 `go.work` 多模块发布；`qegg scan` 会把子目录模块标为不可登记。
-- Go 包不能加入多包发布计划。
+- Go 包只能以 `version_scope = "shared"` 参与多包发布：独立版本的多包标签由 `tag_format` 渲染，Go 不认；`shared` 用 `tag_prefix`，正好是 `vX.Y.Z`。
 - 发布 v2 或更高版本前，需要自行调整 module 路径和 import，使其带上 `/vN` 后缀；QuailEgg 会检查，不会自动改写。
 
 推送标签后，模块可供 Go 工具链解析。模块代理是否已经缓存该版本是另一项状态，不能只根据代理查询结果判断标签是否发布成功。

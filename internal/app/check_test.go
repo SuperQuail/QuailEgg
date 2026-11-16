@@ -88,6 +88,44 @@ func hasProblem(report *CheckReport, code string) bool {
 	return false
 }
 
+// A package-scoped release tags every package separately, so a package whose
+// version lives in git tags cannot be planned next to another one; the shared
+// scope is the only working configuration.
+func TestCheckReportsPackageScopeTagVersioned(t *testing.T) {
+	dir := newInitRepo(t)
+	writeRepoFile(t, dir, "go.mod", "module example.com/app\n\ngo 1.26.0\n")
+	writeRepoFile(t, dir, "frontend/package.json", "{\n  \"name\": \"frontend\",\n  \"private\": true,\n  \"version\": \"0.0.0\"\n}\n")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: manifests")
+
+	publish := false
+	cfg := config.Default()
+	cfg.Packages = map[string]config.Package{
+		"example.com/app": {Path: ".", Resolver: "go"},
+		"frontend":        {Path: "frontend", Resolver: "npm", Publish: &publish},
+	}
+	a := &App{Root: dir, Cfg: cfg, Run: execx.OSRunner{}}
+	report, err := a.Check(context.Background(), false)
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if !hasProblem(report, "package-tag-versioned") {
+		t.Fatalf("missing package-tag-versioned problem: %+v", report.Problems)
+	}
+
+	cfg.Release.VersionScope = config.VersionScopeShared
+	report, err = a.Check(context.Background(), false)
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if hasProblem(report, "package-tag-versioned") {
+		t.Fatalf("the shared scope still reports a tag-versioned problem: %+v", report.Problems)
+	}
+	if hasProblem(report, "shared-version-mismatch") {
+		t.Fatalf("aligned versions report a mismatch: %+v", report.Problems)
+	}
+}
+
 func TestCheckReportsInspectFailure(t *testing.T) {
 	cfg := config.Default()
 	cfg.Packages = map[string]config.Package{

@@ -127,13 +127,6 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 			}
 		}
 	}
-	if versionScope == config.VersionScopeShared && len(packages) > 1 {
-		for _, name := range sortedPackageNames(packages) {
-			if registry.IsTagVersioned(packages[name].Resolver) {
-				return nil, errors.New(i18n.Tf("init.err.shared_tag_versioned", name))
-			}
-		}
-	}
 	// A version file carries one version, so it is only registered when the
 	// release has exactly one: a single package or a shared scope.
 	var versionFiles []config.VersionFile
@@ -314,6 +307,18 @@ func Init(ctx context.Context, cwd string, printer *ui.Printer, opts InitOptions
 	if len(packages) > 1 && versionScope != config.VersionScopeShared {
 		if names := duplicateManifestNames(packages); len(names) > 0 {
 			plan.Warnings = append(plan.Warnings, i18n.Tf("init.warn.shared_recommended", strings.Join(names, "; ")))
+		}
+	}
+	// A tag-versioned package has no manifest version, so it can only join a
+	// multi-package release through the shared scope. init cannot pick that
+	// scope itself: the versions must already agree, and a tag-derived version
+	// is not visible to detection.
+	if len(packages) > 1 && versionScope != config.VersionScopeShared {
+		for _, name := range sortedPackageNames(packages) {
+			if registry.IsTagVersioned(packages[name].Resolver) {
+				plan.Warnings = append(plan.Warnings, i18n.Tf("init.warn.tag_versioned_multi", name))
+				break
+			}
 		}
 	}
 	if warning := inheritedSelectionWarning(scan, chosen); warning != "" {
