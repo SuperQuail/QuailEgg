@@ -241,12 +241,17 @@ func validateTargets(scope string, targets []target) error {
 	if len(targets) <= 1 {
 		return nil
 	}
-	for _, t := range targets {
-		if t.tagVersioned() {
-			return errors.New(i18n.Tf("release.err.multi_package_tag_versioned", t.name))
-		}
-	}
 	if scope != config.VersionScopeShared {
+		// A package-scoped release tags every package separately, and a
+		// tag-versioned package cannot take part: the ecosystem fixes its tag
+		// spelling and it has no manifest to write the version into. A shared
+		// release carries one tag for the whole repository, which is exactly
+		// the tag the package needs.
+		for _, t := range targets {
+			if t.tagVersioned() {
+				return errors.New(i18n.Tf("release.err.multi_package_tag_versioned", t.name))
+			}
+		}
 		return nil
 	}
 	first := targets[0]

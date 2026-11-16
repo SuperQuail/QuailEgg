@@ -227,6 +227,126 @@ func TestSharedVersionMismatchFails(t *testing.T) {
 	}
 }
 
+// newGoFrontendRepo builds the layout of a desktop application: a Go module at
+// the repository root and an npm frontend next to it.
+func newGoFrontendRepo(t *testing.T, frontendVersion string) string {
+	t.Helper()
+	execx.SanitizeGitHookEnv()
+	dir := t.TempDir()
+	gitRun(t, dir, "init", "-q")
+	gitRun(t, dir, "config", "user.email", "release@example.com")
+	gitRun(t, dir, "config", "user.name", "release")
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "frontend"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "{\n  \"name\": \"frontend\",\n  \"private\": true,\n  \"version\": \"" + frontendVersion + "\"\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, "frontend", "package.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".changes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".changes", "README.md"), []byte("# Change records\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "chore: initial app")
+	return dir
+}
+
+func goFrontendDeps(t *testing.T, dir, scope string) *Deps {
+	t.Helper()
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_ACTIONS", "")
+	repo, err := git.Open(context.Background(), dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("git.Open: %v", err)
+	}
+	cfg := config.Default()
+	publish := false
+	cfg.Packages = map[string]config.Package{
+		"example.com/app": {Path: ".", Resolver: "go"},
+		"frontend":        {Path: "frontend", Resolver: "npm", Publish: &publish},
+	}
+	cfg.Release.VersionScope = scope
+	cfg.Release.Mode = config.ModeCommit
+	cfg.Release.GitHubRelease = false
+	cfg.Release.CommitMessage = "chore(release): bump versions"
+	cfg.Verify.Commands = nil
+	return &Deps{
+		Root: dir,
+		Cfg:  cfg,
+		Git:  repo,
+		Run:  execx.OSRunner{},
+		UI:   ui.Discard(),
+		Now:  time.Now,
+		Options: Options{
+			SkipVerify: true, NoPublish: true, NoPush: true, NoGitHubRelease: true,
+		},
+	}
+}
+
+// A tag-versioned package has no manifest version, so it can only join a
+// multi-package release through the shared scope, where one tag carries the
+// version of every package.
+func TestSharedVersionPlanWithTagVersionedPackage(t *testing.T) {
+	dir := newGoFrontendRepo(t, "0.0.0")
+	writeRecord(t, dir, "app-feature.md", "Add the first desktop feature.", map[string]string{"example.com/app": "minor", "frontend": "minor"}, true)
+	d := goFrontendDeps(t, dir, config.VersionScopeShared)
+	ctx := context.Background()
+
+	plan, err := Build(ctx, d)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if plan.Phase != PhaseVersion {
+		t.Fatalf("phase = %q", plan.Phase)
+	}
+	if plan.Version.Next != "0.1.0" || plan.Tag != "v0.1.0" {
+		t.Fatalf("version = %+v tag = %q", plan.Version, plan.Tag)
+	}
+	if len(plan.Releases) != 1 || len(plan.Releases[0].Packages) != 2 {
+		t.Fatalf("releases = %+v", plan.Releases)
+	}
+	for _, pkg := range plan.Packages {
+		if pkg.Next != "0.1.0" {
+			t.Fatalf("package %s next = %q", pkg.Name, pkg.Next)
+		}
+	}
+	if err := Run(ctx, d, plan); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	manifest, err := os.ReadFile(filepath.Join(dir, "frontend", "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manifest), "0.1.0") {
+		t.Fatalf("frontend manifest was not bumped:\n%s", manifest)
+	}
+	if !hasTag(t, dir, "v0.1.0") {
+		t.Fatal("shared tag missing")
+	}
+	changelog, err := os.ReadFile(filepath.Join(dir, "CHANGELOG.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(changelog), "<!-- qegg:release 0.1.0 -->") {
+		t.Fatalf("changelog = %s", changelog)
+	}
+}
+
+func TestPackageScopeRejectsTagVersionedPackage(t *testing.T) {
+	dir := newGoFrontendRepo(t, "0.0.0")
+	writeRecord(t, dir, "app-feature.md", "Add the first desktop feature.", map[string]string{"example.com/app": "minor"}, true)
+	_, err := Build(context.Background(), goFrontendDeps(t, dir, config.VersionScopePackage))
+	if err == nil || !strings.Contains(err.Error(), "tag") {
+		t.Fatalf("Build error = %v, want a tag-versioned rejection", err)
+	}
+}
+
 func TestReleaseFalseRecordStaysForOtherPackage(t *testing.T) {
 	dir := newWorkspaceRepo(t, map[string]string{"core": "1.0.0", "cli": "1.0.0"})
 	writeRecord(t, dir, "core-fix.md", "Fix a core bug.", map[string]string{"core": "patch"}, true)

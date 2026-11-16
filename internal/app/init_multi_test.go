@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -261,19 +262,60 @@ func TestInitRejectsUnknownResolver(t *testing.T) {
 	}
 }
 
-func TestInitRejectsSharedTagVersioned(t *testing.T) {
+const goFrontendInitConfig = "schema_version = 1\n\n[project]\ndefault_branch = \"main\"\n\n[release]\nmode = \"pr\"\nbranch = \"release\"\n%s\n[packages.\"go@example.com/app\"]\nname = \"example.com/app\"\npath = \".\"\nresolver = \"go\"\n\n[packages.\"npm@frontend\"]\nname = \"frontend\"\npath = \"frontend\"\nresolver = \"npm\"\npublish = false\n"
+
+func goFrontendInitRepo(t *testing.T, scopeLine string) string {
+	t.Helper()
 	dir := newInitRepo(t)
-	cfg := "schema_version = 1\n\n[project]\ndefault_branch = \"main\"\n\n[release]\nmode = \"pr\"\nbranch = \"release\"\nversion_scope = \"shared\"\n\n[packages.a]\npath = \".\"\nresolver = \"go\"\n\n[packages.b]\npath = \"b\"\nresolver = \"go\"\n"
-	writeInitFiles(t, dir, map[string]string{".quailegg.toml": cfg})
-	_, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+	writeInitFiles(t, dir, map[string]string{
+		".quailegg.toml":        fmt.Sprintf(goFrontendInitConfig, scopeLine),
+		"go.mod":                "module example.com/app\n\ngo 1.26.0\n",
+		"frontend/package.json": "{\n  \"name\": \"frontend\",\n  \"private\": true,\n  \"version\": \"0.0.0\"\n}\n",
+	})
+	return dir
+}
+
+// A tag-versioned package has no manifest version, so the shared scope is the
+// only way it can join a multi-package release. init keeps that scope instead
+// of refusing the configuration.
+func TestInitAllowsSharedTagVersioned(t *testing.T) {
+	dir := goFrontendInitRepo(t, "version_scope = \"shared\"\n")
+	if _, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
+		WithWorkflows: false,
+		WithHook:      false,
+		AddPackages:   false,
+		QeggVersion:   "latest",
+	}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".quailegg.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "version_scope = \"shared\"") {
+		t.Fatalf("the shared scope was not kept:\n%s", data)
+	}
+}
+
+// The package scope cannot release a tag-versioned package next to another
+// one, so init points at the shared scope instead of failing later in plan.
+func TestInitWarnsPackageScopeTagVersioned(t *testing.T) {
+	dir := goFrontendInitRepo(t, "")
+	plan, err := Init(context.Background(), dir, ui.Discard(), InitOptions{
 		WithWorkflows: false,
 		WithHook:      false,
 		AddPackages:   false,
 		QeggVersion:   "latest",
 	})
-	if err == nil || !strings.Contains(err.Error(), "tag") {
-		t.Fatalf("err = %v, want a shared/tag-versioned error", err)
+	if err != nil {
+		t.Fatalf("Init: %v", err)
 	}
+	for _, warning := range plan.Warnings {
+		if strings.Contains(warning, "version_scope") {
+			return
+		}
+	}
+	t.Fatalf("warnings = %v, want a shared-scope hint", plan.Warnings)
 }
 
 func TestInitKeepsPrivatePackageOutOfRegistries(t *testing.T) {

@@ -139,7 +139,7 @@ qegg pre exit       # 退出渠道，下一次发布回到稳定版
 ## 多包仓库
 
 - `version_scope = "package"`（默认）逐个包发布：每个包独立版本、独立 tag（默认 `{{slug}}-v{{version}}`，可用 `[git] tag_format` 覆盖）和独立 GitHub Release。
-- `version_scope = "shared"` 让所有包共用一个版本与 tag，适合内部包必须同版本的仓库（例如 uv workspace 里 app 固定依赖兄弟包）；要求所有包生态一致且当前版本相同。
+- `version_scope = "shared"` 让所有包共用一个版本与 tag，适合内部包必须同版本的仓库（例如 uv workspace 里 app 固定依赖兄弟包）；要求所有包生态一致且当前版本相同。Go 模块只能出现在 shared 里：它的版本来自 tag，而 shared 的 tag 正好是 `vX.Y.Z`。
 - 只有命中本次发布包的记录才会被消费；`release: false` 记录留到对应包发布时再写入变更日志。
 - 共享版本的 Python 工作区会自动把 `[project].dependencies` 里兄弟包的 `==` pin 改成新版本；仓库根有 `uv.lock` 时还会执行 `uv lock`。
 - 共享版本的 Cargo workspace 写根 `[workspace.package].version`，同步兄弟 `path` 依赖的 `version`（缺的补上），并在有 `Cargo.lock` 时执行 `cargo update --workspace`。成员继承版本时只能用 shared：package scope 下多个继承成员会在发布时报错。

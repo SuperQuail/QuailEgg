@@ -69,7 +69,7 @@
    - `AssetPlanner`：`PlanAssets` 规划生态自己构建的发布资产（Go 交叉编译 main 包）。返回 nil 表示这个包没有可构建的资产；没有实现该接口的生态改用 `[release.assets].commands` + `files`。
    - `Publisher`：`Name/Precheck/Build/Publish`；不需要构建的生态 `Build` 返回 nil。
 
-   Go 的差异全部落在这张表里：版本来自 tag → `TagVersioner`；tag 必须 `v` → `Spec.TagPrefix`；清单没有版本 → `SetVersion` 空实现；发布即 push tag → `Publisher` 空实现；资产由 Go 交叉编译 → `AssetPlanner`；多包共享版本由现有的“多包 + tag-versioned”通用规则拒绝。核心代码没有 `if resolver == "go"`。
+   Go 的差异全部落在这张表里：版本来自 tag → `TagVersioner`；tag 必须 `v` → `Spec.TagPrefix`；清单没有版本 → `SetVersion` 空实现；发布即 push tag → `Publisher` 空实现；资产由 Go 交叉编译 → `AssetPlanner`；多包共享版本可以包含 tag-versioned 包（共享标签沿用 `tag_prefix`，正好是 Go 的 `vX.Y.Z`），独立版本的多包仍由通用规则拒绝。核心代码没有 `if resolver == "go"`。
 
    `config.Validate` 只做 schema 校验（含 `[[version.file]]` 的路径与 scope 组合）；未知 resolver/registry、shared 与 tag-versioned 冲突等跨生态规则由 `qegg init` / `plan` / `check` 通过 registry 判断。
 
@@ -141,7 +141,7 @@ Java 适配器同时认识 Maven（`pom.xml`）和 Gradle（`build.gradle`、`bu
 - `version_scope = "package"`（默认）：每个包按自己的变更记录独立 bump、独立 tag、独立 GitHub Release。tag 由 `[git] tag_format` 决定，默认 `{{slug}}-v{{version}}`（如 `core-v1.2.3`）；变更日志按 `<!-- qegg:release core@1.2.3 -->` 分段，标题为 `## core v1.2.3 - 日期`。
 - `version_scope = "shared"`：所有包共用一个版本、一个 tag（沿用 `tag_prefix`），一次发布全部包；没有记录的包也同步版本。要求所有包当前版本一致，但可以跨生态（Tauri 的 Rust crates 与前端共用应用版本）；tag 拼写必须一致，因此带 PEP 440 拼写的 Python 包在预发布时不能与其他生态共享版本。
 
-发布顺序按清单里声明的依赖和 `depends-on` 排序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块不支持多包仓库；`[release.assets]` 与 `[[release.build]]` 要求单包仓库或 `shared` scope（一个 GitHub Release 只挂一个版本）。
+发布顺序按清单里声明的依赖和 `depends-on` 排序：被依赖的包先发布。只有命中本次发布包的记录才会被消费，`release: false` 记录留到对应包发布时再写入变更日志。Go 模块只能以 `shared` 参与多包仓库：独立版本的 tag 由 `tag_format` 渲染，Go 不认；`shared` 的 tag 走 `tag_prefix`，正是 `vX.Y.Z`。`[release.assets]` 与 `[[release.build]]` 要求单包仓库或 `shared` scope（一个 GitHub Release 只挂一个版本）。
 
 Python 的预发布沿用仓库里的拼写（`2.0.2-a14`），tag 与 PyPI 使用 PEP 440 形式（`2.0.2a14`），由适配器转换。
 

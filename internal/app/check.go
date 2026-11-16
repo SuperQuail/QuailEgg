@@ -156,28 +156,33 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 	report.Package = report.Entries[0].Name
 	report.Version = report.Entries[0].Version
 	report.Manifest = report.Entries[0].Manifest
-	if a.Cfg.Release.VersionScope == config.VersionScopeShared && len(report.Entries) > 1 {
-		base := report.Entries[0]
-		for _, entry := range report.Entries[1:] {
-			if entry.Version == base.Version {
-				continue
+	if len(report.Entries) > 1 {
+		if a.Cfg.Release.VersionScope == config.VersionScopeShared {
+			base := report.Entries[0]
+			for _, entry := range report.Entries[1:] {
+				if entry.Version == base.Version {
+					continue
+				}
+				report.Problems = append(report.Problems, Problem{
+					Code:    "shared-version-mismatch",
+					Message: i18n.Tf("check.problem.shared_version_mismatch", entry.Name, entry.Version, base.Name, base.Version),
+					Fix:     i18n.T("check.fix.shared_version"),
+				})
 			}
-			report.Problems = append(report.Problems, Problem{
-				Code:    "shared-version-mismatch",
-				Message: i18n.Tf("check.problem.shared_version_mismatch", entry.Name, entry.Version, base.Name, base.Version),
-				Fix:     i18n.T("check.fix.shared_version"),
-			})
-		}
-		for _, entry := range report.Entries {
-			if !registry.IsTagVersioned(entry.Resolver) {
-				continue
+		} else {
+			// A package-scoped release tags every package separately, so a
+			// package without a manifest version cannot be planned at all.
+			for _, entry := range report.Entries {
+				if !registry.IsTagVersioned(entry.Resolver) {
+					continue
+				}
+				report.Problems = append(report.Problems, Problem{
+					Code:    "package-tag-versioned",
+					Message: i18n.Tf("check.problem.package_tag_versioned", entry.Name),
+					Fix:     i18n.T("check.fix.package_tag_versioned"),
+				})
+				break
 			}
-			report.Problems = append(report.Problems, Problem{
-				Code:    "shared-tag-versioned",
-				Message: i18n.Tf("check.problem.shared_tag_versioned", entry.Name),
-				Fix:     i18n.T("check.fix.shared_tag_versioned"),
-			})
-			break
 		}
 	}
 
