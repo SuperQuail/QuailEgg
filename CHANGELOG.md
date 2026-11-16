@@ -1,5 +1,15 @@
 # Changelog
 
+<!-- qegg:release 0.14.0 -->
+## v0.14.0 - 2026-11-16
+
+### Features
+
+- [`bb16ad7`](https://github.com/SuperQuail/QuailEgg/commit/bb16ad7bba51c4ff1135f806674486398f2165e7): Release a Go application together with its frontend under one shared version.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.13.0...v0.14.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.13.0 -->
 ## v0.13.0 - 2026-11-07
 

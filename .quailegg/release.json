@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.13.0",
-  "created_at": "2026-11-07T03:37:04.823457022Z",
+  "version": "0.14.0",
+  "created_at": "2026-11-16T15:02:04.896973525Z",
   "mode": "pr",
-  "fingerprint": "sha256:f28715e17d0edeb00fe6432fee84ca80d037836e0eaf49b6c3020ed2bd2f7d5b",
+  "fingerprint": "sha256:6c39819c337a306ebcd3d149f39ddd3f9f1fa0736a07a2c978d0b74b7fed2e73",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-11-07T03:37:04.823457336Z"
+    "at": "2026-11-16T15:02:04.896973966Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.12.0",
-      "next": "0.13.0",
+      "current": "0.13.0",
+      "next": "0.14.0",
       "bump": "minor",
-      "tag": "v0.13.0",
+      "tag": "v0.14.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.13.0",
-      "tag": "v0.13.0",
-      "previous_tag": "v0.12.0",
+      "version": "0.14.0",
+      "tag": "v0.14.0",
+      "previous_tag": "v0.13.0",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,48 +41,21 @@
   ],
   "changes": [
     {
-      "file": ".changes/add-a-switch.md",
+      "file": ".changes/allow-shared-versions.md",
       "type": "feat",
-      "scope": "release",
       "bump": "minor",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Skip the changelog file when the configuration turns it off.",
-      "commit": "2921a0b33b6339d579dd55dde9e8e3bed8cdcf2a",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/2921a0b33b6339d579dd55dde9e8e3bed8cdcf2a",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/customize-the-generated.md",
-      "type": "feat",
-      "scope": "scaffold",
-      "bump": "minor",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Prepare each generated workflow job with its own runner, timeout and steps.",
-      "commit": "7bc4973f1563c2fe9dbaf5cd67ef360aac9b9793",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/7bc4973f1563c2fe9dbaf5cd67ef360aac9b9793",
-      "author": "Wsrsq"
-    },
-    {
-      "file": ".changes/install-ecosystem-tools.md",
-      "type": "fix",
-      "scope": "scaffold",
-      "bump": "patch",
-      "packages": [
-        "github.com/SuperQuail/QuailEgg"
-      ],
-      "body": "Install the ecosystem toolchain in the pull request workflow so checks no longer fail on missing tools.",
-      "commit": "0d4df5494ec8080639250e6ed9a725bcd369dc87",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/0d4df5494ec8080639250e6ed9a725bcd369dc87",
+      "body": "Release a Go application together with its frontend under one shared version.",
+      "commit": "bb16ad7bba51c4ff1135f806674486398f2165e7",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/bb16ad7bba51c4ff1135f806674486398f2165e7",
       "author": "Wsrsq"
     }
   ],
   "qegg": {
-    "version": "0.12.1-0.20261107033619-8250b74def0a",
-    "commit": "8250b74",
+    "version": "0.13.1-0.20261116150108-bb16ad7bba51",
+    "commit": "bb16ad7",
     "develop": true
   }
 }
