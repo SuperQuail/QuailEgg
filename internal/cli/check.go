@@ -48,6 +48,13 @@ func printCheck(p *ui.Printer, report *app.CheckReport) {
 	for _, entry := range report.Entries {
 		p.Info("%s", i18n.Tf("check.entry_line", entry.Name, entry.Resolver, entry.Version))
 	}
+	// A tag-versioned package keeps its previous tag until the publish phase, so
+	// the version line above can lag behind the release being prepared. Name the
+	// pending version, or the problems below read as if the repository were
+	// simply behind.
+	if report.PendingVersion != "" {
+		p.Info("%s", i18n.Tf("check.pending_release", report.PendingVersion))
+	}
 	for _, problem := range report.Problems {
 		p.Errorf("%s: %s", problem.Code, problem.Message)
 		if problem.Fix != "" {

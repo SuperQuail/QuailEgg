@@ -139,8 +139,40 @@ qegg pre exit       # 退出渠道，下一次发布回到稳定版
 ## 多包仓库
 
 - `version_scope = "package"`（默认）逐个包发布：每个包独立版本、独立 tag（默认 `{{slug}}-v{{version}}`，可用 `[git] tag_format` 覆盖）和独立 GitHub Release。
-- `version_scope = "shared"` 让所有包共用一个版本与 tag，适合内部包必须同版本的仓库（例如 uv workspace 里 app 固定依赖兄弟包）；要求所有包生态一致且当前版本相同。Go 模块只能出现在 shared 里：它的版本来自 tag，而 shared 的 tag 正好是 `vX.Y.Z`。
+- `version_scope = "shared"` 让所有包共用一个版本与 tag，适合内部包必须同版本的仓库（例如 uv workspace 里 app 固定依赖兄弟包）；要求所有包当前版本相同、tag 拼写一致（有待发布计划时例外，见下）。Go 模块只能出现在 shared 里：它的版本来自 tag，而 shared 的 tag 正好是 `vX.Y.Z`。
 - 只有命中本次发布包的记录才会被消费；`release: false` 记录留到对应包发布时再写入变更日志。
 - 共享版本的 Python 工作区会自动把 `[project].dependencies` 里兄弟包的 `==` pin 改成新版本；仓库根有 `uv.lock` 时还会执行 `uv lock`。
 - 共享版本的 Cargo workspace 写根 `[workspace.package].version`，同步兄弟 `path` 依赖的 `version`（缺的补上），并在有 `Cargo.lock` 时执行 `cargo update --workspace`。成员继承版本时只能用 shared：package scope 下多个继承成员会在发布时报错。
 - 发布顺序按清单依赖与 `depends-on` 排序，被依赖的包先发布（`cargo publish` 要求依赖已经在 crates.io 上）。
+
+`qegg init` 首次生成配置（默认登记扫描到的包）时，如果登记了两个及以上包、且各包的清单版本相同，会自动写 `version_scope = "shared"`；有包从根清单继承版本（Cargo workspace、Maven parent）时同样选 `shared`。其余情况保持 `package`，需要共用版本时手工写 `version_scope = "shared"`。多包仓库里有版本来自 tag 的包时，`qegg init` 不会拒绝配置，而是给出警告（`init.warn.tag_versioned_multi`）：这类包只能用 `shared`，并且所有包要从同一个版本开始。`qegg scan` 用同一套规则预测 `qegg init` 会写入的版本范围（输出里的 `version_scope`），两者不会给出不同的结果。
+
+## 共享版本与 tag 版本包
+
+`version_scope = "shared"` 可以让版本来自 tag 的包与清单里有版本的包共用一个版本、一个 tag（沿用 `tag_prefix`，Go 的 tag 因此以 `v` 开头）。两条约束：
+
+- tag 版本包只能待在仓库根目录：Go 适配器只读根目录的 `go.mod`，一个仓库 tag 也只能承载一个版本。`qegg init` 不因此拒绝配置，只在多包仓库里提示这类包只能用 `shared`。
+- `version_scope = "package"` 的多包仓库不接受 tag 版本包：每个包要独立 tag，而 Go 表达不了；`qegg plan` 与 `qegg check` 都会拒绝（check 的问题码是 `package-tag-versioned`）。
+
+pr 模式下这类仓库分两次运行，两次运行之间各包的当前版本并不相等：
+
+| 运行 | 时机 | 版本状态 | 产出 |
+| --- | --- | --- | --- |
+| version | 推送主分支 | 清单包写成新版本；tag 版本包仍是上一个 tag 的版本（没有 tag 时是 `0.0.0`） | release 分支上的版本提交（含 `.quailegg/release.json`）与 release PR |
+| publish | 合并 release PR | 清单包已是新版本；tag 版本包仍报上一个 tag，直到新 tag 建好 | 构建、发布、打 tag、推 tag、建 GitHub Release |
+
+`.quailegg/release.json` 是提交进仓库的发布意图（marker）：version 阶段写入待发布版本、各包版本、tag、本次消费的记录等；publish 阶段重新跑 `qegg plan` 时读它，按里面的版本校验各包，再据此构建、发布与打 tag。发布完成后 marker 保留在仓库里，不再约束后续版本，只作为预发布去重、转正式版和发布说明的基线。`commit` 模式在同一次运行里完成这两步，不存在这个版本差异。
+
+版本一致性校验按“有没有待发布计划”分两种。待发布计划指 marker 里 tag 还不存在、且它覆盖的包都还登记着的发布，不要求 marker 版本与当前检出相符：
+
+| 情况 | 清单包 | tag 版本包 |
+| --- | --- | --- |
+| 没有待发布计划：没有 marker、marker 里的发布都已打过 tag、它覆盖的包已不再全部登记，或同时有多个发布待发 | 必须与其他包严格相等 | 必须与其他包严格相等 |
+| 有待发布计划 | 必须已经等于计划版本 | 不高于计划版本即可（它的 tag 在 publish 阶段才创建） |
+
+- 待发布计划与检出不符时直接报错，而不是退化成严格相等：清单包的版本被改回去、tag 比计划新（已经发了 `v0.2.0`，却要发 `v0.1.0`）都属于这种情况。plan 报“包 <名称> 的版本是 <当前版本>，但待发布的版本是 <计划版本>”，check 报 `shared-version-pending`，并提示“重新发起发布，让计划与已检出的版本一致，或删除过期的 `.quailegg/release.json`”。
+- 这条规则只作用于多包共享单元。单包仓库没有第二个包可比，待发布计划与检出不符时不会报错，而是直接重新规划：有记录时按当前检出算出新版本，marker 里的版本被忽略，版本阶段随后写入新的 marker；没有记录时计划为空，`qegg release` 打印“没有需要发布的变更记录”并以退出码 0 结束，发布阶段的预检不执行。过期的 marker 因此拦不住单包仓库的下一次发布。
+- `qegg plan` 用本次要发布的版本校验共享单元，包括 tag 拼写；`qegg check` 不计算新版本，只能静态判断：有待发布计划时按计划版本、否则按当前版本比较版本对齐与 tag 拼写。release 分支上的 `qegg check --ci` 因此不会因为“清单包已是新版本、tag 版本包还是旧版本”而误报。
+- `qegg check` 会读 marker（不限 shared 仓库）：marker 损坏时 check 直接失败（`marker-invalid`，提示修正或删除 `.quailegg/release.json` 后重试），读不到 tag 时报 `pending-unresolved`，提示“拉取发布标签（fetch-depth: 0）后重试”。它靠 `git tag` 判断 marker 里的发布是否已经打过 tag，浅克隆（`fetch-depth: 1`）里看不到历史 tag，已完成的 marker 会被当成待发布；生成的工作流用 `fetch-depth: 0`，手工运行 check 时要先取全 tag。
+- 待发布计划没有覆盖新登记的包时报错：plan 报“待发布的版本 <版本> 没有覆盖 <包>”，check 报 `shared-version-uncovered`，都提示重新发起发布。旧格式 marker 只写 `version`、没有记录各包的发布范围时，待发布计划按当前登记的包展开，因此这条检查对它不生效。
+- `[[version.file]]` 登记的额外版本文件按同一个预期版本校验，有待发布计划时用计划版本。读不到 marker 或无法解析待发布版本、因而无法确定预期版本时，check 报 `version-file-unverified` 并附上 marker 的问题，而不是把各包版本不一致误报成 `version-file-ambiguous`。

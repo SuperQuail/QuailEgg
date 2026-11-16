@@ -9,6 +9,8 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
+	"github.com/SuperQuail/QuailEgg/internal/release"
+	"github.com/SuperQuail/QuailEgg/internal/release/state"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,18 +18,19 @@ import (
 
 // CheckReport is the machine readable result of qegg check.
 type CheckReport struct {
-	SchemaVersion int               `json:"schema_version"`
-	OK            bool              `json:"ok"`
-	Ecosystem     string            `json:"ecosystem,omitempty"`
-	Package       string            `json:"package,omitempty"`
-	Version       string            `json:"version,omitempty"`
-	Manifest      string            `json:"manifest,omitempty"`
-	Mode          string            `json:"mode"`
-	Tools         map[string]string `json:"tools"`
-	Verify        VerifyStatus      `json:"verify"`
-	Packages      PackageStatus     `json:"packages"`
-	Entries       []PackageEntry    `json:"entries,omitempty"`
-	Problems      []Problem         `json:"problems"`
+	SchemaVersion  int               `json:"schema_version"`
+	OK             bool              `json:"ok"`
+	Ecosystem      string            `json:"ecosystem,omitempty"`
+	Package        string            `json:"package,omitempty"`
+	Version        string            `json:"version,omitempty"`
+	PendingVersion string            `json:"pending_version,omitempty"`
+	Manifest       string            `json:"manifest,omitempty"`
+	Mode           string            `json:"mode"`
+	Tools          map[string]string `json:"tools"`
+	Verify         VerifyStatus      `json:"verify"`
+	Packages       PackageStatus     `json:"packages"`
+	Entries        []PackageEntry    `json:"entries,omitempty"`
+	Problems       []Problem         `json:"problems"`
 }
 
 // VerifyStatus reports the configured verification commands.
@@ -156,38 +159,54 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 	report.Package = report.Entries[0].Name
 	report.Version = report.Entries[0].Version
 	report.Manifest = report.Entries[0].Manifest
-	if len(report.Entries) > 1 {
-		if a.Cfg.Release.VersionScope == config.VersionScopeShared {
-			base := report.Entries[0]
-			for _, entry := range report.Entries[1:] {
-				if entry.Version == base.Version {
-					continue
-				}
-				report.Problems = append(report.Problems, Problem{
-					Code:    "shared-version-mismatch",
-					Message: i18n.Tf("check.problem.shared_version_mismatch", entry.Name, entry.Version, base.Name, base.Version),
-					Fix:     i18n.T("check.fix.shared_version"),
-				})
-			}
+	// A release can be in flight: the version phase writes the version files and
+	// bumps the manifests, while a tag-versioned package keeps its previous tag
+	// until the publish phase creates the new one. The marker names the version
+	// being prepared, so the shared-version rules and the version files are
+	// checked against it rather than against manifests that legitimately
+	// disagree in between.
+	versions := packageVersions(report.Entries)
+	pending, pendingProblems := a.pendingReleaseVersion(ctx, versions)
+	report.Problems = append(report.Problems, pendingProblems...)
+	report.PendingVersion = pending.Version
+	// A marker that cannot be read leaves the pending version unknown, and an
+	// empty version reads as "no release in flight": the shared rules would then
+	// hold the packages to each other's checked out versions and blame one of
+	// them for drift the marker explains, with a fix that is wrong while the
+	// release is still running. Keep the marker problem alone instead.
+	if a.Cfg.Release.VersionScope == config.VersionScopeShared && len(report.Entries) > 1 && len(pendingProblems) == 0 {
+		// A release that leaves a package out never writes its version, so the
+		// untouched package would be blamed for drift it did not cause. Report
+		// the missing coverage instead.
+		if pending.Version != "" && len(pending.Uncovered) > 0 {
+			report.Problems = append(report.Problems, Problem{
+				Code:    "shared-version-uncovered",
+				Message: i18n.Tf("check.problem.shared_version_uncovered", pending.Version, strings.Join(pending.Uncovered, ", ")),
+				Fix:     i18n.T("check.fix.shared_version_uncovered"),
+			})
 		} else {
-			// A package-scoped release tags every package separately, so a
-			// package without a manifest version cannot be planned at all.
-			for _, entry := range report.Entries {
-				if !registry.IsTagVersioned(entry.Resolver) {
-					continue
-				}
-				report.Problems = append(report.Problems, Problem{
-					Code:    "package-tag-versioned",
-					Message: i18n.Tf("check.problem.package_tag_versioned", entry.Name),
-					Fix:     i18n.T("check.fix.package_tag_versioned"),
-				})
-				break
+			report.Problems = append(report.Problems, a.sharedVersionProblems(versions, pending.Version)...)
+		}
+	}
+	// A package-scoped release tags every package separately, so a package
+	// without a manifest version cannot be planned at all. The plan refuses such
+	// a repository, so check reports it before a release gets there.
+	if a.Cfg.Release.VersionScope != config.VersionScopeShared && len(report.Entries) > 1 {
+		for _, entry := range report.Entries {
+			if !registry.IsTagVersioned(entry.Resolver) {
+				continue
 			}
+			report.Problems = append(report.Problems, Problem{
+				Code:    "package-tag-versioned",
+				Message: i18n.Tf("check.problem.package_tag_versioned", entry.Name),
+				Fix:     i18n.T("check.fix.package_tag_versioned"),
+			})
+			break
 		}
 	}
 
 	if len(a.Cfg.Version.File) > 0 {
-		report.Problems = append(report.Problems, a.versionFileProblems(report.Entries)...)
+		report.Problems = append(report.Problems, a.versionFileProblems(report.Entries, pending.Version, pendingProblems)...)
 	}
 
 	if len(a.Cfg.Verify.Commands) == 0 {
@@ -220,6 +239,96 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 
 	report.OK = len(report.Problems) == 0
 	return report, nil
+}
+
+// pendingReleaseVersion returns the release the marker is preparing, empty when
+// no release is in flight. The version files and the shared-version rules are
+// checked against it because a tag-versioned package only reports the new
+// version once its tag exists, so the manifests disagree until the publish
+// phase runs. A returned problem means the pending version is unknown rather
+// than absent, which the caller has to tell apart before it compares anything.
+//
+// A missing repository is the one exception: without git the tags cannot be read
+// at all, so the version is reported as absent and no problem. app.New always
+// sets Git, so only a hand-built App reaches that branch.
+func (a *App) pendingReleaseVersion(ctx context.Context, pkgs []release.PackageVersion) (release.PendingRelease, []Problem) {
+	// A nil *git.Repo stored in the TagChecker interface is not a nil interface,
+	// so a missing repository has to be caught here, before the release package
+	// dereferences it.
+	if a.Git == nil {
+		return release.PendingRelease{}, nil
+	}
+	marker, err := state.LoadMarker(a.Root)
+	if err != nil {
+		return release.PendingRelease{}, []Problem{{
+			Code:    "marker-invalid",
+			Message: i18n.Tf("check.problem.marker_invalid", err),
+			Fix:     i18n.T("check.fix.marker_invalid"),
+		}}
+	}
+	pending, err := release.PendingSharedVersion(ctx, a.Cfg, a.Git, marker, pkgs)
+	if err != nil {
+		return release.PendingRelease{}, []Problem{{
+			Code:    "pending-unresolved",
+			Message: i18n.Tf("check.problem.pending_unresolved", err),
+			Fix:     i18n.T("check.fix.pending_unresolved"),
+		}}
+	}
+	return pending, nil
+}
+
+// packageVersions is the release view of the checked entries.
+func packageVersions(entries []PackageEntry) []release.PackageVersion {
+	pkgs := make([]release.PackageVersion, 0, len(entries))
+	for _, entry := range entries {
+		pkgs = append(pkgs, release.PackageVersion{
+			Name: entry.Name, Version: entry.Version, Resolver: entry.Resolver,
+		})
+	}
+	return pkgs
+}
+
+// sharedVersionProblems validates the packages of a shared-version repository
+// against the version a pending release is preparing.
+func (a *App) sharedVersionProblems(pkgs []release.PackageVersion, pending string) []Problem {
+	problems := make([]Problem, 0, len(pkgs))
+	for _, violation := range release.CheckSharedVersions(pkgs, pending) {
+		switch violation.Code {
+		case release.SharedVersionMismatch:
+			problems = append(problems, Problem{
+				Code:    "shared-version-mismatch",
+				Message: i18n.Tf("check.problem.shared_version_mismatch", violation.Package, violation.Version, violation.Other, violation.OtherVersion),
+				Fix:     i18n.T("check.fix.shared_version"),
+			})
+		case release.SharedVersionPending:
+			// The release is already running, so "align the versions by hand" is
+			// the wrong advice: the version phase wrote the pending version and a
+			// tag-versioned package follows once its tag exists. Point at the
+			// pending release instead. A shallow clone hides the finished tags and
+			// makes a completed release look pending, so the fix offers fetching
+			// the tags before it suggests deleting the marker.
+			problems = append(problems, Problem{
+				Code:    "shared-version-pending",
+				Message: i18n.Tf("check.problem.shared_version_pending", violation.Package, violation.Version, violation.OtherVersion),
+				Fix:     i18n.T("check.fix.shared_version_pending"),
+			})
+		case release.SharedTagSpelling:
+			problems = append(problems, Problem{
+				Code:    "shared-tag-spelling",
+				Message: i18n.Tf("check.problem.shared_tag_spelling", violation.Package, violation.PackageTag, violation.Other, violation.ReferenceTag),
+				Fix:     i18n.T("check.fix.shared_tag_spelling"),
+			})
+		default:
+			// A new violation code has to be registered above, or check reports it
+			// with the message and fix of a version mismatch.
+			problems = append(problems, Problem{
+				Code:    "shared-version-mismatch",
+				Message: i18n.Tf("check.problem.shared_version_mismatch", violation.Package, violation.Version, violation.Other, violation.OtherVersion),
+				Fix:     i18n.T("check.fix.shared_version"),
+			})
+		}
+	}
+	return problems
 }
 
 func (a *App) ciRecordProblem(ctx context.Context) *Problem {
@@ -306,20 +415,41 @@ func ciDiffRefs() (string, string) {
 }
 
 // versionFileProblems verifies the configured version files against the one
-// release version of the repository.
-func (a *App) versionFileProblems(entries []PackageEntry) []Problem {
-	versions := make(map[string]bool, len(entries))
-	for _, entry := range entries {
-		versions[entry.Version] = true
-	}
-	if len(versions) != 1 {
+// release version of the repository. A pending release supplies that version:
+// a tag-versioned package only reaches it once its tag exists, so the checked
+// out versions cannot be compared against each other mid-release. A pending
+// problem means that version is unknown rather than absent, and the files cannot
+// be verified at all.
+func (a *App) versionFileProblems(entries []PackageEntry, expected string, pendingProblems []Problem) []Problem {
+	if len(pendingProblems) > 0 {
+		// Falling back to "every package must agree" would blame a shared
+		// repository for versions that legitimately differ while a release is in
+		// flight, and the fix would suggest the scope it already uses. Report the
+		// unverified state instead; the marker problem carries the fix.
 		return []Problem{{
-			Code:    "version-file-ambiguous",
-			Message: i18n.T("check.problem.version_file_ambiguous"),
-			Fix:     i18n.T("check.fix.version_file_ambiguous"),
+			Code:    "version-file-unverified",
+			Message: i18n.Tf("check.problem.version_file_unverified", pendingProblems[0].Message),
 		}}
 	}
-	expected := entries[0].Version
+	// The caller passes the pending release version when one is in flight. The
+	// packages may legitimately sit elsewhere mid-release, so the drift message
+	// has to name the pending release instead of "the package version", which
+	// would quote a number the packages are not supposed to carry yet.
+	fromPending := expected != ""
+	if expected == "" {
+		versions := make(map[string]bool, len(entries))
+		for _, entry := range entries {
+			versions[entry.Version] = true
+		}
+		if len(versions) != 1 {
+			return []Problem{{
+				Code:    "version-file-ambiguous",
+				Message: i18n.T("check.problem.version_file_ambiguous"),
+				Fix:     i18n.T("check.fix.version_file_ambiguous"),
+			}}
+		}
+		expected = entries[0].Version
+	}
 	problems := make([]Problem, 0, len(a.Cfg.Version.File))
 	for _, file := range a.Cfg.Version.File {
 		current, err := file.Read(a.Root)
@@ -334,9 +464,13 @@ func (a *App) versionFileProblems(entries []PackageEntry) []Problem {
 		if current == expected {
 			continue
 		}
+		message := i18n.Tf("check.problem.version_file_drift", file.Path, current, expected)
+		if fromPending {
+			message = i18n.Tf("check.problem.version_file_drift_pending", file.Path, current, expected)
+		}
 		problems = append(problems, Problem{
 			Code:    "version-file-drift",
-			Message: i18n.Tf("check.problem.version_file_drift", file.Path, current, expected),
+			Message: message,
 			Fix:     i18n.T("check.fix.version_file_drift"),
 		})
 	}
