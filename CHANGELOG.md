@@ -1,5 +1,15 @@
 # Changelog
 
+<!-- qegg:release 0.14.1 -->
+## v0.14.1 - 2026-11-17
+
+### Bug Fixes
+
+- [`bccd9c8`](https://github.com/SuperQuail/QuailEgg/commit/bccd9c821a0a4f180d658fabdf2dd2a8aed0bd35): Complete a two-phase shared release that includes a package versioned by its tag.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.14.0...v0.14.1
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.14.0 -->
 ## v0.14.0 - 2026-11-16
 
