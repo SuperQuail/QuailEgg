@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.14.0",
-  "created_at": "2026-11-16T15:02:04.896973525Z",
+  "version": "0.14.1",
+  "created_at": "2026-11-17T03:24:09.970743642Z",
   "mode": "pr",
-  "fingerprint": "sha256:6c39819c337a306ebcd3d149f39ddd3f9f1fa0736a07a2c978d0b74b7fed2e73",
+  "fingerprint": "sha256:b9cba75d87dcd134cefaa6ffcc612729c1542392d50dd45dd5b97836fb7f5d83",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-11-16T15:02:04.896973966Z"
+    "at": "2026-11-17T03:24:09.970744473Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.13.0",
-      "next": "0.14.0",
-      "bump": "minor",
-      "tag": "v0.14.0",
+      "current": "0.14.0",
+      "next": "0.14.1",
+      "bump": "patch",
+      "tag": "v0.14.1",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.14.0",
-      "tag": "v0.14.0",
-      "previous_tag": "v0.13.0",
+      "version": "0.14.1",
+      "tag": "v0.14.1",
+      "previous_tag": "v0.14.0",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,21 +41,22 @@
   ],
   "changes": [
     {
-      "file": ".changes/allow-shared-versions.md",
-      "type": "feat",
-      "bump": "minor",
+      "file": ".changes/shared-pending-version.md",
+      "type": "fix",
+      "scope": "release",
+      "bump": "patch",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Release a Go application together with its frontend under one shared version.",
-      "commit": "bb16ad7bba51c4ff1135f806674486398f2165e7",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/bb16ad7bba51c4ff1135f806674486398f2165e7",
+      "body": "Complete a two-phase shared release that includes a package versioned by its tag.",
+      "commit": "bccd9c821a0a4f180d658fabdf2dd2a8aed0bd35",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/bccd9c821a0a4f180d658fabdf2dd2a8aed0bd35",
       "author": "Wsrsq"
     }
   ],
   "qegg": {
-    "version": "0.13.1-0.20261116150108-bb16ad7bba51",
-    "commit": "bb16ad7",
+    "version": "0.14.1-0.20261117032339-bccd9c821a0a",
+    "commit": "bccd9c8",
     "develop": true
   }
 }
