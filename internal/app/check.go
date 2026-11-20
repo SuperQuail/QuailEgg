@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"github.com/SuperQuail/QuailEgg/internal/changes"
 	"github.com/SuperQuail/QuailEgg/internal/config"
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
@@ -11,7 +11,6 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/release"
 	"github.com/SuperQuail/QuailEgg/internal/release/state"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -30,7 +29,10 @@ type CheckReport struct {
 	Verify         VerifyStatus      `json:"verify"`
 	Packages       PackageStatus     `json:"packages"`
 	Entries        []PackageEntry    `json:"entries,omitempty"`
-	Problems       []Problem         `json:"problems"`
+	// CI describes what the pull request check judged. It is present only for
+	// qegg check --ci, so a skipped check is visible in the JSON report too.
+	CI       *CIReport `json:"ci,omitempty"`
+	Problems []Problem `json:"problems"`
 }
 
 // VerifyStatus reports the configured verification commands.
@@ -60,6 +62,10 @@ type Problem struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Fix     string `json:"fix,omitempty"`
+	// record is the change record the problem is about, slash separated and
+	// relative to the repository. The working tree and the pull request head can
+	// both judge one record, and the report should carry it once.
+	record string
 }
 
 // Check validates configuration, ecosystem, tools and change records.
@@ -216,9 +222,20 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 		report.Verify.Problems = append(report.Verify.Problems, i18n.T("check.problem.commit_mode"))
 	}
 
-	records, err := changes.LoadDir(filepath.Join(a.Root, a.Cfg.Changes.Dir))
+	// The records are named relative to the repository, so the working tree pass
+	// and the pull request head pass name one record the same way.
+	records, err := changes.LoadDirIn(a.Root, filepath.Join(a.Root, a.Cfg.Changes.Dir))
 	if err != nil {
-		report.Problems = append(report.Problems, Problem{Code: "record-invalid", Message: err.Error()})
+		problem := Problem{
+			Code:    "record-invalid",
+			Message: err.Error(),
+			Fix:     i18n.T("check.fix.record_invalid"),
+		}
+		var invalid *changes.InvalidRecordError
+		if errors.As(err, &invalid) {
+			problem.record = invalid.Path
+		}
+		report.Problems = append(report.Problems, problem)
 	} else {
 		for _, record := range records {
 			if err := record.Validate(report.Packages.Registered); err != nil {
@@ -226,19 +243,37 @@ func (a *App) Check(ctx context.Context, ci bool) (*CheckReport, error) {
 					Code:    "record-invalid",
 					Message: i18n.Tf("check.problem.record_invalid", record.Path, err),
 					Fix:     i18n.T("check.fix.record_invalid"),
+					record:  record.Path,
 				})
 			}
 		}
 	}
 
 	if ci {
-		if problem := a.ciRecordProblem(ctx); problem != nil {
-			report.Problems = append(report.Problems, *problem)
+		ciReport, problems := a.ciRecordProblems(ctx)
+		report.CI = ciReport
+		for _, problem := range problems {
+			report.appendProblem(problem)
 		}
 	}
 
 	report.OK = len(report.Problems) == 0
 	return report, nil
+}
+
+// appendProblem adds a problem unless the report already reports the same code
+// for the same change record. The two passes can word one failure differently, so
+// the record and the code are the key, not the message.
+func (r *CheckReport) appendProblem(problem Problem) {
+	for _, existing := range r.Problems {
+		if existing.record == "" || existing.record != problem.record {
+			continue
+		}
+		if existing.Code == problem.Code {
+			return
+		}
+	}
+	r.Problems = append(r.Problems, problem)
 }
 
 // pendingReleaseVersion returns the release the marker is preparing, empty when
@@ -331,39 +366,6 @@ func (a *App) sharedVersionProblems(pkgs []release.PackageVersion, pending strin
 	return problems
 }
 
-func (a *App) ciRecordProblem(ctx context.Context) *Problem {
-	base, head := ciDiffRefs()
-	if base == "" || head == "" {
-		return nil
-	}
-	files, err := a.Git.ChangedNamesBetween(ctx, base, head)
-	if err != nil {
-		return nil
-	}
-	scope := a.Cfg.Changes.Scope
-	changesPrefix := filepath.ToSlash(filepath.Clean(a.Cfg.Changes.Dir))
-	sourceTouched := false
-	recordAdded := false
-	for _, file := range files {
-		clean := filepath.ToSlash(file)
-		if strings.HasPrefix(clean, changesPrefix+"/") && strings.HasSuffix(clean, ".md") && clean != changesPrefix+"/README.md" {
-			recordAdded = true
-			continue
-		}
-		if changes.MatchesScope(clean, scope) {
-			sourceTouched = true
-		}
-	}
-	if sourceTouched && !recordAdded {
-		return &Problem{
-			Code:    "missing-record",
-			Message: i18n.T("check.problem.missing_record"),
-			Fix:     i18n.T("check.fix.missing_record"),
-		}
-	}
-	return nil
-}
-
 type toolRequirement struct {
 	name    string
 	command string
@@ -386,32 +388,6 @@ func requiredTools(resolver string) []toolRequirement {
 		})
 	}
 	return out
-}
-
-// ciDiffRefs reads the pull request base and head SHAs from the CI event.
-func ciDiffRefs() (string, string) {
-	path := os.Getenv("GITHUB_EVENT_PATH")
-	if path == "" {
-		return "", ""
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", ""
-	}
-	var event struct {
-		PullRequest *struct {
-			Base struct {
-				SHA string `json:"sha"`
-			} `json:"base"`
-			Head struct {
-				SHA string `json:"sha"`
-			} `json:"head"`
-		} `json:"pull_request"`
-	}
-	if err := json.Unmarshal(data, &event); err != nil || event.PullRequest == nil {
-		return "", ""
-	}
-	return event.PullRequest.Base.SHA, event.PullRequest.Head.SHA
 }
 
 // versionFileProblems verifies the configured version files against the one

@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -264,5 +265,222 @@ func TestIgnored(t *testing.T) {
 	}
 	if ignored {
 		t.Fatal("tracked files are never ignored")
+	}
+}
+
+// writeGitFile writes rel under dir, creating parents.
+func writeGitFile(t *testing.T, dir, rel, body string) {
+	t.Helper()
+	full := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// commitBase commits the two files the status tests start from.
+func commitBase(t *testing.T, dir string) {
+	t.Helper()
+	writeGitFile(t, dir, "keep.txt", "keep\n")
+	writeGitFile(t, dir, ".changes/old.md", "old\n")
+	writeGitFile(t, dir, ".changes/renamed.md", "renamed\n")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: base")
+}
+
+func TestStagedChangesReportsStatus(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	commitBase(t, dir)
+	writeGitFile(t, dir, ".changes/old.md", "old, edited\n")
+	writeGitFile(t, dir, ".changes/new.md", "new\n")
+	runGit(t, dir, "rm", "-q", ".changes/renamed.md")
+	writeGitFile(t, dir, ".changes/renamed.md", "renamed\n")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "mv", ".changes/renamed.md", ".changes/moved.md")
+
+	repo, err := Open(context.Background(), dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	changes, err := repo.StagedChanges(context.Background())
+	if err != nil {
+		t.Fatalf("StagedChanges: %v", err)
+	}
+	status := map[string]string{}
+	for _, change := range changes {
+		status[change.Path] = change.Status
+	}
+	want := map[string]string{
+		".changes/old.md":     "M",
+		".changes/new.md":     "A",
+		".changes/renamed.md": "D",
+		".changes/moved.md":   "A",
+	}
+	for path, wantStatus := range want {
+		if status[path] != wantStatus {
+			t.Fatalf("%s is %q, want %q (all: %v)", path, status[path], wantStatus, status)
+		}
+	}
+	if len(status) != len(want) {
+		t.Fatalf("staged changes = %v, want %v", status, want)
+	}
+}
+
+func TestChangedFiles(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	commitBase(t, dir)
+	base, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeGitFile(t, dir, "keep.txt", "keep, edited\n")
+	runGit(t, dir, "rm", "-q", ".changes/old.md")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: change")
+
+	repo, err := Open(context.Background(), dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	files, err := repo.ChangedFiles(context.Background(), strings.TrimSpace(string(base))+"...HEAD")
+	if err != nil {
+		t.Fatalf("ChangedFiles: %v", err)
+	}
+	status := map[string]string{}
+	for _, file := range files {
+		status[file.Path] = file.Status
+	}
+	if status["keep.txt"] != "M" || status[".changes/old.md"] != "D" {
+		t.Fatalf("changed files = %v", status)
+	}
+	if _, err := repo.ChangedFiles(context.Background(), " "); err == nil {
+		t.Fatal("an empty range must be an error")
+	}
+}
+
+func TestIndexAndTreeBlob(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	commitBase(t, dir)
+	base, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A staged edit that the working tree already moved past, a staged deletion
+	// the working tree still has, and a file that only exists in the index.
+	writeGitFile(t, dir, ".changes/old.md", "staged\n")
+	runGit(t, dir, "add", "-A")
+	writeGitFile(t, dir, ".changes/old.md", "worktree\n")
+	runGit(t, dir, "rm", "-q", "--cached", "keep.txt")
+	writeGitFile(t, dir, ".changes/fresh.md", "fresh\n")
+	runGit(t, dir, "add", ".changes/fresh.md")
+
+	ctx := context.Background()
+	repo, err := Open(ctx, dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	body, err := repo.IndexBlob(ctx, ".changes/old.md")
+	if err != nil {
+		t.Fatalf("IndexBlob: %v", err)
+	}
+	if string(body) != "staged\n" {
+		t.Fatalf("IndexBlob read %q, want the staged content", string(body))
+	}
+	if _, err := repo.IndexBlob(ctx, "keep.txt"); !errors.Is(err, ErrPathMissing) {
+		t.Fatalf("a staged deletion must report ErrPathMissing, got %v", err)
+	}
+	body, err = repo.TreeBlob(ctx, strings.TrimSpace(string(base)), ".changes/old.md")
+	if err != nil {
+		t.Fatalf("TreeBlob: %v", err)
+	}
+	if string(body) != "old\n" {
+		t.Fatalf("TreeBlob read %q, want the committed content", string(body))
+	}
+	if _, err := repo.TreeBlob(ctx, strings.TrimSpace(string(base)), ".changes/fresh.md"); !errors.Is(err, ErrPathMissing) {
+		t.Fatalf("a path outside the revision must report ErrPathMissing, got %v", err)
+	}
+}
+
+// A record name with glob characters must match itself: git ls-files applies
+// pathspec globbing unless the path is marked literal.
+func TestIndexBlobMatchesTheLiteralPath(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	writeGitFile(t, dir, ".changes/a1.md", "one\n")
+	writeGitFile(t, dir, ".changes/a[1].md", "brackets\n")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: base")
+	writeGitFile(t, dir, ".changes/a1.md", "one, edited\n")
+	writeGitFile(t, dir, ".changes/a[1].md", "brackets, edited\n")
+	runGit(t, dir, "add", "-A")
+
+	ctx := context.Background()
+	repo, err := Open(ctx, dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	body, err := repo.IndexBlob(ctx, ".changes/a[1].md")
+	if err != nil {
+		t.Fatalf("IndexBlob: %v", err)
+	}
+	if string(body) != "brackets, edited\n" {
+		t.Fatalf("IndexBlob read %q, want the bracketed record", string(body))
+	}
+}
+
+// A record name outside ASCII must come back unchanged, not quoted.
+func TestIndexAndTreeBlobKeepNonASCIIPaths(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	writeGitFile(t, dir, ".changes/记录.md", "récord\n")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: base")
+	head, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	repo, err := Open(ctx, dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	body, err := repo.TreeBlob(ctx, strings.TrimSpace(string(head)), ".changes/记录.md")
+	if err != nil {
+		t.Fatalf("TreeBlob: %v", err)
+	}
+	if string(body) != "récord\n" {
+		t.Fatalf("TreeBlob read %q", string(body))
+	}
+}
+
+// Revisions with no merge base are named separately from a revision git cannot
+// read, because no fetch fixes the former.
+func TestChangedFilesWithoutCommonHistory(t *testing.T) {
+	requireGit(t)
+	dir := initRepo(t)
+	commitBase(t, dir)
+	base, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, dir, "checkout", "-q", "--orphan", "orphan")
+	runGit(t, dir, "rm", "-rqf", "--cached", ".")
+	writeGitFile(t, dir, "other.txt", "other\n")
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "-qm", "chore: unrelated")
+
+	ctx := context.Background()
+	repo, err := Open(ctx, dir, execx.OSRunner{})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	_, err = repo.ChangedFiles(ctx, strings.TrimSpace(string(base))+"...orphan")
+	if !errors.Is(err, ErrNoCommonHistory) {
+		t.Fatalf("want ErrNoCommonHistory, got %v", err)
 	}
 }
