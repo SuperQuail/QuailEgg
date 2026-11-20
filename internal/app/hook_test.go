@@ -2,12 +2,14 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/SuperQuail/QuailEgg/internal/changes"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
 	"github.com/SuperQuail/QuailEgg/internal/platform/ui"
@@ -286,5 +288,288 @@ func TestHookPreCommitDisabledStillRequiresRecord(t *testing.T) {
 	}
 	if err := a.HookPreCommit(context.Background()); err == nil {
 		t.Fatal("turning the verification gate off must not disable the change record rule")
+	}
+}
+
+// Record fixtures for the hook: the "demo" package is registered in the
+// hookProjectRepo configuration.
+const (
+	// hookValidRecord satisfies the rule for the registered package.
+	hookValidRecord = `---
+type: feat
+packages:
+  demo: patch
+---
+
+Describe the change the commit carries.
+`
+	// hookBrokenRecord has no front matter at all.
+	hookBrokenRecord = `not a record at all
+`
+	// hookBadTypeRecord carries a type the validator rejects.
+	hookBadTypeRecord = `---
+type: nope
+packages:
+  demo: patch
+---
+
+Describe the change the commit carries.
+`
+	// hookUnknownPackageRecord names a package the fixture does not register.
+	hookUnknownPackageRecord = `---
+type: feat
+packages:
+  other: patch
+---
+
+Reference a package that is not registered.
+`
+)
+
+// hookHead returns the commit the repository currently points at.
+func hookHead(t *testing.T, dir string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("git rev-parse HEAD: %v", err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// commitHookRecord commits a record, so a later commit can delete or rename it.
+func commitHookRecord(t *testing.T, dir, name, body string) {
+	t.Helper()
+	writeHookFile(t, filepath.Join(dir, ".changes", name), body)
+	hookGit(t, dir, "add", "-A")
+	hookGit(t, dir, "commit", "-qm", "feat: add a record")
+}
+
+// hookRuleRepo is a project clone on its default branch, the only place the
+// record rule runs.
+func hookRuleRepo(t *testing.T) string {
+	t.Helper()
+	return hookProjectRepoConfig(t, "https://github.com/example/demo", "github.com/example/demo", "commands = []\ntimeout = \"1m\"")
+}
+
+func hookRun(t *testing.T, dir string) error {
+	t.Helper()
+	a, err := New(dir, "", ui.Discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return a.HookPreCommit(context.Background())
+}
+
+// A valid record in the index judges the commit, not the worktree copy the author
+// edited after staging.
+func TestHookPreCommitReadsTheStagedRecord(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	writeHookFile(t, filepath.Join(dir, ".changes", "index-fix.md"), hookValidRecord)
+	hookGit(t, dir, "add", "-A")
+	writeHookFile(t, filepath.Join(dir, ".changes", "index-fix.md"), hookBadTypeRecord)
+	if err := hookRun(t, dir); err != nil {
+		t.Fatalf("the staged record is valid, the worktree copy is not: %v", err)
+	}
+}
+
+// Repairing the worktree copy of a broken staged record must not hide it.
+func TestHookPreCommitRejectsTheUnstagedFix(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	writeHookFile(t, filepath.Join(dir, ".changes", "index-fix.md"), hookBadTypeRecord)
+	hookGit(t, dir, "add", "-A")
+	writeHookFile(t, filepath.Join(dir, ".changes", "index-fix.md"), hookValidRecord)
+	err := hookRun(t, dir)
+	if err == nil || !strings.Contains(err.Error(), "unknown type") {
+		t.Fatalf("the staged record is invalid, the worktree copy is not: got %v", err)
+	}
+}
+
+// Removing the only record while touching a scoped file must not satisfy the rule.
+func TestHookPreCommitRejectsARecordDeletion(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	commitHookRecord(t, dir, "old-fix.md", hookValidRecord)
+	hookGit(t, dir, "rm", "-q", ".changes/old-fix.md")
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	hookGit(t, dir, "add", "-A")
+	err := hookRun(t, dir)
+	if err == nil {
+		t.Fatal("deleting the only record must not satisfy the rule")
+	}
+	var missing *changes.MissingRecordError
+	if !errors.As(err, &missing) {
+		t.Fatalf("want a missing record error, got %T: %v", err, err)
+	}
+}
+
+// The same source change passes once the commit adds a valid record.
+func TestHookPreCommitAcceptsANewRecordNextToADeletedOne(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	commitHookRecord(t, dir, "old-fix.md", hookValidRecord)
+	hookGit(t, dir, "rm", "-q", ".changes/old-fix.md")
+	writeHookFile(t, filepath.Join(dir, ".changes", "new-fix.md"), hookValidRecord)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	hookGit(t, dir, "add", "-A")
+	if err := hookRun(t, dir); err != nil {
+		t.Fatalf("a valid added record must satisfy the rule: %v", err)
+	}
+}
+
+// A rename arrives as a deletion plus an addition because the staged diff has
+// rename detection disabled: the record at its new path still counts.
+func TestHookPreCommitAcceptsARenamedRecord(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	commitHookRecord(t, dir, "old-fix.md", hookValidRecord)
+	hookGit(t, dir, "mv", ".changes/old-fix.md", ".changes/new-fix.md")
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	hookGit(t, dir, "add", "-A")
+	if err := hookRun(t, dir); err != nil {
+		t.Fatalf("a renamed record is still a record: %v", err)
+	}
+}
+
+// The release pipeline reads one level of the record directory, so a record in a
+// subdirectory must not stand in for one it will never read. The pull request
+// check refuses it the same way.
+func TestHookPreCommitRejectsANestedRecord(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	writeHookFile(t, filepath.Join(dir, ".changes", "nested", "deep-fix.md"), hookValidRecord)
+	hookGit(t, dir, "add", "-A")
+	err := hookRun(t, dir)
+	var missing *changes.MissingRecordError
+	if !errors.As(err, &missing) {
+		t.Fatalf("a record outside the record directory must not satisfy the rule: %v", err)
+	}
+}
+
+// A change outside the configured scope needs no record.
+func TestHookPreCommitAllowsDocsOnly(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "notes.md"), "notes\n")
+	hookGit(t, dir, "add", "-A")
+	if err := hookRun(t, dir); err != nil {
+		t.Fatalf("a docs only commit needs no record: %v", err)
+	}
+}
+
+// Deleting a record while only touching a file qegg manages itself still needs no
+// record: the managed file never counts as a scope change.
+func TestHookPreCommitAllowsManagedChangeWithDeletedRecord(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	commitHookRecord(t, dir, "old-fix.md", hookValidRecord)
+	hookGit(t, dir, "rm", "-q", ".changes/old-fix.md")
+	writeHookFile(t, filepath.Join(dir, ".gitignore"), "*.log\n")
+	hookGit(t, dir, "add", "-A")
+	if err := hookRun(t, dir); err != nil {
+		t.Fatalf("a managed-file only commit needs no record: %v", err)
+	}
+}
+
+// A record staged with git add -N is not in the index yet, so it cannot satisfy
+// the rule.
+func TestHookPreCommitIgnoresIntentToAdd(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	writeHookFile(t, filepath.Join(dir, ".changes", "intent-fix.md"), hookValidRecord)
+	hookGit(t, dir, "add", "cmd/main.go")
+	hookGit(t, dir, "add", "-N", ".changes/intent-fix.md")
+	if err := hookRun(t, dir); err == nil {
+		t.Fatal("an intent-to-add record must not satisfy the rule")
+	}
+}
+
+// The record is named once, not once per wrapper, so the author sees a readable
+// parse error.
+func TestHookPreCommitNamesTheRecordOnceOnParseError(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	writeHookFile(t, filepath.Join(dir, ".changes", "index-fix.md"), hookBrokenRecord)
+	hookGit(t, dir, "add", "-A")
+	err := hookRun(t, dir)
+	if err == nil {
+		t.Fatal("a record without front matter must be rejected")
+	}
+	if want := ".changes/index-fix.md: "; strings.Count(err.Error(), want) != 1 {
+		t.Fatalf("the record should be named once: %q", err.Error())
+	}
+}
+
+// A commit that deletes a scoped source file is a scope change too: the pull
+// request check has always counted it, and the hook now agrees instead of hiding
+// deletions behind a name-only diff.
+func TestHookPreCommitCountsADeletedSourceFile(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	hookGit(t, dir, "add", "-A")
+	hookGit(t, dir, "commit", "-qm", "feat: add source")
+	hookGit(t, dir, "rm", "-q", "cmd/main.go")
+	if err := hookRun(t, dir); err == nil {
+		t.Fatal("deleting a scoped source file without a record must be refused")
+	}
+}
+
+// git commit -a exports GIT_INDEX_FILE pointing at the index the commit will use.
+// The rule reads that index, which is why the hook reads the index before it
+// sanitises the inherited git environment.
+func TestHookPreCommitReadsTheCommitIndex(t *testing.T) {
+	if err := i18n.Init("en"); err != nil {
+		t.Fatalf("i18n.Init: %v", err)
+	}
+	dir := hookRuleRepo(t)
+	index := filepath.Join(t.TempDir(), "next-index.lock")
+	data, err := os.ReadFile(filepath.Join(dir, ".git", "index"))
+	if err != nil {
+		t.Fatalf("read the repository index: %v", err)
+	}
+	if err := os.WriteFile(index, data, 0o644); err != nil {
+		t.Fatalf("write the commit index: %v", err)
+	}
+	writeHookFile(t, filepath.Join(dir, "cmd", "main.go"), "package main\n")
+	writeHookFile(t, filepath.Join(dir, ".changes", "index-fix.md"), hookBadTypeRecord)
+	cmd := exec.Command("git", "add", "-A")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_INDEX_FILE="+index)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add with GIT_INDEX_FILE: %v\n%s", err, out)
+	}
+	t.Setenv("GIT_INDEX_FILE", index)
+	err = hookRun(t, dir)
+	if err == nil || !strings.Contains(err.Error(), "unknown type") {
+		t.Fatalf("the hook judged the repository index instead of the commit index: %v", err)
 	}
 }

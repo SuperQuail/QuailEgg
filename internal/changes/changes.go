@@ -158,6 +158,18 @@ func (r *Record) Validate(known []string) error {
 
 // LoadDir parses every markdown record in dir.
 func LoadDir(dir string) ([]*Record, error) {
+	return loadRecords(dir, func(full string) string { return full })
+}
+
+// LoadDirIn parses every markdown record in dir and names the records relative to
+// root, which is how a report to a user should name them. An empty root keeps the
+// path the directory was given with.
+func LoadDirIn(root, dir string) ([]*Record, error) {
+	return loadRecords(dir, func(full string) string { return relativePath(root, full) })
+}
+
+// loadRecords reads the records of dir and names each of them with name.
+func loadRecords(dir string, name func(full string) string) ([]*Record, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -177,20 +189,34 @@ func LoadDir(dir string) ([]*Record, error) {
 	}
 	sort.Strings(names)
 	records := make([]*Record, 0, len(names))
-	for _, name := range names {
-		full := filepath.Join(dir, name)
+	for _, entry := range names {
+		full := filepath.Join(dir, entry)
+		named := name(full)
 		file, err := os.Open(full)
 		if err != nil {
-			return nil, err
+			return nil, &InvalidRecordError{Path: named, Err: err}
 		}
-		rec, err := Parse(full, file)
+		rec, err := Parse(named, file)
 		file.Close()
 		if err != nil {
-			return nil, err
+			return nil, &InvalidRecordError{Path: named, Err: err}
 		}
 		records = append(records, rec)
 	}
 	return records, nil
+}
+
+// relativePath names full as a slash path relative to root. A path outside root,
+// or an empty root, keeps the path it was given.
+func relativePath(root, full string) string {
+	if root == "" {
+		return full
+	}
+	rel, err := filepath.Rel(root, full)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return filepath.ToSlash(full)
+	}
+	return filepath.ToSlash(rel)
 }
 
 // Consumed returns records that take part in the next release.

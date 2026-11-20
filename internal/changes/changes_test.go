@@ -1,6 +1,7 @@
 package changes
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -128,5 +129,50 @@ func TestValidateSlugWordLimitMessage(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "at most 3 words") {
 		t.Fatalf("error %q should state the real word limit", err)
+	}
+}
+
+// LoadDirIn names the records relative to the repository, which is how a report to
+// a user should name them; LoadDir keeps the path it was given.
+func TestLoadDirInNamesRecordsRelativeToRoot(t *testing.T) {
+	root := t.TempDir()
+	writeRulesFile(t, filepath.Join(root, ".changes", "relative.md"), validRecord)
+	writeRulesFile(t, filepath.Join(root, ".changes", "README.md"), "generated\n")
+
+	records, err := LoadDirIn(root, filepath.Join(root, ".changes"))
+	if err != nil {
+		t.Fatalf("LoadDirIn: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("records = %d, want one", len(records))
+	}
+	if got := records[0].Path; got != ".changes/relative.md" {
+		t.Fatalf("Path = %q, want the repository relative name", got)
+	}
+
+	plain, err := LoadDir(filepath.Join(root, ".changes"))
+	if err != nil {
+		t.Fatalf("LoadDir: %v", err)
+	}
+	if got := plain[0].Path; got != filepath.Join(root, ".changes", "relative.md") {
+		t.Fatalf("LoadDir Path = %q, want the path it was given", got)
+	}
+}
+
+// A record that cannot be parsed is reported with the name the directory was
+// given for, so a caller can name it its own way.
+func TestLoadDirInReportsTheRecordItCouldNotRead(t *testing.T) {
+	root := t.TempDir()
+	writeRulesFile(t, filepath.Join(root, ".changes", "broken.md"), brokenRecord)
+	_, err := LoadDirIn(root, filepath.Join(root, ".changes"))
+	var invalid *InvalidRecordError
+	if !errors.As(err, &invalid) {
+		t.Fatalf("want an InvalidRecordError, got %v", err)
+	}
+	if invalid.Path != ".changes/broken.md" {
+		t.Fatalf("Path = %q", invalid.Path)
+	}
+	if strings.Count(err.Error(), ".changes/broken.md") != 1 {
+		t.Fatalf("the record should be named once: %q", err.Error())
 	}
 }

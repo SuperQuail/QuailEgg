@@ -3,6 +3,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -133,22 +134,135 @@ func (r *Repo) CommitAuthor(ctx context.Context, sha string) (string, error) {
 	return r.output(ctx, "log", "-1", "--format=%an", sha)
 }
 
-// StagedNames lists added or modified files in the index.
-func (r *Repo) StagedNames(ctx context.Context) ([]string, error) {
-	out, err := r.output(ctx, "diff", "--cached", "--name-only", "--diff-filter=AM")
-	if err != nil {
-		return nil, err
-	}
-	return splitLines(out), nil
+// ErrPathMissing reports that a revision or the index does not carry the path.
+// It lets a caller tell a deleted file from a git failure.
+var ErrPathMissing = errors.New("path is not in the snapshot")
+
+// ErrNoCommonHistory reports that the two revisions of a range share no history,
+// so there is no merge base to compare from. git fails the diff the same way for
+// a revision it cannot read, so the range is asked for its merge base first.
+var ErrNoCommonHistory = errors.New("revisions share no history")
+
+// FileChange is one path that differs between two snapshots.
+type FileChange struct {
+	Path string
+	// Status is the git status letter: A added, M modified, D deleted,
+	// T type changed.
+	Status string
 }
 
-// ChangedNamesBetween lists files changed between two revisions.
-func (r *Repo) ChangedNamesBetween(ctx context.Context, from, to string) ([]string, error) {
-	out, err := r.output(ctx, "diff", "--name-only", from+"..."+to)
+// StagedChanges lists the index changes with their status, which is the snapshot
+// the next commit will contain.
+func (r *Repo) StagedChanges(ctx context.Context) ([]FileChange, error) {
+	res, err := r.runIn(ctx, "diff", "--cached", "--name-status", "--no-renames", "-z")
 	if err != nil {
 		return nil, err
 	}
-	return splitLines(out), nil
+	return parseNameStatus(res.Stdout), nil
+}
+
+// ChangedFiles lists the paths a revision range changes, with their status. The
+// range is written like "base...head" for a pull request or "before..after" for
+// a push.
+func (r *Repo) ChangedFiles(ctx context.Context, revspec string) ([]FileChange, error) {
+	if strings.TrimSpace(revspec) == "" {
+		return nil, errors.New("empty revision range")
+	}
+	res, err := r.runIn(ctx, "diff", "--name-status", "--no-renames", "-z", revspec)
+	if err != nil {
+		if r.noCommonHistory(ctx, revspec) {
+			return nil, fmt.Errorf("%w: %s", ErrNoCommonHistory, revspec)
+		}
+		return nil, err
+	}
+	return parseNameStatus(res.Stdout), nil
+}
+
+// noCommonHistory reports whether a failed range failed because its revisions
+// share no history rather than because git could not read one of them. git
+// merge-base exits 1 without output for the former and 128 for the latter.
+func (r *Repo) noCommonHistory(ctx context.Context, revspec string) bool {
+	from, to, ok := strings.Cut(revspec, "...")
+	if !ok {
+		return false
+	}
+	res, err := r.runIn(ctx, "merge-base", from, to)
+	if err != nil {
+		var exitErr *execx.Error
+		return errors.As(err, &exitErr) && exitErr.Result.ExitCode == 1
+	}
+	return strings.TrimSpace(res.Stdout) == ""
+}
+
+// IndexBlob reads path from the index: the content the commit will contain, not
+// the working tree copy. It reports ErrPathMissing when the index does not carry
+// the path, which is how a staged deletion looks.
+func (r *Repo) IndexBlob(ctx context.Context, path string) ([]byte, error) {
+	found, err := r.hasPath(ctx, "ls-files", "--cached", "-z", "--", literal(path))
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, ErrPathMissing
+	}
+	return r.blob(ctx, ":"+path)
+}
+
+// TreeBlob reads path as it exists in rev. It reports ErrPathMissing when that
+// revision has no such path.
+func (r *Repo) TreeBlob(ctx context.Context, rev, path string) ([]byte, error) {
+	found, err := r.hasPath(ctx, "ls-tree", "--name-only", "-z", rev, "--", literal(path))
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, ErrPathMissing
+	}
+	return r.blob(ctx, rev+":"+path)
+}
+
+// blob reads one object as it is stored, without trimming the content.
+func (r *Repo) blob(ctx context.Context, object string) ([]byte, error) {
+	res, err := r.runIn(ctx, "show", object)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(res.Stdout), nil
+}
+
+// hasPath reports whether a git listing shows the path. The listing commands
+// report a missing path as empty output instead of an error, which keeps a
+// deleted file apart from a repository git cannot read.
+func (r *Repo) hasPath(ctx context.Context, args ...string) (bool, error) {
+	res, err := r.runIn(ctx, args...)
+	if err != nil {
+		return false, err
+	}
+	return strings.Trim(res.Stdout, "\x00") != "", nil
+}
+
+// literal marks path as a literal pathspec, so a file name with glob characters
+// matches itself and nothing else.
+func literal(path string) string {
+	return ":(literal)" + path
+}
+
+// parseNameStatus reads the NUL separated status and path pairs git prints for
+// --name-status -z. Renames are disabled by the callers, so every entry is one
+// status and one path; a path keeps tabs and spaces intact.
+func parseNameStatus(out string) []FileChange {
+	fields := strings.Split(out, "\x00")
+	changes := make([]FileChange, 0, len(fields)/2)
+	for i := 0; i+1 < len(fields); i += 2 {
+		status, name := fields[i], fields[i+1]
+		if status == "" || name == "" {
+			break
+		}
+		// A copied or renamed entry carries a score such as R100; the rule only
+		// needs the letter.
+		changes = append(changes, FileChange{Path: name, Status: status[:1]})
+	}
+	return changes
 }
 
 // Add stages paths.
