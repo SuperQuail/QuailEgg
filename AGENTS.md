@@ -200,9 +200,10 @@ Good and bad examples:
   Change the template, not the generated file. Templates use `[[ ]]` actions and
   must stay LF.
 - The generated release workflow runs only on release paths; the generated pull
-  request workflow skips the release branch, whose verification is the publish
-  run. With `[[release.build]]`, a leading plan job gates the platform builds on
-  the publish phase, so preparing a version never builds.
+  request workflow skips the release branch of this repository, whose
+  verification is the publish run. A fork that reuses the release branch name
+  still runs the check. With `[[release.build]]`, a leading plan job gates the
+  platform builds on the publish phase, so preparing a version never builds.
 - `CHANGELOG.md` headings follow the user's language setting, not the repository:
   run `qegg --lang en release` or set `QEGG_LANG=en` so released headings stay
   English.

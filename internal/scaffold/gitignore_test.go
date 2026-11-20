@@ -99,15 +99,6 @@ func TestGitignoreFollowsExistingLineEndings(t *testing.T) {
 	}
 }
 
-func TestPullRequestWorkflowSkipsReleaseBranch(t *testing.T) {
-	opts := testOptions(t)
-	opts.ReleaseBranch = "release-1.x"
-	file := plannedFile(t, opts, "qegg-pr.yml")
-	if want := "github.head_ref != 'release-1.x'"; !strings.Contains(string(file.Content), want) {
-		t.Fatalf("check job should skip the release branch, want %q:\n%s", want, file.Content)
-	}
-}
-
 func TestReleaseWorkflowTriggersOnlyOnReleasePaths(t *testing.T) {
 	opts := withEcosystem(testOptions(t), "go")
 	file := plannedFile(t, opts, "qegg-release.yml")

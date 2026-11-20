@@ -16,7 +16,9 @@ func buildPlan(t *testing.T, opts Options) *Plan {
 	opts.Root = t.TempDir()
 	opts.WithWorkflows = true
 	opts.BaseBranch = "main"
-	opts.ReleaseBranch = "release"
+	if opts.ReleaseBranch == "" {
+		opts.ReleaseBranch = "release"
+	}
 	if opts.Mode == "" {
 		opts.Mode = config.ModePR
 	}
@@ -413,6 +415,246 @@ func TestPullRequestWorkflowRendersYAMLSteps(t *testing.T) {
 	var doc map[string]any
 	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
 		t.Fatalf("pull request workflow is invalid YAML: %v\n%s", err, content)
+	}
+}
+
+// pullRequestEvent is the part of the pull_request payload the check job's
+// condition reads.
+type pullRequestEvent struct {
+	Repository string
+	HeadRepo   string
+	HeadRef    string
+}
+
+// checkJobRuns reports whether the rendered job condition lets the check run
+// for event. It understands the || chain of == / != comparisons between
+// Actions context references and single quoted literals that the generated
+// workflow contains; any other shape fails the test, so a condition this
+// helper cannot reason about never passes it. It models exactly the three
+// context paths the guard is allowed to read, so a condition that reads any
+// other path (which this helper cannot validate) also fails instead of passing.
+func checkJobRuns(t *testing.T, condition string, event pullRequestEvent) bool {
+	t.Helper()
+	references := map[string]string{
+		"github.repository":                             event.Repository,
+		"github.event.pull_request.head.repo.full_name": event.HeadRepo,
+		"github.head_ref":                               event.HeadRef,
+	}
+	resolve := func(token string) string {
+		if literal, quoted := strings.CutPrefix(token, "'"); quoted {
+			if len(literal) == 0 || !strings.HasSuffix(literal, "'") {
+				t.Fatalf("condition %q has an unterminated string literal", condition)
+			}
+			return strings.ReplaceAll(literal[:len(literal)-1], "''", "'")
+		}
+		value, ok := references[token]
+		if !ok {
+			t.Fatalf("condition %q reads %q, which this test does not model", condition, token)
+		}
+		return value
+	}
+	// The guard runs the check when any clause of the || chain holds.
+	runs := false
+	for _, clause := range strings.Split(condition, " || ") {
+		left, operator, right := cutComparison(t, condition, clause)
+		equal := resolve(left) == resolve(right)
+		if (operator == "==") == equal {
+			runs = true
+		}
+	}
+	return runs
+}
+
+// cutComparison splits one comparison clause into its operands and operator,
+// so the test only accepts the operators the template is expected to render.
+func cutComparison(t *testing.T, condition, clause string) (left, operator, right string) {
+	t.Helper()
+	if left, right, ok := strings.Cut(clause, " == "); ok {
+		return left, "==", right
+	}
+	if left, right, ok := strings.Cut(clause, " != "); ok {
+		return left, "!=", right
+	}
+	t.Fatalf("condition clause %q is not an == or != comparison", clause)
+	return "", "", ""
+}
+
+// checkJobCondition renders the pull request workflow and returns the guard of
+// its check job, so a test reads exactly what GitHub would evaluate.
+func checkJobCondition(t *testing.T, opts Options) string {
+	t.Helper()
+	content := workflowFile(t, buildPlan(t, opts), "qegg-pr.yml")
+	if content == nil {
+		t.Fatal("the pull request workflow was not planned")
+	}
+	return checkJobIf(t, content.Content)
+}
+
+// checkJobIf returns the guard of the check job in a rendered workflow.
+func checkJobIf(t *testing.T, content []byte) string {
+	t.Helper()
+	var doc struct {
+		Jobs map[string]struct {
+			If    string           `yaml:"if"`
+			Steps []map[string]any `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(content, &doc); err != nil {
+		t.Fatalf("pull request workflow is invalid YAML: %v\n%s", err, content)
+	}
+	job, ok := doc.Jobs["check"]
+	if !ok {
+		t.Fatalf("pull request workflow has no check job:\n%s", content)
+	}
+	if len(job.Steps) == 0 {
+		t.Fatalf("the check job has no steps:\n%s", content)
+	}
+	return job.If
+}
+
+// TestPullRequestWorkflowSkipsOnlyTheManagedReleaseBranch pins the job guard:
+// only a pull request from the configured release branch of this repository
+// skips the check, so a fork reusing the branch name still gets checked, and
+// so does a pull request whose head repository the event does not report.
+func TestPullRequestWorkflowSkipsOnlyTheManagedReleaseBranch(t *testing.T) {
+	const repo = "SuperQuail/QuailEgg"
+	inRepo := func(headRef string) pullRequestEvent {
+		return pullRequestEvent{Repository: repo, HeadRepo: repo, HeadRef: headRef}
+	}
+	fromFork := func(headRef string) pullRequestEvent {
+		return pullRequestEvent{Repository: repo, HeadRepo: "someone/QuailEgg", HeadRef: headRef}
+	}
+	defaults := config.Default()
+	cases := []struct {
+		name    string
+		release string
+		event   pullRequestEvent
+		runs    bool
+	}{
+		{
+			name:    "managed release branch of this repository",
+			release: "release-1.x",
+			event:   inRepo("release-1.x"),
+			runs:    false,
+		},
+		{
+			name:    "ordinary branch of this repository",
+			release: "release-1.x",
+			event:   inRepo("fix/record-checks"),
+			runs:    true,
+		},
+		{
+			name:    "fork branch named like the release branch",
+			release: "release-1.x",
+			event:   fromFork("release-1.x"),
+			runs:    true,
+		},
+		{
+			name:    "configured release branch",
+			release: defaults.Release.Branch,
+			event:   inRepo(defaults.Release.Branch),
+			runs:    false,
+		},
+		{
+			name:    "fork of another repository owned by the same account",
+			release: "release-1.x",
+			event:   pullRequestEvent{Repository: repo, HeadRepo: "SuperQuail/QuailEgg-fork", HeadRef: "release-1.x"},
+			runs:    true,
+		},
+		{
+			name:    "fork whose head repository the event does not report",
+			release: "release-1.x",
+			event:   pullRequestEvent{Repository: repo, HeadRepo: "", HeadRef: "release-1.x"},
+			runs:    true,
+		},
+		{
+			name:    "custom release branch name",
+			release: "cut/next",
+			event:   inRepo("cut/next"),
+			runs:    false,
+		},
+		{
+			name:    "custom release branch name on a fork branch of the same name",
+			release: "cut/next",
+			event:   fromFork("cut/next"),
+			runs:    true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			condition := checkJobCondition(t, Options{ReleaseBranch: tc.release})
+			want := "github.event.pull_request.head.repo.full_name != github.repository" +
+				" || github.head_ref != '" + tc.release + "'"
+			if condition != want {
+				t.Fatalf("check job condition = %q, want %q", condition, want)
+			}
+			if got := checkJobRuns(t, condition, tc.event); got != tc.runs {
+				t.Fatalf("check job runs = %v for %+v, want %v", got, tc.event, tc.runs)
+			}
+		})
+	}
+}
+
+// TestPullRequestWorkflowQuotesReleaseBranch keeps the configured branch name
+// from breaking the generated workflow: it may contain characters a YAML
+// scalar or an Actions expression would otherwise interpret.
+func TestPullRequestWorkflowQuotesReleaseBranch(t *testing.T) {
+	const repo = "SuperQuail/QuailEgg"
+	cases := []struct {
+		name   string
+		branch string
+		want   string
+	}{
+		{name: "apostrophe", branch: "jane's-release", want: "'jane''s-release'"},
+		{name: "space and hash", branch: "release #1", want: "'release #1'"},
+		{name: "double quote", branch: `rel"ease`, want: `'rel"ease'`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			condition := checkJobCondition(t, Options{ReleaseBranch: tc.branch})
+			want := "github.event.pull_request.head.repo.full_name != github.repository" +
+				" || github.head_ref != " + tc.want
+			if condition != want {
+				t.Fatalf("check job condition = %q, want %q", condition, want)
+			}
+			managed := pullRequestEvent{Repository: repo, HeadRepo: repo, HeadRef: tc.branch}
+			if checkJobRuns(t, condition, managed) {
+				t.Fatalf("check job runs for the managed release branch %q", tc.branch)
+			}
+			fork := pullRequestEvent{Repository: repo, HeadRepo: "someone/QuailEgg", HeadRef: tc.branch}
+			if !checkJobRuns(t, condition, fork) {
+				t.Fatalf("check job skips the fork branch %q", tc.branch)
+			}
+		})
+	}
+}
+
+// TestPullRequestWorkflowFallsBackToTheDefaultReleaseBranch covers a caller
+// that leaves the release branch empty: rendering normalises it once, so both
+// the pull request guard and the release workflow name the built-in default
+// instead of an empty branch.
+func TestPullRequestWorkflowFallsBackToTheDefaultReleaseBranch(t *testing.T) {
+	defaults := config.Default()
+	data := newView(Options{ReleaseBranch: "", BaseBranch: "main"})
+	pr, err := assets.render("github/workflows/qegg-pr.yml.tmpl", data)
+	if err != nil {
+		t.Fatalf("render the pull request workflow: %v", err)
+	}
+	condition := checkJobIf(t, pr)
+	want := "github.event.pull_request.head.repo.full_name != github.repository" +
+		" || github.head_ref != '" + defaults.Release.Branch + "'"
+	if condition != want {
+		t.Fatalf("check job condition = %q, want %q", condition, want)
+	}
+	const repo = "SuperQuail/QuailEgg"
+	managed := pullRequestEvent{Repository: repo, HeadRepo: repo, HeadRef: defaults.Release.Branch}
+	if checkJobRuns(t, condition, managed) {
+		t.Fatalf("check job runs for the default release branch %q", defaults.Release.Branch)
+	}
+	// The normalised name is what every template receives, so a branch filter
+	// or guard can never render an empty branch.
+	if data.ReleaseBranch != defaults.Release.Branch {
+		t.Fatalf("view release branch = %q, want the default %q", data.ReleaseBranch, defaults.Release.Branch)
 	}
 }
 

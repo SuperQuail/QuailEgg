@@ -20,7 +20,7 @@ jobs:
     env:
 [[ indent 6 .PREnv ]]
 [[- end ]]
-    if: github.head_ref != '[[ .ReleaseBranch ]]'
+    if: [[ .PRCheckCondition ]]
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
