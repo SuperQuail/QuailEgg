@@ -90,6 +90,10 @@ type view struct {
 	ActorGuard string
 	// BuildCondition gates the platform builds on the run's release phase.
 	BuildCondition string
+	// PRCheckCondition is the job guard of the pull request workflow. It is
+	// already quoted as a YAML scalar because it embeds the configured release
+	// branch name.
+	PRCheckCondition string
 	// QeggSetup is the raw qegg install step. Templates indent it to the step
 	// position; the development mode also builds the checked-out source.
 	QeggSetup string
@@ -127,8 +131,44 @@ const (
 	conditionAny     = "needs.plan.outputs.phase != 'none'"
 )
 
+// releaseBranchName normalises the configured release branch once, for every
+// template that interpolates it. It mirrors the release phases: an unset
+// branch means the built-in default, so no generated workflow names an empty
+// branch.
+func releaseBranchName(configured string) string {
+	if configured == "" {
+		return config.Default().Release.Branch
+	}
+	return configured
+}
+
+// prCheckGuard renders the job condition of the pull request workflow. A job
+// level if: is the condition to run, so the guard runs the check for every
+// pull request except one from the configured release branch of this same
+// repository. A fork reusing the branch name still runs it, because nothing
+// else verified the content a skip would hide, and a head repository the event
+// does not report is not this repository either, so it runs the check too.
+//
+// The branch name is user controlled, so it is escaped for the Actions
+// expression language here and the whole condition is quoted as a YAML scalar
+// by the caller.
+func prCheckGuard(releaseBranch string) string {
+	return "github.event.pull_request.head.repo.full_name != github.repository" +
+		" || github.head_ref != " + actionLiteral(releaseBranch)
+}
+
+// actionLiteral renders s as a single quoted GitHub Actions expression
+// string. The expression language has no backslash escape: a quote is written
+// twice, and both quotes end up literal inside the YAML double quoted scalar.
+func actionLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
 // newView collects the template data for one plan.
 func newView(opts Options) view {
+	// The branch name is rendered into several triggers and guards, so its
+	// default is applied once, before any template sees it.
+	opts.ReleaseBranch = releaseBranchName(opts.ReleaseBranch)
 	// The check-only stages may be left out by callers that do not read the
 	// configuration; fill their defaults here so the templates never render an
 	// empty runner or a zero timeout.
@@ -143,6 +183,7 @@ func newView(opts Options) view {
 		BuildCondition: actorGuard,
 		ReleaseJobs:    []releaseJobView{{Name: "release", Condition: actorGuard}},
 	}
+	data.PRCheckCondition = yamlQuote(prCheckGuard(opts.ReleaseBranch))
 	data.ReleaseEnv = envBlock(opts.Workflow.Env)
 	data.PREnv = envBlock(opts.PRWorkflow.Env)
 	data.StatusEnv = envBlock(opts.StatusWorkflow.Env)
