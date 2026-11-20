@@ -149,6 +149,76 @@ type VersionSyncer interface {
 	SyncVersions(ctx context.Context, run execx.Runner, root string, pkgs []Package) ([]string, error)
 }
 
+// PreflightReason explains why a manifest location cannot be rewritten.
+type PreflightReason int
+
+// Preflight finding reasons. Zero means the location can be rewritten.
+const (
+	// PreflightReasonNone marks a location that can be rewritten safely.
+	PreflightReasonNone PreflightReason = iota
+	// PreflightReasonComment marks a version element that holds a comment the
+	// rewrite would drop.
+	PreflightReasonComment
+	// PreflightReasonCDATA marks a version element that holds a CDATA section.
+	PreflightReasonCDATA
+	// PreflightReasonChild marks a version element that holds a child element.
+	PreflightReasonChild
+	// PreflightReasonProcessing marks a version element that holds a processing
+	// instruction.
+	PreflightReasonProcessing
+	// PreflightReasonEmpty marks a version element without a text run, such as
+	// the self-closing <version/> form.
+	PreflightReasonEmpty
+	// PreflightReasonRangeExcluded marks an internal dependency whose version
+	// range does not accept the planned version.
+	PreflightReasonRangeExcluded
+	// PreflightReasonRangeUnparsable marks a dependency version expression the
+	// adapter cannot interpret with confidence.
+	PreflightReasonRangeUnparsable
+)
+
+// PreflightFinding is one manifest location a version round cannot rewrite
+// safely. The fields are data, not prose: the caller renders them in the user's
+// language, so a finding reads the same whichever adapter produced it.
+type PreflightFinding struct {
+	// Manifest is the file to fix, relative to the repository root and slash
+	// separated.
+	Manifest string
+	// Element names the location inside the file, such as
+	// project/parent/version.
+	Element string
+	// Reason explains why the location cannot be rewritten.
+	Reason PreflightReason
+	// Coordinates is the group:artifact of the dependency for a range finding.
+	Coordinates string
+	// Range is the version expression found in the manifest.
+	Range string
+	// Target is the version the round would write.
+	Target string
+}
+
+// VersionRound is one batch of manifest writes a release round plans to make.
+type VersionRound struct {
+	// Packages lists every package with the version the round wants it to
+	// carry: the planned version for a released package, otherwise the version
+	// the manifest already has. References between packages follow these
+	// versions, the way VersionSyncer keeps them in sync.
+	Packages []Package
+	// Own lists the packages whose own version the round writes. It is the
+	// subset of Packages that carries an explicit version element; an inherited
+	// version has no element of its own.
+	Own []Package
+}
+
+// VersionPreflight is implemented by ecosystems whose manifests need a check
+// before the first write: the round inspects every location it would rewrite
+// and reports the ones it cannot touch without losing information. The whole
+// batch is checked at once, so a problem in the last package still leaves every
+// file untouched instead of being found after the first packages were written.
+type VersionPreflight interface {
+	PreflightVersions(root string, round VersionRound) ([]PreflightFinding, error)
+}
+
 // VersionPathReporter is implemented by ecosystems whose SetVersion writes
 // files other than pkg.Manifest, such as Gradle's gradle.properties. The
 // release commit includes the returned repository-relative paths.

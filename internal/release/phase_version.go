@@ -123,11 +123,12 @@ func (e *executor) bump(ctx context.Context) error {
 			return errors.New(i18n.Tf("release.err.version_inherited_scope", inherited[0]))
 		}
 	}
-	next := map[string]string{}
-	for _, release := range e.plan.Releases {
-		for _, name := range release.Packages {
-			next[name] = release.Version
-		}
+	next := e.plannedVersions()
+	// Every manifest the round will rewrite is checked before the first one is
+	// written: a package qegg cannot update safely stops the release with all
+	// files untouched instead of failing after the earlier packages changed.
+	if err := e.preflightManifests(inspected); err != nil {
+		return err
 	}
 	for _, pkg := range e.plan.Packages {
 		target, ok := findInspected(inspected, pkg.Name)
@@ -195,23 +196,7 @@ func findInspected(pkgs []ecosystem.Package, name string) (ecosystem.Package, bo
 // after the manifests were bumped. Every package is passed with the version to
 // write; ecosystems without a VersionSyncer have nothing to sync.
 func (e *executor) syncWorkspace(ctx context.Context, inspected []ecosystem.Package) error {
-	next := map[string]string{}
-	for _, release := range e.plan.Releases {
-		for _, name := range release.Packages {
-			next[name] = release.Version
-		}
-	}
-	groups := map[string][]ecosystem.Package{}
-	for _, planned := range e.plan.Packages {
-		target, ok := findInspected(inspected, planned.Name)
-		if !ok {
-			continue
-		}
-		if version, ok := next[planned.Name]; ok {
-			target.Version = version
-		}
-		groups[planned.Resolver] = append(groups[planned.Resolver], target)
-	}
+	groups := e.plannedGroups(inspected)
 	resolvers := make([]string, 0, len(groups))
 	for resolver := range groups {
 		resolvers = append(resolvers, resolver)

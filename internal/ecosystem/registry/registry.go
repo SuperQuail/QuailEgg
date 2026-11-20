@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/SuperQuail/QuailEgg/internal/ecosystem"
@@ -207,6 +208,114 @@ func VersionSyncerFor(resolver string) (ecosystem.VersionSyncer, bool) {
 	}
 	syncer, ok := eco.(ecosystem.VersionSyncer)
 	return syncer, ok
+}
+
+// PreflightVersions inspects every manifest location the version phase is
+// about to rewrite, before the caller writes anything. The whole round is
+// checked at once, so a problem in the last package still leaves every file
+// untouched instead of being found after the first packages were written.
+// Ecosystems without a VersionPreflight have nothing to check.
+func PreflightVersions(root string, round ecosystem.VersionRound) ([]ecosystem.PreflightFinding, error) {
+	groups := map[string]ecosystem.VersionRound{}
+	var names []string
+	for _, pkg := range round.Packages {
+		if _, ok := groups[pkg.Resolver]; !ok {
+			names = append(names, pkg.Resolver)
+		}
+		grouped := groups[pkg.Resolver]
+		grouped.Packages = append(grouped.Packages, pkg)
+		groups[pkg.Resolver] = grouped
+	}
+	for _, pkg := range round.Own {
+		if _, ok := groups[pkg.Resolver]; !ok {
+			names = append(names, pkg.Resolver)
+		}
+		grouped := groups[pkg.Resolver]
+		grouped.Own = append(grouped.Own, pkg)
+		groups[pkg.Resolver] = grouped
+	}
+	sort.Strings(names)
+	var findings []ecosystem.PreflightFinding
+	for _, name := range names {
+		eco, ok := ByID(name)
+		if !ok {
+			continue
+		}
+		preflight, ok := eco.(ecosystem.VersionPreflight)
+		if !ok {
+			continue
+		}
+		found, err := preflight.PreflightVersions(root, groups[name])
+		if err != nil {
+			return nil, err
+		}
+		findings = append(findings, found...)
+	}
+	return uniqueFindings(findings), nil
+}
+
+// uniqueFindings drops repeated locations. Two configured packages of one
+// reactor are inspected through the same reactor, and a location is worth
+// naming once.
+func uniqueFindings(findings []ecosystem.PreflightFinding) []ecosystem.PreflightFinding {
+	out := make([]ecosystem.PreflightFinding, 0, len(findings))
+	seen := map[string]bool{}
+	for _, finding := range findings {
+		key := strings.Join([]string{
+			finding.Manifest, finding.Element, finding.Coordinates, finding.Range, finding.Target,
+			strconv.Itoa(int(finding.Reason)),
+		}, "\x00")
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, finding)
+	}
+	return out
+}
+
+// PreflightMessage renders the findings of one round in the user's language. A
+// finding shows where it is and the values that matter, never the manifest
+// content, so nothing but the version expression itself can reach the message.
+func PreflightMessage(findings []ecosystem.PreflightFinding) string {
+	lines := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		lines = append(lines, preflightLine(finding))
+	}
+	return i18n.Tf("ecosystem.err.preflight_header", len(findings), strings.Join(lines, "\n"))
+}
+
+// preflightLine renders one finding.
+func preflightLine(finding ecosystem.PreflightFinding) string {
+	location := preflightLocation(finding)
+	switch finding.Reason {
+	case ecosystem.PreflightReasonComment:
+		return i18n.Tf("ecosystem.err.preflight_comment", location)
+	case ecosystem.PreflightReasonCDATA:
+		return i18n.Tf("ecosystem.err.preflight_cdata", location)
+	case ecosystem.PreflightReasonChild:
+		return i18n.Tf("ecosystem.err.preflight_child", location)
+	case ecosystem.PreflightReasonProcessing:
+		return i18n.Tf("ecosystem.err.preflight_processing", location)
+	case ecosystem.PreflightReasonEmpty:
+		return i18n.Tf("ecosystem.err.preflight_empty", location)
+	case ecosystem.PreflightReasonRangeExcluded:
+		return i18n.Tf("ecosystem.err.preflight_range_excluded", location, finding.Range, finding.Target)
+	case ecosystem.PreflightReasonRangeUnparsable:
+		return i18n.Tf("ecosystem.err.preflight_range_unparsable", location, finding.Range, finding.Target)
+	default:
+		return i18n.Tf("ecosystem.err.preflight_element", location)
+	}
+}
+
+// preflightLocation renders the file, the element and, for a dependency, the
+// coordinate that tells two pins of the same list apart.
+func preflightLocation(finding ecosystem.PreflightFinding) string {
+	location := finding.Manifest + ": " + finding.Element
+	if finding.Coordinates != "" {
+		location += " (" + finding.Coordinates + ")"
+	}
+	return location
 }
 
 // VersionPathsFor resolves the version file reporter of a resolver.
