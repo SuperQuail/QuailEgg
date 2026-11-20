@@ -2,7 +2,6 @@ package java
 
 import (
 	"errors"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -20,118 +19,64 @@ func mavenSync(root string, pkgs []ecosystem.Package) ([]string, error) {
 	if len(pkgs) == 0 {
 		return nil, nil
 	}
-	if fsx.Exists(fsx.Join(root, "pom.xml")) {
-		reactor, err := loadMavenReactor(root)
-		if err != nil {
-			return nil, err
-		}
-		return mavenSyncReactor(root, reactor, pkgs)
-	}
 	var changed []string
-	for _, pkg := range pkgs {
-		reactor, err := loadMavenReactorAt(root, pkg.Path)
+	err := forEachReactor(root, pkgs, func(reactor *mavenReactor, group []ecosystem.Package) error {
+		paths, err := mavenSyncReactor(root, reactor, group)
 		if err != nil {
-			return nil, err
-		}
-		paths, err := mavenSyncReactor(root, reactor, []ecosystem.Package{pkg})
-		if err != nil {
-			return nil, err
+			return err
 		}
 		changed = append(changed, paths...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return uniqueSorted(changed), nil
 }
 
 // mavenSyncReactor syncs one loaded reactor.
 func mavenSyncReactor(root string, reactor *mavenReactor, pkgs []ecosystem.Package) ([]string, error) {
-	nextByCoord := map[string]string{}
-	for _, pkg := range pkgs {
-		node := reactor.nodeForDir(pkg.Path)
-		if node == nil {
-			continue
-		}
-		nextByCoord[node.coord()] = pkg.Version
+	plan, err := mavenRoundPlan(root, reactor, pkgs, nil)
+	if err != nil {
+		return nil, err
 	}
-	for _, pkg := range pkgs {
-		if !pkg.Inherited {
-			continue
-		}
-		node := reactor.nodeForDir(pkg.Path)
-		if node == nil || node.parent == nil {
-			continue
-		}
-		parentNext, ok := nextByCoord[node.parent.coord()]
-		if !ok || parentNext != pkg.Version {
-			return nil, errors.New(i18n.Tf("java.err.shared_scope_required", pkg.Name))
-		}
+	// The release executor checks the whole round before it writes anything, so
+	// reaching a finding here means a caller skipped that check. Refusing the
+	// write keeps the same promise: no manifest loses content the round cannot
+	// preserve, and no version range is replaced by a version it excludes.
+	if findings := plan.findings(); len(findings) > 0 {
+		return nil, errors.New(mavenFindingList(findings))
 	}
 	var changed []string
-	for _, node := range reactor.nodes {
-		if !node.manageable {
+	for _, planned := range plan.ordered() {
+		if len(planned.writes) == 0 {
 			continue
 		}
-		file := fsx.Join(root, node.manifest)
-		data, err := os.ReadFile(file)
-		if err != nil {
+		next := applyReplacements(planned.text, planned.writes)
+		if err := fsx.WriteFileAtomic(fsx.Join(root, planned.manifest), []byte(next), 0o644); err != nil {
 			return nil, err
 		}
-		text := string(data)
-		replacements := []textReplacement{}
-		if node.doc.Parent != nil {
-			key := strings.TrimSpace(node.doc.Parent.GroupID) + ":" + strings.TrimSpace(node.doc.Parent.ArtifactID)
-			if target, ok := nextByCoord[key]; ok && target != "" {
-				if parent, ok := findElement(text, "project", "parent"); ok {
-					if versionEls := directChildren(text, parent, "version"); len(versionEls) > 0 {
-						current := elementText(text, versionEls[0])
-						if current != "" && !strings.Contains(current, "${") && current != target {
-							replacements = append(replacements, textReplacement{start: versionEls[0].innerStart, end: versionEls[0].innerEnd, value: target})
-						}
-					}
-				}
-			}
-		}
-		replacements = append(replacements, dependencyReplacements(text, nextByCoord, "project", "dependencies")...)
-		replacements = append(replacements, dependencyReplacements(text, nextByCoord, "project", "dependencyManagement", "dependencies")...)
-		if len(replacements) == 0 {
-			continue
-		}
-		text = applyReplacements(text, replacements)
-		if err := fsx.WriteFileAtomic(file, []byte(text), 0o644); err != nil {
-			return nil, err
-		}
-		changed = append(changed, node.manifest)
+		changed = append(changed, planned.manifest)
 	}
 	return uniqueSorted(changed), nil
 }
 
-// dependencyReplacements collects version edits for dependencies under path.
-func dependencyReplacements(text string, nextByCoord map[string]string, path ...string) []textReplacement {
-	var out []textReplacement
-	deps, ok := findElement(text, path...)
-	if !ok {
-		return out
+// mavenFindingList renders the findings of a round for a caller that skipped
+// the preflight. The detailed, per-location message lives in the registry,
+// which every release run goes through.
+func mavenFindingList(findings []ecosystem.PreflightFinding) string {
+	lines := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		switch finding.Reason {
+		case ecosystem.PreflightReasonRangeExcluded, ecosystem.PreflightReasonRangeUnparsable:
+			lines = append(lines, i18n.Tf("java.err.range_pin", finding.Manifest, finding.Coordinates, finding.Range, finding.Target))
+		case ecosystem.PreflightReasonEmpty:
+			lines = append(lines, i18n.Tf("java.err.element_empty", finding.Manifest, finding.Element))
+		default:
+			lines = append(lines, i18n.Tf("java.err.element_unsafe", finding.Manifest, finding.Element))
+		}
 	}
-	for _, dep := range directChildren(text, deps, "dependency") {
-		group := firstChildText(text, dep, "groupId")
-		artifact := firstChildText(text, dep, "artifactId")
-		if group == "" || artifact == "" {
-			continue
-		}
-		versionEls := directChildren(text, dep, "version")
-		if len(versionEls) == 0 {
-			continue
-		}
-		target, ok := nextByCoord[group+":"+artifact]
-		if !ok || target == "" {
-			continue
-		}
-		current := elementText(text, versionEls[0])
-		if current == "" || strings.Contains(current, "${") || current == target {
-			continue
-		}
-		out = append(out, textReplacement{start: versionEls[0].innerStart, end: versionEls[0].innerEnd, value: target})
-	}
-	return out
+	return strings.Join(lines, "\n")
 }
 
 // firstChildText returns the text of the first direct child called name.

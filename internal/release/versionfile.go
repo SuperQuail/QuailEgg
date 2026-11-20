@@ -47,6 +47,10 @@ func versionFileWarnings(root string, files []config.VersionFile, expected strin
 
 // writeVersionFiles keeps the configured files that carry the release version
 // in step with the manifests. The written paths join the release commit.
+//
+// The write runs last in the version step, after the batch pre-flight: a manifest
+// the round cannot update stops the release before this point, so a version file
+// never carries a version whose manifests were left behind.
 func (e *executor) writeVersionFiles() error {
 	files := e.d.Cfg.Version.File
 	if len(files) == 0 {

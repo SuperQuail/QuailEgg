@@ -271,14 +271,6 @@ func elementText(text string, el xmlElement) string {
 	return strings.TrimSpace(text[el.innerStart:el.innerEnd])
 }
 
-// setElementText replaces the text content of an element.
-func setElementText(text string, el xmlElement, value string) string {
-	if el.innerStart > len(text) || el.innerEnd > len(text) || el.innerStart > el.innerEnd {
-		return text
-	}
-	return text[:el.innerStart] + value + text[el.innerEnd:]
-}
-
 // samePath reports whether a and b contain the same element names.
 func samePath(a, b []string) bool {
 	if len(a) != len(b) {

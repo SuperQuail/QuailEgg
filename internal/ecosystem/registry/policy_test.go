@@ -14,8 +14,8 @@ import (
 
 // resolverLiterals are the ecosystem names core code must not branch on.
 var resolverLiterals = map[string]bool{
-	"npm": true, "python": true, "rust": true, "go": true,
-	"pypi": true, "crates": true,
+	"npm": true, "python": true, "rust": true, "go": true, "java": true,
+	"pypi": true, "crates": true, "maven": true,
 }
 
 // policyAllowlist lists the files that still hold an ecosystem name while the
