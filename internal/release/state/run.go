@@ -21,6 +21,9 @@ const (
 	StatusDone    = "done"
 	StatusFailed  = "failed"
 	StatusSkipped = "skipped"
+	// StatusSkippedExists marks a package whose version the registry already
+	// had, so nothing was uploaded.
+	StatusSkippedExists = "skipped-exists"
 )
 
 // StepState is one executed step.

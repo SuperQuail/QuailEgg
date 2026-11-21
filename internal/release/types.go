@@ -52,6 +52,10 @@ type Deps struct {
 	QeggVersion string
 	QeggCommit  string
 	QeggDevelop bool
+
+	// Releases overrides the GitHub release surface. Tests inject a fake to
+	// count external writes; nil uses the gh CLI and the REST API.
+	Releases ReleaseOps
 }
 
 // toolInfo returns the qegg identifier stored in release state, or nil when the

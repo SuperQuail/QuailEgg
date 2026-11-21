@@ -66,6 +66,28 @@ git push origin main
 
 CI 用最新的已发布 qegg 创建发布 PR；合并后由 publish 阶段打 tag、推送并创建 Release。
 
+## 中断后的恢复
+
+发布在半途失败（分支与 tag 都推上去了，却没能创建 GitHub Release，或某个附件没传完）时运行
+`qegg resume`：它在正常的发布入口里先找到上一次运行记录中的那次发布，再只补还缺的部分。
+
+- 远端同名 tag 必须存在，且指向本仓库同名 tag 的提交。远端明确没有这个 tag、或查询失败（无权访问、网络错误）时都只报告并停止，不写任何外部内容。
+- 上一次运行的包上传全部完成或明确跳过、且这次发布启用了 GitHub Release 时，才补建 Release 或只补缺失的附件。原运行的发布说明、预发布属性和跳过选项原样沿用，不会被本次命令行参数改写。
+- 运行记录里必须真的有一次“创建 GitHub Release 失败”：只跑到更早步骤、从未走到这一步的记录不算“只缺 Release”，`qegg resume` 只报告原因并停止。
+- 已存在的同名附件按摘要核对：一致就跳过，摘要不同直接报冲突并停止，不会覆盖已有附件。
+- 需要重新构建的附件会提示先按发布的源码提交重建，恢复流程本身不重新构建。
+
+被中断的发布补建完成后即为完成状态：再次运行 `qegg resume` 只会提示这次发布已经完成，不会顺手开始下一版。
+仓库里已有下一版变更记录时同样如此：`qegg resume` 只报告还有多少条记录在等，并提示运行 `qegg release`。
+发布新版本一律显式运行 `qegg release`，CI 里由工作流触发。
+
+只要 `.quailegg/release.json` 记录的发布已经打过 tag，`qegg resume` 就不会再规划新版本：
+否则一个偶发的恢复会把本该属于下一次发布的变更记录当成新版本消费掉（升版本、写 CHANGELOG、提交发布并删除记录）。
+
+创建与查询 GitHub Release 走 `gh`，只配置了 `GITHUB_TOKEN` 时走 REST；`GITHUB_API_URL` 指向非 github.com
+（GitHub Enterprise 或本地测试服务器）时自动改用 REST。**上传附件目前只支持 `gh release upload`**：
+即使 `GITHUB_API_URL` 指向别处，也需要 PATH 上有 `gh`。
+
 ## 常见失败
 
 | 现象 | 处理 |
