@@ -31,7 +31,14 @@ func releaseBranchName(configured string) string {
 // releaseRefspec force-updates the remote release branch, because every run
 // rebuilds it from the current default branch instead of appending to it.
 func releaseRefspec(branch string) string {
-	return "+HEAD:refs/heads/" + branch
+	return releaseRefspecAt("HEAD", branch)
+}
+
+// releaseRefspecAt force-updates the remote release branch to one commit. The
+// commit is spelled out by the caller: a version run says HEAD, a publish run
+// says the pinned snapshot, and neither relies on a silent default.
+func releaseRefspecAt(commit, branch string) string {
+	return "+" + commit + ":refs/heads/" + branch
 }
 
 func (e *executor) releaseBranch() string {
@@ -241,7 +248,8 @@ func (e *executor) writeChangelog(ctx context.Context) error {
 }
 
 func (e *executor) commit(ctx context.Context) error {
-	if err := state.SaveMarker(e.d.Root, e.plan.markerFile(e.d)); err != nil {
+	marker := e.plan.markerFile(e.d)
+	if err := state.SaveMarker(e.d.Root, marker); err != nil {
 		return err
 	}
 	prerelease := e.plan.Channel != ""
@@ -291,6 +299,27 @@ func (e *executor) commit(ctx context.Context) error {
 		return err
 	}
 	e.d.UI.Info("%s", i18n.Tf("release.msg.committed", message, shortSHA(sha)))
+	return e.rememberCommit(ctx, marker, sha)
+}
+
+// rememberCommit pins the release snapshot as soon as git created the release
+// commit. The marker cannot name the commit that carries it, so this record is
+// what a later run reads before it builds, uploads or tags anything.
+func (e *executor) rememberCommit(ctx context.Context, marker *state.Marker, commit string) error {
+	if e.d.Cfg.Release.Mode != config.ModeCommit {
+		// In pr mode the release commit sits on the rebuilt release branch and
+		// reaches the target branch only through a squash or merge commit, so it
+		// is not the snapshot a later run builds from. Recording it would pin a
+		// commit the target branch does not hold; the publish phase locates the
+		// merged commit instead.
+		return nil
+	}
+	id, err := recordSource(ctx, e.d, identityFrom(e.d, e.plan, marker), commit, state.SourceOriginCommit)
+	if err != nil {
+		return err
+	}
+	e.identity = id
+	e.run.SourceCommit = id.SourceCommit
 	return nil
 }
 

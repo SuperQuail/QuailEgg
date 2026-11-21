@@ -413,6 +413,10 @@ func Collect(dir, outDir string) ([]string, error) {
 			return nil
 		}
 		name := filepath.Base(path)
+		if name == ProvenanceFile {
+			// The manifest describes the directory; it is not an attachment.
+			return nil
+		}
 		if seen[name] {
 			return errors.New(i18n.Tf("release.err.assets_duplicate", name))
 		}

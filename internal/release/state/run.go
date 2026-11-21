@@ -53,6 +53,11 @@ type RunRecord struct {
 	Steps         map[string]StepState    `json:"steps"`
 	Publish       map[string]PackageState `json:"publish,omitempty"`
 	Assets        []string                `json:"assets,omitempty"`
+	// SourceCommit is the commit this run builds, uploads and tags from. The
+	// version phase records the release commit as soon as git returned it; the
+	// publish phase records the snapshot it resolved. An empty value means the
+	// run has not reached that decision yet.
+	SourceCommit string `json:"source_commit,omitempty"`
 	// Qegg records the build that executed the run.
 	Qegg *ToolInfo `json:"qegg,omitempty"`
 }

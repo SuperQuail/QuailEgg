@@ -98,6 +98,18 @@ CI 用最新的已发布 qegg 创建发布 PR；合并后由 publish 阶段打 t
 | CI 无法创建发布 PR | 仓库设置里允许 GitHub Actions 创建 PR，或本地以 pr 模式发版 |
 | 大版本升级报错 | v2+ 需要 `/vN` module 路径，先改 `go.mod` 与 import 再发版 |
 | 无 tag 时版本是 0.0.0 | 正常；首个版本用 `feat` 记录即可得到 0.1.0 |
+| publish 报找不到发布快照 | 浅克隆或缺历史：用 `fetch-depth: 0` 重新检出；本地可 `git fetch --unshallow` |
+| publish 报 marker 未提交 | 版本已 bump 但提交没成功：把 `.quailegg/release.json` 随发布改动一起提交，或删除它重新发版 |
+| publish 报发布源码与工作区不一致 | 工作区有未纳入发布的改动，或 `--assets-dir` 里的产物来自别的提交：清理工作区、补上 `qegg-assets.json` |
+
+## 发布源码提交
+
+publish 阶段会先固定本次发布所用的源码提交，再构建、上传和打 tag，因此主分支已经前移也不会发布到错误的树上：
+
+- commit 模式用发布提交自身的 SHA；pr 模式在目标分支的第一父提交历史里按 marker 内容找实际合入的发布快照，squash 与 merge commit 都能定位。
+- 主分支之后又有了新提交、甚至已经有下一版记录时，仍用原快照继续；本地 tag、远端 tag 都指向它。
+- marker 必须先提交：只存在于工作区的 `.quailegg/release.json` 会让 publish 在第一次外部写操作前停止（版本已经 bump、提交却失败时就是这种状态）。
+- 历史必须完整：浅克隆无法判断哪个提交引入了 marker，qegg 会直接报错并提示获取完整历史。生成的三个 workflow 都带 `fetch-depth: 0`；`mode = "external"` 的自维护工作流也要自己取全量历史。
 
 ## PR 模式
 

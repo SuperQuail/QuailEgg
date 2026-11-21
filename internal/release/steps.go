@@ -33,10 +33,11 @@ func stepsFor(phase, mode string, hasAssets bool) []StepInfo {
 	return steps
 }
 
-// publishSteps is the shared publish tail. Assets are built before the
-// registry upload so a broken build never publishes or tags.
+// publishSteps is the shared publish tail. The release snapshot is pinned
+// first, then assets are built before the registry upload so a broken build
+// never publishes or tags.
 func publishSteps(hasAssets bool) []StepInfo {
-	steps := []StepInfo{}
+	steps := []StepInfo{step("source")}
 	if hasAssets {
 		steps = append(steps, step("assets"))
 	}

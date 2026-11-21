@@ -34,6 +34,11 @@ type Options struct {
 	// the assets locally. The managed workflow downloads the build jobs'
 	// artifacts there.
 	AssetsDir string
+	// SourceCommit pins the commit the release is built, uploaded and tagged
+	// from. A repair run sets it when it must rebuild from a known snapshot
+	// instead of letting qegg locate it; the commit is verified against the
+	// marker fingerprint before anything is published.
+	SourceCommit string
 }
 
 // Deps bundles everything the executor needs.

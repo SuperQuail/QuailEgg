@@ -245,7 +245,10 @@ func TestSyncReleaseBranch(t *testing.T) {
 	gitRun(t, dir, "commit", "-qm", "docs: add changelog")
 	head := gitOutput(t, dir, "rev-parse", "HEAD")
 
-	e := &executor{d: d, plan: &Plan{}, run: state.NewRunRecord("test", d.Cfg.Release.Mode, PhasePublish, "")}
+	e := &executor{
+		d: d, plan: &Plan{}, run: state.NewRunRecord("test", d.Cfg.Release.Mode, PhasePublish, ""),
+		identity: state.ReleaseIdentity{SourceCommit: head},
+	}
 	ctx := context.Background()
 	if err := e.syncReleaseBranch(ctx); err != nil {
 		t.Fatalf("sync: %v", err)
