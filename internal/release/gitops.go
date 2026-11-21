@@ -24,4 +24,9 @@ type GitOps interface {
 	RemoteBranchExists(ctx context.Context, remote, branch string) (bool, error)
 	CommitSubject(ctx context.Context, sha string) (string, error)
 	CommitAuthor(ctx context.Context, sha string) (string, error)
+	// RemoteTagCommit reports the commit a tag points at on the remote; found is
+	// false when the remote has no such tag.
+	RemoteTagCommit(ctx context.Context, remote, tag string) (string, bool, error)
+	// TagCommit reports the commit a local tag points at.
+	TagCommit(ctx context.Context, name string) (string, error)
 }

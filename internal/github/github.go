@@ -42,6 +42,16 @@ func (r Repo) ID() string {
 	return host + "/" + r.Owner + "/" + r.Name
 }
 
+// Slug returns the OWNER/NAME form the gh CLI takes as --repo. Both the create
+// and the query pass it, so a command never resolves the repository from the
+// process working directory.
+func (r Repo) Slug() string {
+	if !r.Valid() {
+		return ""
+	}
+	return r.Owner + "/" + r.Name
+}
+
 // URL returns the repository web URL.
 func (r Repo) URL() string {
 	if !r.Valid() {
@@ -154,15 +164,20 @@ func RepoFromEnv() (Repo, bool) {
 }
 
 // CreateRelease publishes a GitHub release or reports ErrExists. A prerelease
-// is marked as such and never becomes the repository latest release.
+// is marked as such and never becomes the repository latest release. The gh CLI
+// is only used when it targets this repository's API root; a custom root
+// (GitHub Enterprise, or a local test server) goes through the REST API instead.
 func CreateRelease(ctx context.Context, run execx.Runner, repo Repo, tag, title, notes string, prerelease bool) error {
-	if execx.LookPath("gh") {
-		return createReleaseWithGH(ctx, run, tag, title, notes, prerelease)
+	if useGHCli(repo) {
+		return createReleaseWithGH(ctx, run, repo, tag, title, notes, prerelease)
 	}
 	return createReleaseWithAPI(ctx, repo, tag, title, notes, prerelease)
 }
 
-func createReleaseWithGH(ctx context.Context, run execx.Runner, tag, title, notes string, prerelease bool) error {
+func createReleaseWithGH(ctx context.Context, run execx.Runner, repo Repo, tag, title, notes string, prerelease bool) error {
+	if !repo.Valid() {
+		return errors.New(i18n.T("github.release.no_repo"))
+	}
 	file, err := os.CreateTemp("", "qegg-release-*.md")
 	if err != nil {
 		return err
@@ -173,7 +188,7 @@ func createReleaseWithGH(ctx context.Context, run execx.Runner, tag, title, note
 		return err
 	}
 	file.Close()
-	args := []string{"release", "create", tag, "--title", title, "--notes-file", file.Name()}
+	args := []string{"release", "create", tag, "-R", repo.Slug(), "--title", title, "--notes-file", file.Name()}
 	if prerelease {
 		args = append(args, "--prerelease", "--latest=false")
 	} else {
@@ -200,10 +215,10 @@ func makeLatest(prerelease bool) string {
 func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes string, prerelease bool) error {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
-		return errors.New("neither gh nor GITHUB_TOKEN is available")
+		return errors.New(i18n.T("github.release.no_client"))
 	}
 	if !repo.Valid() {
-		return errors.New("cannot determine the GitHub repository")
+		return errors.New(i18n.T("github.release.no_repo"))
 	}
 	payload := map[string]any{
 		"tag_name":               tag,
@@ -218,7 +233,7 @@ func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes stri
 	if err != nil {
 		return err
 	}
-	endpoint := "https://api.github.com/repos/" + repo.Owner + "/" + repo.Name + "/releases"
+	endpoint := releasesEndpoint(repo)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -239,24 +254,32 @@ func createReleaseWithAPI(ctx context.Context, repo Repo, tag, title, notes stri
 	if resp.StatusCode == http.StatusUnprocessableEntity && bytes.Contains(responseBody, []byte("already_exists")) {
 		return ErrExists
 	}
-	return fmt.Errorf("github release failed: %s: %s", resp.Status, strings.TrimSpace(string(responseBody)))
+	return fmt.Errorf("%s: %s", i18n.T("github.release.create_failed"), apiCause(resp.Status, responseBody))
 }
 
-// UploadReleaseAssets attaches files to an existing GitHub release. It is
-// idempotent: existing assets with the same names are replaced.
-func UploadReleaseAssets(ctx context.Context, run execx.Runner, tag string, files []string) error {
+// UploadReleaseAssets attaches files to an existing GitHub release. The publish
+// path passes replace=true, so rerunning a release overwrites the attachments it
+// uploads itself. A repair passes false: it only ever names files the remote does
+// not have, and a name collision must fail instead of hiding a digest conflict.
+func UploadReleaseAssets(ctx context.Context, run execx.Runner, repo Repo, tag string, files []string, replace bool) error {
 	if len(files) == 0 {
 		return nil
 	}
 	if !execx.LookPath("gh") {
 		return errors.New(i18n.T("release.err.assets_gh"))
 	}
-	_, err := run.Run(ctx, "", "gh", uploadArgs(tag, files)...)
+	if !repo.Valid() {
+		return errors.New(i18n.T("github.release.no_repo"))
+	}
+	_, err := run.Run(ctx, "", "gh", uploadArgs(repo, tag, files, replace)...)
 	return err
 }
 
-func uploadArgs(tag string, files []string) []string {
-	args := []string{"release", "upload", tag, "--clobber"}
+func uploadArgs(repo Repo, tag string, files []string, replace bool) []string {
+	args := []string{"release", "upload", tag, "-R", repo.Slug()}
+	if replace {
+		args = append(args, "--clobber")
+	}
 	return append(args, files...)
 }
 

@@ -187,13 +187,10 @@ func (e *executor) githubRelease(ctx context.Context) error {
 		e.warnAssetsNotUploaded()
 		return nil
 	}
-	prerelease := e.plan.Channel != ""
+	ops := e.d.releaseOps()
 	for _, release := range e.plan.Releases {
-		notes, ok := e.releaseNotes(release)
-		if !ok {
-			notes = "Release " + release.Tag
-		}
-		err := github.CreateRelease(ctx, e.d.Run, e.plan.Repo, release.Tag, release.Tag, notes, prerelease || release.Prerelease != "")
+		title, notes, prerelease := e.releasePayload(release)
+		err := ops.CreateRelease(ctx, e.plan.Repo, release.Tag, title, notes, prerelease)
 		if errors.Is(err, github.ErrExists) {
 			e.d.UI.Info("%s", i18n.Tf("release.msg.release_exists", release.Tag))
 		} else if err != nil {
@@ -206,7 +203,7 @@ func (e *executor) githubRelease(ctx context.Context) error {
 		return nil
 	}
 	tag := e.plan.Releases[0].Tag
-	if err := github.UploadReleaseAssets(ctx, e.d.Run, tag, e.run.Assets); err != nil {
+	if err := ops.UploadReleaseAssets(ctx, e.plan.Repo, tag, e.run.Assets, true); err != nil {
 		return err
 	}
 	e.d.UI.Success("%s", i18n.Tf("release.msg.assets_uploaded", len(e.run.Assets), tag))
@@ -218,6 +215,17 @@ func (e *executor) warnAssetsNotUploaded() {
 	if len(e.run.Assets) > 0 {
 		e.d.UI.Warn("%s", i18n.T("release.warn.assets_not_uploaded"))
 	}
+}
+
+// releasePayload renders what a GitHub Release is created with: its title, the
+// notes of the recorded release and the prerelease flag. A repair reuses this,
+// so a recovered release keeps the notes and the flag of the original run.
+func (e *executor) releasePayload(release ReleasePlan) (title, notes string, prerelease bool) {
+	notes, ok := e.releaseNotes(release)
+	if !ok {
+		notes = "Release " + release.Tag
+	}
+	return release.Tag, notes, e.plan.Channel != "" || release.Prerelease != ""
 }
 
 func (e *executor) releaseNotes(release ReleasePlan) (string, bool) {

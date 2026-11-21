@@ -390,3 +390,47 @@ func (r *Repo) ListTags(ctx context.Context, prefix string) ([]string, error) {
 	}
 	return tags, nil
 }
+
+// RemoteTagCommit reads the commit a tag points at on the remote without
+// fetching it. found is false when the remote has no such tag; a failed command
+// is an error, because "I could not look" is not "it is not there". An annotated
+// tag answers twice, as its tag object and as the commit it peels to; the commit
+// is what a release belongs to, so it wins.
+func (r *Repo) RemoteTagCommit(ctx context.Context, remote, tag string) (string, bool, error) {
+	ref := "refs/tags/" + tag
+	out, err := r.output(ctx, "ls-remote", remote, ref, ref+"^{}")
+	if err != nil {
+		return "", false, err
+	}
+	commit := ""
+	for _, line := range strings.Split(out, "\n") {
+		// Only the tab separates the object id from the ref name: a ref may
+		// contain spaces, and splitting on any whitespace would drop it and report
+		// "no tag" where the answer was "cannot parse".
+		sha, name, ok := strings.Cut(line, "\t")
+		if !ok {
+			continue
+		}
+		sha = strings.TrimSpace(sha)
+		name = strings.TrimSpace(name)
+		if sha == "" || name == "" {
+			continue
+		}
+		if strings.HasSuffix(name, "^{}") {
+			return sha, true, nil
+		}
+		if name == ref {
+			commit = sha
+		}
+	}
+	if commit == "" {
+		return "", false, nil
+	}
+	return commit, true, nil
+}
+
+// TagCommit returns the commit a local tag points at. It is the local counterpart
+// of RemoteTagCommit: a release compares the two before it touches anything.
+func (r *Repo) TagCommit(ctx context.Context, name string) (string, error) {
+	return r.output(ctx, "rev-list", "-n", "1", "refs/tags/"+name)
+}

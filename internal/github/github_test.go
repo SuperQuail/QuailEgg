@@ -2,15 +2,37 @@ package github
 
 import "testing"
 
+// TestUploadArgs pins the two upload modes: the publish path may replace its own
+// attachments, while a repair must fail on a name collision instead of hiding a
+// digest conflict.
 func TestUploadArgs(t *testing.T) {
-	got := uploadArgs("v1.0.0", []string{"/tmp/demo.tar.gz", "/tmp/checksums.txt"})
-	want := []string{"release", "upload", "v1.0.0", "--clobber", "/tmp/demo.tar.gz", "/tmp/checksums.txt"}
-	if len(got) != len(want) {
-		t.Fatalf("uploadArgs = %v, want %v", got, want)
+	repo := Repo{Host: "github.com", Owner: "owner", Name: "repo"}
+	files := []string{"/tmp/demo.tar.gz", "/tmp/checksums.txt"}
+	cases := []struct {
+		name    string
+		replace bool
+		want    []string
+	}{
+		{
+			name:    "publish replaces",
+			replace: true,
+			want:    []string{"release", "upload", "v1.0.0", "-R", "owner/repo", "--clobber", "/tmp/demo.tar.gz", "/tmp/checksums.txt"},
+		},
+		{
+			name:    "repair never replaces",
+			replace: false,
+			want:    []string{"release", "upload", "v1.0.0", "-R", "owner/repo", "/tmp/demo.tar.gz", "/tmp/checksums.txt"},
+		},
 	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("uploadArgs[%d] = %q, want %q", i, got[i], want[i])
+	for _, tc := range cases {
+		got := uploadArgs(repo, "v1.0.0", files, tc.replace)
+		if len(got) != len(tc.want) {
+			t.Fatalf("%s: uploadArgs = %v, want %v", tc.name, got, tc.want)
+		}
+		for i := range tc.want {
+			if got[i] != tc.want[i] {
+				t.Fatalf("%s: uploadArgs[%d] = %q, want %q", tc.name, i, got[i], tc.want[i])
+			}
 		}
 	}
 }
