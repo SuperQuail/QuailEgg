@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/SuperQuail/QuailEgg/internal/app"
@@ -49,6 +51,18 @@ func printStatus(p *ui.Printer, report *app.StatusReport) {
 		}
 	} else {
 		p.Info("%s", i18n.Tf("status.tag", report.Tag, report.TagExists, report.Published))
+	}
+	if len(report.Packages) > 0 {
+		for _, pkg := range report.Packages {
+			if pkg.Outcome == "" {
+				continue
+			}
+			if pkg.Reason == "" {
+				p.Info("%s", i18n.Tf("status.package_outcome", pkg.Name, i18n.T("release.action."+strings.ReplaceAll(pkg.Outcome, "-", "_"))))
+				continue
+			}
+			p.Info("%s", i18n.Tf("status.package_outcome_reason", pkg.Name, i18n.T("release.action."+strings.ReplaceAll(pkg.Outcome, "-", "_")), i18n.T("release.reason."+pkg.Reason)))
+		}
 	}
 	if report.Channel != "" {
 		p.Info("%s", i18n.Tf("status.channel", report.Channel))

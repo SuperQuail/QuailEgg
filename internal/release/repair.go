@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/SuperQuail/QuailEgg/internal/changes"
+	"github.com/SuperQuail/QuailEgg/internal/ecosystem/registry"
 	"github.com/SuperQuail/QuailEgg/internal/github"
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/execx"
@@ -121,6 +122,25 @@ func Repair(ctx context.Context, d *Deps) (*Plan, bool, error) {
 	run, err := state.LatestRun(d.Root)
 	if err != nil {
 		return nil, false, err
+	}
+	if run != nil && publishStepsUnfinished(run) {
+		// The recorded release still owes a publish step - an upload or a tag
+		// push. A repair only answers for a release whose publish phase finished,
+		// so the normal resume continues it and never plans a new version.
+		return nil, false, nil
+	}
+	if run == nil {
+		// Without a local record the ledger is the only evidence. When it is gone
+		// too, a release that still owes an upload is unknown rather than
+		// repairable: the publish phase names the package and says how to check it.
+		// A release whose packages publish by tag needs nothing here, so stopping
+		// with a reason is enough.
+		entry, entryErr := LedgerEntryFor(ctx, d, true)
+		if entryErr != nil || entry == nil {
+			if uploadsNeeded(d, marker) {
+				return nil, false, nil
+			}
+		}
 	}
 	if run == nil || !sameRecordedRelease(marker, run) || !recordedTagsCreated(run) {
 		// There is no evidence of an interrupted publish, and the recorded release
@@ -288,6 +308,38 @@ func (e *executor) applyRelease(ctx context.Context, ops ReleaseOps, repo github
 		e.d.UI.Info("%s", i18n.Tf("resume.repair.present", release.Tag))
 	}
 	return nil
+}
+
+// uploadsNeeded reports whether the marker names a package whose publication is
+// an upload rather than a tag push, so its outcome has to be known.
+func uploadsNeeded(d *Deps, marker *state.Marker) bool {
+	for _, pkg := range markerPackages(marker.Packages) {
+		if !pkg.Publish {
+			continue
+		}
+		if !registry.PublishesByTag(pkg.Resolver) {
+			return true
+		}
+	}
+	return false
+}
+
+// publishStepsUnfinished reports whether the recorded run still owes a publish
+// step. A repair cannot finish those - it does not upload packages or push tags
+// - so such a release belongs to the publish phase of the resume.
+func publishStepsUnfinished(run *state.RunRecord) bool {
+	for _, step := range []string{"publish", "tag", "push"} {
+		recorded, ok := run.Steps[step]
+		if !ok {
+			continue
+		}
+		switch recorded.Status {
+		case state.StatusDone, state.StatusSkipped:
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 // recordRepair stores the outcome on the same run record. The run id does not

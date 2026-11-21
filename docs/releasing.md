@@ -87,6 +87,18 @@ CI 用最新的已发布 qegg 创建发布 PR；合并后由 publish 阶段打 t
 创建与查询 GitHub Release 走 `gh`，只配置了 `GITHUB_TOKEN` 时走 REST；`GITHUB_API_URL` 指向非 github.com
 （GitHub Enterprise 或本地测试服务器）时自动改用 REST。**上传附件目前只支持 `gh release upload`**：
 即使 `GITHUB_API_URL` 指向别处，也需要 PATH 上有 `gh`。
+## 发布执行记录（跨 runner 恢复）
+
+`qegg release` 在第一次外部写操作之前，会把本次发布的执行记录写到 `[git].remote` 上一个独立引用里：
+
+- 位置：`refs/qegg/ledger/<tag>`，里面的文件是 `.quailegg/publish-ledger.json`。它不是分支也不是 tag，普通的 clone、fetch、`git status` 都不会看到它；换 runner 之后用 `git ls-remote origin 'refs/qegg/ledger/*'` 就能确认它是否还在。生成的工作流已经有 `contents: write`，不需要额外权限。
+- 内容：以仓库、发布提交、包、版本和目标源为键，记录每个包的结果（`not-started` / `started` / `uploaded` / `skipped` / `unknown`）与原因，以及资源构建、打 tag、推送、GitHub Release 等步骤的结果和整轮跳过决定（`--no-publish`、`--no-push`、`--no-github-release`、是否要创建 Release）。
+- 何时写远端：只要本次发布可能产生外部写（上传、打 tag、建 Release），记录就写到远端；即使同时用了 `--no-push` 也一样——记录是恢复的依据，不是发布产物。整轮都不允许外部写时（例如 `--no-publish --no-push` 且关闭 Release），记录只留在本地 `.quailegg/state/ledger.json`，之后的普通 `qegg resume` 会读到它并沿用原来的决定。
+- 互斥：新建记录是一次普通 push，引用已存在时会被拒绝；更新记录用 `git push --force-with-lease=<ref>:<上次读到的提交>` 做比较交换。两个并发的 `qegg resume` 只有一个能继续，另一个在下次外部写之前停下，提示 `release.err.ledger_conflict`。没有锁文件，崩溃不会留下锁。
+- 上传之前先写 `started`，成功之后写结果；任何一次关键写入失败都会立即停止。恢复时只有"目标注册表确认版本不存在"或"记录里的首次发布尚未尝试"这两种情况才会上传，`started` 之后查询返回 404 不能当作重传依据。
+- 旧记录：由 qegg v0.14 及更早版本写下的 `.quailegg/release.json`（schema 1）没有执行记录，恢复时按注册表回答判断——确认已存在就跳过、确认缺失就上传、查询失败或生态没有查询能力就停止并说明如何核实。
+- 规划时就记录：schema 2 的发布在规划阶段（写 release commit 之前）就写下执行记录，因此"缺记录"通常意味着记录丢失。但当本次运行不得不自己创建记录时（例如规划在另一台机器上只写了本地副本），按"尚未尝试过"处理，好让没有查询能力的生态还能做首次 deploy。代价是：记录引用与发布标签都被删除时，这种发布与真正的首次发布无法区分，需要人工核对目标源——发布标签因此始终在上传之后才创建，也不会被自动删除。
+- `qegg status` 会显示记录里的逐包结果与原因，`qegg status --offline` 只读本地副本（`.quailegg/state/ledger.json`，gitignore 内）。
 
 ## 常见失败
 

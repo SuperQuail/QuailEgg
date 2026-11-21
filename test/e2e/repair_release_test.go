@@ -246,10 +246,12 @@ func newRepairSetup(t *testing.T) *repairSetup {
 	t.Helper()
 	t.Setenv("CI", "")
 	t.Setenv("GITHUB_ACTIONS", "")
-	remote := newRepairRemote(t)
 	logPath := installRepairGH(t)
 	bin := buildBinary(t)
 	dir := newRepo(t)
+	// newRepo points the GitHub API at a closed port; these tests run their own
+	// server, so it is created after the repository exists.
+	remote := newRepairRemote(t)
 
 	origin := filepath.Join(t.TempDir(), "origin.git")
 	git(t, dir, "init", "--bare", "-q", origin)

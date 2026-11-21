@@ -62,7 +62,16 @@ func (id ReleaseIdentity) SameRelease(other ReleaseIdentity) bool {
 func sortedTags(tags []string) []string {
 	out := append([]string(nil), tags...)
 	sort.Strings(out)
-	return out
+	// A marker that lists the same tag twice still names one release, so the key
+	// must not depend on how often a tag is repeated.
+	compact := out[:0]
+	for i, tag := range out {
+		if i > 0 && tag == out[i-1] {
+			continue
+		}
+		compact = append(compact, tag)
+	}
+	return compact
 }
 
 // sameTags compares two tag sets, where an empty side is unknown.

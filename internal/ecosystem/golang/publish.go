@@ -22,6 +22,11 @@ func (publisher) Precheck(ctx context.Context, client *http.Client, pkg ecosyste
 
 func (publisher) Build(context.Context, execx.Runner, string, ecosystem.Package) error { return nil }
 
+// PublishesByTag marks the module as released by its git tag. The proxy is not
+// authoritative: it fetches versions on demand, so an uncached version says
+// nothing about whether the release happened.
+func (publisher) PublishesByTag() bool { return true }
+
 // Publish is a no-op: the module becomes available once the release tag is
 // pushed, which the release pipeline does in its tag and push steps.
 func (publisher) Publish(context.Context, execx.Runner, string, ecosystem.Package, string) error {

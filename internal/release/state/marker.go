@@ -16,6 +16,13 @@ const metadataDirName = ".quailegg"
 // releaseFileName is the committed release intent file.
 const releaseFileName = "release.json"
 
+// MarkerSchemaVersion is the marker format this qegg writes. Version 2 marks a
+// release planned by a qegg that records its publish progress in the release
+// ledger, so a release without a ledger entry was recorded and lost instead of
+// never attempted. A marker below it was written before that record existed and
+// cannot prove that nothing was published.
+const MarkerSchemaVersion = 2
+
 // MarkerRepo identifies the hosting repository.
 type MarkerRepo struct {
 	Host  string `json:"host,omitempty"`
@@ -122,7 +129,7 @@ func LoadMarker(root string) (*Marker, error) {
 // SaveMarker writes the marker atomically.
 func SaveMarker(root string, marker *Marker) error {
 	if marker.SchemaVersion == 0 {
-		marker.SchemaVersion = 1
+		marker.SchemaVersion = MarkerSchemaVersion
 	}
 	if marker.CreatedAt.IsZero() {
 		marker.CreatedAt = time.Now()
