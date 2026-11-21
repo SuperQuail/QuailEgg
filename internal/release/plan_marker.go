@@ -10,7 +10,7 @@ import (
 
 func (p *Plan) markerFile(d *Deps) *state.Marker {
 	marker := &state.Marker{
-		SchemaVersion: 1,
+		SchemaVersion: state.MarkerSchemaVersion,
 		Version:       p.Version.Next,
 		CreatedAt:     d.Now(),
 		Mode:          d.Cfg.Release.Mode,

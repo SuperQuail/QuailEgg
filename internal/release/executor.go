@@ -26,6 +26,13 @@ type executor struct {
 	// changelog is CHANGELOG.md as the pinned snapshot has it, read once the
 	// snapshot is known so the release notes never come from a moved tree.
 	changelog []byte
+	// ledger records the publish progress of this release so a resume on
+	// another runner can tell an upload that happened from one that never did.
+	ledger *ledgerSession
+	// resumedWithoutRecord marks a resume that rebuilt the release from the
+	// marker on a runner that keeps no record of it: nothing may be published on
+	// an assumption, so the release step stops with a message instead.
+	resumedWithoutRecord bool
 }
 
 // Run executes the plan and records progress in local state.
@@ -37,8 +44,35 @@ func Run(ctx context.Context, d *Deps, plan *Plan) error {
 	runID := fmt.Sprintf("%s-%d", d.Now().Format("20060102T150405"), d.Now().UnixNano()%10000)
 	run := state.NewRunRecord(runID, d.Cfg.Release.Mode, plan.Phase, plan.Fingerprint)
 	run.Qegg = d.toolInfo()
+	// A repair recorded by an earlier resume belongs to the release, not to the
+	// run that performed it. Carrying it keeps this run from creating the same
+	// release again.
+	previous, previousErr := state.LatestRun(d.Root)
+	if previousErr == nil && previous != nil &&
+		previous.Steps[stepGitHubReleaseRepair].Status == state.StatusDone {
+		run.Mark(stepGitHubReleaseRepair, state.StatusDone, nil)
+	}
 	e := &executor{d: d, plan: plan, run: run}
+	e.resumedWithoutRecord = plan.Resumed && previous == nil
+	if plan.Phase == PhaseVersion {
+		// The record of a release is written while it is being planned, before the
+		// release commit exists. A resume that finds no record afterwards knows the
+		// record was lost instead of assuming nothing was ever attempted.
+		if err := e.recordPlannedRelease(ctx); err != nil {
+			return err
+		}
+	}
 	return e.execute(ctx)
+}
+
+// recordPlannedRelease writes the ledger entry of the release this run plans.
+func (e *executor) recordPlannedRelease(ctx context.Context) error {
+	session, err := e.openLedger(ctx, true)
+	if err != nil {
+		return err
+	}
+	session.Close()
+	return nil
 }
 
 func (e *executor) execute(ctx context.Context) error {

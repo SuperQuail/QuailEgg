@@ -25,21 +25,13 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
+// buildBinary returns the CLI built once in TestMain.
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	if _, err := exec.LookPath("go"); err != nil {
+	if e2eBinary == "" {
 		t.Skip("go toolchain not available")
 	}
-	bin := filepath.Join(t.TempDir(), "qegg")
-	if runtime.GOOS == "windows" {
-		bin += ".exe"
-	}
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/qegg")
-	cmd.Dir = repoRoot(t)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("go build: %v\n%s", err, out)
-	}
-	return bin
+	return e2eBinary
 }
 
 func git(t *testing.T, dir string, args ...string) {
@@ -69,6 +61,7 @@ func newRepo(t *testing.T) string {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+	offlineGitHub(t)
 	sanitizeGitEnv()
 	dir := t.TempDir()
 	git(t, dir, "init", "-q")

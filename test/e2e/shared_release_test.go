@@ -12,6 +12,8 @@ import (
 // at the root with a manifest-versioned npm package under one shared version.
 func newSharedReleaseRepo(t *testing.T) string {
 	t.Helper()
+	offlineGitHub(t)
+	t.Helper()
 	sanitizeGitEnv()
 	dir := t.TempDir()
 	git(t, dir, "init", "-q")

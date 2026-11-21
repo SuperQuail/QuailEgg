@@ -462,12 +462,21 @@ func installFakeMaven(t *testing.T) (dirLog, contentLog string) {
 func TestPublishRunsInsideTheReleaseSnapshot(t *testing.T) {
 	dir := javaSourceRepo(t, "vA")
 	dirLog, contentLog := installFakeMaven(t)
-	if err := state.SaveMarker(dir, javaMarker()); err != nil {
+	marker := javaMarker()
+	// A marker written by this qegg: the publish decision may seed the record.
+	marker.SchemaVersion = state.MarkerSchemaVersion
+	if err := state.SaveMarker(dir, marker); err != nil {
 		t.Fatalf("SaveMarker: %v", err)
 	}
 	release := commitAll(t, dir, "chore(release): v0.1.0")
 	writeGoFile(t, filepath.Join(dir, "content.txt"), "vB\n")
 	head := commitAll(t, dir, "feat: move on")
+	// The publish decision reads the remote tag before it deploys, so the
+	// fixture needs an origin even though this run does not push.
+	bare := filepath.Join(t.TempDir(), "origin.git")
+	gitRun(t, dir, "init", "--bare", "-q", bare)
+	gitRun(t, dir, "remote", "add", "origin", bare)
+	gitRun(t, dir, "push", "-q", "origin", "HEAD:refs/heads/main")
 
 	d := javaDeps(t, dir)
 	ctx := context.Background()
