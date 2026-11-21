@@ -97,6 +97,12 @@ func MarkerPath(root string) string {
 	return filepath.Join(root, metadataDirName, releaseFileName)
 }
 
+// MarkerRelPath returns the marker path relative to a repository root, in slash
+// form. History lookups and git plumbing take repository-relative paths.
+func MarkerRelPath() string {
+	return filepath.ToSlash(filepath.Join(metadataDirName, releaseFileName))
+}
+
 // LoadMarker reads the marker; a missing file returns (nil, nil).
 func LoadMarker(root string) (*Marker, error) {
 	data, err := fsx.ReadOrEmpty(MarkerPath(root))

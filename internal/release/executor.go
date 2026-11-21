@@ -15,6 +15,17 @@ type executor struct {
 	plan      *Plan
 	run       *state.RunRecord
 	syncPaths []string
+	// identity names the release and pins the snapshot it is built from,
+	// before the first external write.
+	identity state.ReleaseIdentity
+	// snapshot is the directory the release is built from and snapshotRoot is
+	// the temporary parent of an isolated checkout (empty when the working
+	// tree itself is the snapshot).
+	snapshot     string
+	snapshotRoot string
+	// changelog is CHANGELOG.md as the pinned snapshot has it, read once the
+	// snapshot is known so the release notes never come from a moved tree.
+	changelog []byte
 }
 
 // Run executes the plan and records progress in local state.
@@ -31,6 +42,9 @@ func Run(ctx context.Context, d *Deps, plan *Plan) error {
 }
 
 func (e *executor) execute(ctx context.Context) error {
+	// An isolated checkout of the release snapshot is a temporary directory; it
+	// is removed however the run ends.
+	defer e.releaseSnapshot(ctx)
 	var err error
 	if e.plan.Phase == PhaseVersion {
 		err = e.runVersion(ctx)

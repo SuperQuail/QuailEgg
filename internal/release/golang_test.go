@@ -170,6 +170,10 @@ func TestGoPublishPhaseAfterMarker(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SaveMarker: %v", err)
 	}
+	// The version phase commits the marker with the release changes; the publish
+	// phase only runs on a marker a commit actually carries.
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-qm", "chore(release): v1.1.0")
 	head, err := d.Git.HeadSHA(ctx)
 	if err != nil {
 		t.Fatal(err)

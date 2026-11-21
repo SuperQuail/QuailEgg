@@ -170,6 +170,20 @@ Rust 适配器支持 Cargo workspace：根清单是虚拟清单（只有 `[works
 
 - `--no-assets` 跳过；GitHub Release 关闭时只构建不上传
 - 上传依赖 `gh`，`--clobber` 保证重跑幂等
+- 构建、上传与打 tag 都在**发布源码提交**的隔离检出里进行：工作区已经前移到别的提交时，用的仍是带着 marker 的那个提交，不会把新内容混进这次发布
+- `--assets-dir` 目录不是当前检出的发布提交时，必须在目录里放 `qegg-assets.json` 说明来源，否则在第一次外部写操作前就停止：
+
+  ```json
+  {
+    "schema_version": 1,
+    "source_commit": "<发布提交的完整 SHA>",
+    "sha256": {
+      "app_1.0.0_linux_amd64.tar.gz": "<该文件的 sha256>"
+    }
+  }
+  ```
+
+  `source_commit` 必须等于本次发布的源码提交；`sha256` 要为目录里每一个将要上传的文件给出摘要（清单本身和 `checksums.txt` 除外，后者由 qegg 按实际文件重新生成）。外部构建器照着自己的提交用 `git rev-parse HEAD` 填 `source_commit`、算好每个产物的 sha256 即可。managed 工作流的构建 job 与 release job 在同一次运行里检出的本来就是同一个提交，因此不需要清单；只有手工搬运产物、或跨提交复用产物时才要写
 
 ## 发布工作流
 

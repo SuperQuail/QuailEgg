@@ -13,6 +13,17 @@ type GitOps interface {
 	ListTags(ctx context.Context, prefix string) ([]string, error)
 	TagPointsAt(ctx context.Context, name, sha string) (bool, error)
 	CreateTag(ctx context.Context, name, message string) error
+	CreateTagAt(ctx context.Context, name, message, sha string) error
+	ResolveCommit(ctx context.Context, rev string) (string, error)
+	RemoteTagCommit(ctx context.Context, remote, tag string) (string, bool, error)
+	FileAtCommit(ctx context.Context, rev, path string) ([]byte, bool, error)
+	CommitsTouching(ctx context.Context, path string) ([]string, error)
+	ParentCommit(ctx context.Context, rev string) (string, bool, error)
+	IsShallow(ctx context.Context) (bool, error)
+	IsAncestor(ctx context.Context, ancestor, rev string) (bool, error)
+	AddWorktree(ctx context.Context, dir, rev string) error
+	RemoveWorktree(ctx context.Context, dir string) error
+	PruneWorktrees(ctx context.Context)
 	Push(ctx context.Context, remote string, refs ...string) error
 	Add(ctx context.Context, paths ...string) error
 	Remove(ctx context.Context, paths ...string) error
@@ -24,9 +35,6 @@ type GitOps interface {
 	RemoteBranchExists(ctx context.Context, remote, branch string) (bool, error)
 	CommitSubject(ctx context.Context, sha string) (string, error)
 	CommitAuthor(ctx context.Context, sha string) (string, error)
-	// RemoteTagCommit reports the commit a tag points at on the remote; found is
-	// false when the remote has no such tag.
-	RemoteTagCommit(ctx context.Context, remote, tag string) (string, bool, error)
 	// TagCommit reports the commit a local tag points at.
 	TagCommit(ctx context.Context, name string) (string, error)
 }
