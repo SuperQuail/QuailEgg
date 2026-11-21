@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "0.14.1",
-  "created_at": "2026-11-17T03:24:09.970743642Z",
+  "version": "0.15.0",
+  "created_at": "2026-11-21T09:34:34.035617054Z",
   "mode": "pr",
-  "fingerprint": "sha256:b9cba75d87dcd134cefaa6ffcc612729c1542392d50dd45dd5b97836fb7f5d83",
+  "fingerprint": "sha256:e539de0e00e72ee089e850a17a0c3e86650f5349c6f1d60ba768671830087dd5",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -15,25 +15,25 @@
       "go test ./..."
     ],
     "skipped": false,
-    "at": "2026-11-17T03:24:09.970744473Z"
+    "at": "2026-11-21T09:34:34.035617394Z"
   },
   "packages": [
     {
       "name": "github.com/SuperQuail/QuailEgg",
       "path": ".",
       "resolver": "go",
-      "current": "0.14.0",
-      "next": "0.14.1",
-      "bump": "patch",
-      "tag": "v0.14.1",
+      "current": "0.14.1",
+      "next": "0.15.0",
+      "bump": "minor",
+      "tag": "v0.15.0",
       "publish": true
     }
   ],
   "releases": [
     {
-      "version": "0.14.1",
-      "tag": "v0.14.1",
-      "previous_tag": "v0.14.0",
+      "version": "0.15.0",
+      "tag": "v0.15.0",
+      "previous_tag": "v0.14.1",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ]
@@ -41,22 +41,73 @@
   ],
   "changes": [
     {
-      "file": ".changes/shared-pending-version.md",
+      "file": ".changes/fork-branch-check.md",
       "type": "fix",
-      "scope": "release",
+      "scope": "scaffold",
       "bump": "patch",
       "packages": [
         "github.com/SuperQuail/QuailEgg"
       ],
-      "body": "Complete a two-phase shared release that includes a package versioned by its tag.",
-      "commit": "bccd9c821a0a4f180d658fabdf2dd2a8aed0bd35",
-      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/bccd9c821a0a4f180d658fabdf2dd2a8aed0bd35",
+      "body": "Run the pull request check on fork branches that share the release branch name.",
+      "commit": "0b5830033e573577b4d4e2fb5fddbb081a475a58",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/0b5830033e573577b4d4e2fb5fddbb081a475a58"
+    },
+    {
+      "file": ".changes/maven-write-preflight.md",
+      "type": "fix",
+      "scope": "ecosystem",
+      "bump": "patch",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Stop a release before any Maven manifest write that would drop content or break a dependency range.",
+      "commit": "379c69bc563273b3eb12753b703e791fcf2a7f54",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/379c69bc563273b3eb12753b703e791fcf2a7f54",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/pin-release-source.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Build every release from the exact source commit it was prepared on, even after the branch moves on.",
+      "commit": "42b9b559b4271a75d1b975c427880196c7edc8aa",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/42b9b559b4271a75d1b975c427880196c7edc8aa",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/repair-github-release.md",
+      "type": "feat",
+      "scope": "release",
+      "bump": "minor",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Repair a missing GitHub Release when resuming an interrupted release.",
+      "commit": "62b4663ee3f8787b3254bd7675f57ebdb424c136",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/62b4663ee3f8787b3254bd7675f57ebdb424c136",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/snapshot-record-checks.md",
+      "type": "fix",
+      "scope": "changes",
+      "bump": "patch",
+      "packages": [
+        "github.com/SuperQuail/QuailEgg"
+      ],
+      "body": "Reject a commit or pull request that changes or deletes release-scoped files without a valid record.",
+      "commit": "022aaf2ff470b3553345a8f89e802c08c54818b8",
+      "commit_url": "https://github.com/SuperQuail/QuailEgg/commit/022aaf2ff470b3553345a8f89e802c08c54818b8",
       "author": "Wsrsq"
     }
   ],
   "qegg": {
-    "version": "0.14.1-0.20261117032339-bccd9c821a0a",
-    "commit": "bccd9c8",
+    "version": "0.14.2-0.20261121093353-42b9b559b427",
+    "commit": "42b9b55",
     "develop": true
   }
 }
