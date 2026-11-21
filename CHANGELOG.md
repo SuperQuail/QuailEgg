@@ -1,5 +1,22 @@
 # Changelog
 
+<!-- qegg:release 0.15.0 -->
+## v0.15.0 - 2026-11-21
+
+### Features
+
+- [`42b9b55`](https://github.com/SuperQuail/QuailEgg/commit/42b9b559b4271a75d1b975c427880196c7edc8aa): Build every release from the exact source commit it was prepared on, even after the branch moves on.
+- [`62b4663`](https://github.com/SuperQuail/QuailEgg/commit/62b4663ee3f8787b3254bd7675f57ebdb424c136): Repair a missing GitHub Release when resuming an interrupted release.
+
+### Bug Fixes
+
+- [`0b58300`](https://github.com/SuperQuail/QuailEgg/commit/0b5830033e573577b4d4e2fb5fddbb081a475a58): Run the pull request check on fork branches that share the release branch name.
+- [`379c69b`](https://github.com/SuperQuail/QuailEgg/commit/379c69bc563273b3eb12753b703e791fcf2a7f54): Stop a release before any Maven manifest write that would drop content or break a dependency range.
+- [`022aaf2`](https://github.com/SuperQuail/QuailEgg/commit/022aaf2ff470b3553345a8f89e802c08c54818b8): Reject a commit or pull request that changes or deletes release-scoped files without a valid record.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.14.1...v0.15.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.14.1 -->
 ## v0.14.1 - 2026-11-17
 
