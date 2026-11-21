@@ -16,6 +16,7 @@ import (
 
 func newGoRepo(t *testing.T) string {
 	t.Helper()
+	offlineGitHub(t)
 	sanitizeGitEnv()
 	dir := t.TempDir()
 	git(t, dir, "init", "-q")

@@ -159,6 +159,11 @@ type Plan struct {
 	Steps         []StepInfo    `json:"steps"`
 	Warnings      []string      `json:"warnings"`
 	Tag           string        `json:"tag"`
+	// Resumed marks a plan a resume rebuilt from the marker instead of planning a
+	// new release. Such a plan may not seed a fresh execution record: the release
+	// it publishes was recorded when it was planned, so an empty record means the
+	// record was lost, not that nothing was attempted.
+	Resumed bool `json:"resumed,omitempty"`
 	PreviousTag   string        `json:"previous_tag,omitempty"`
 	Assets        *assets.Plan  `json:"assets,omitempty"`
 	Marker        *state.Marker `json:"-"`

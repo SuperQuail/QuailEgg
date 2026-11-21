@@ -585,3 +585,68 @@ func Publish(ctx context.Context, run execx.Runner, root string, pkg ecosystem.P
 	}
 	return publisher.Publish(ctx, run, root, pkg, releaseVersion)
 }
+
+// PrecheckClass is the classified answer of one registry query. The publish
+// phase treats the four answers differently: a confirmed absence may be
+// uploaded, a failed query never is.
+type PrecheckClass string
+
+// Registry query answers.
+const (
+	// PrecheckExists means the target registry confirmed the version.
+	PrecheckExists PrecheckClass = "exists"
+	// PrecheckAbsent means the target registry confirmed the version is missing.
+	PrecheckAbsent PrecheckClass = "absent"
+	// PrecheckUnknown means the ecosystem cannot query its registry, so only a
+	// recorded attempt can tell whether publishing already happened.
+	PrecheckUnknown PrecheckClass = "unknown"
+	// PrecheckFailed means the query ran and produced no trustworthy answer:
+	// no access, rate limiting, a network failure or an unexpected status.
+	PrecheckFailed PrecheckClass = "failed"
+)
+
+// Query classifies the registry answer for one package version. A query error is
+// reported as PrecheckFailed so a caller can never read an error as "missing".
+func Query(ctx context.Context, client *http.Client, pkg ecosystem.Package, releaseVersion string) (PrecheckClass, error) {
+	status, err := Precheck(ctx, client, pkg, releaseVersion)
+	if err != nil {
+		return PrecheckFailed, err
+	}
+	switch status {
+	case ecosystem.Exists:
+		return PrecheckExists, nil
+	case ecosystem.Absent:
+		return PrecheckAbsent, nil
+	default:
+		return PrecheckUnknown, nil
+	}
+}
+
+// TagPublisher is implemented by ecosystems whose publication IS the release
+// tag: there is no upload command and the registry answer cannot say whether the
+// release happened, so the remote tag target is the evidence instead.
+type TagPublisher interface {
+	PublishesByTag() bool
+}
+
+// PublishesByTag reports whether the resolver publishes by pushing a release
+// tag rather than by uploading artefacts.
+func PublishesByTag(resolver string) bool {
+	publisher, ok := PublisherFor(resolver)
+	if !ok {
+		return false
+	}
+	tagged, ok := publisher.(TagPublisher)
+	return ok && tagged.PublishesByTag()
+}
+
+// PublishTarget returns the registry name a resolver uploads to. It names the
+// target in the release ledger and in messages; an empty string means the
+// ecosystem does not declare one.
+func PublishTarget(resolver string) string {
+	targets := PublishTargetsFor(resolver)
+	if len(targets) == 0 {
+		return ""
+	}
+	return targets[0]
+}

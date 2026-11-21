@@ -8,6 +8,7 @@ import (
 	"github.com/SuperQuail/QuailEgg/internal/i18n"
 	"github.com/SuperQuail/QuailEgg/internal/platform/fsx"
 	"github.com/SuperQuail/QuailEgg/internal/release/assets"
+	"github.com/SuperQuail/QuailEgg/internal/release/state"
 )
 
 // buildAssets produces the files attached to the release. A prebuilt directory
@@ -19,8 +20,15 @@ import (
 // same commit in its provenance manifest. An attachment built from another tree
 // would be published as if it belonged to this release.
 func (e *executor) buildAssets(ctx context.Context) error {
-	if e.d.Options.NoAssets {
+	if e.d.Options.NoAssets || e.ledger.round().NoAssets {
 		e.skip("assets", i18n.T("release.skip.no_assets"))
+		return e.ledger.step("assets", state.StatusSkipped, state.ReasonNoAssets)
+	}
+	if e.assetsSettled() {
+		// The attachments of this release were built and published already. A
+		// resume must not rebuild them: a rebuild reads the current tree, and
+		// re-uploading it would overwrite the published files with a newer build.
+		e.skip("assets", i18n.T("release.skip.assets_done"))
 		return nil
 	}
 	if e.plan.Assets == nil && e.d.Options.AssetsDir == "" {
@@ -52,7 +60,7 @@ func (e *executor) buildAssets(ctx context.Context) error {
 	}
 	e.run.Assets = files
 	e.d.UI.Success("%s", i18n.Tf("release.msg.assets_built", len(files), outDir))
-	return nil
+	return e.ledger.step("assets", state.StatusDone, "")
 }
 
 // verifyAssets checks that a prebuilt assets directory came from the release

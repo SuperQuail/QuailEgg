@@ -21,24 +21,31 @@ type StatusPackage struct {
 	Tag       string `json:"tag"`
 	TagExists bool   `json:"tag_exists"`
 	Published string `json:"published"`
+	// Outcome and Reason come from the release ledger, so a package the original
+	// run skipped keeps its decision visible — including on a new runner.
+	Outcome string `json:"outcome,omitempty"`
+	Reason  string `json:"reason,omitempty"`
 }
 
 // StatusReport is the machine readable output of qegg status.
 type StatusReport struct {
-	SchemaVersion int              `json:"schema_version"`
-	Marker        *state.Marker    `json:"marker,omitempty"`
-	Tag           string           `json:"tag"`
-	TagExists     bool             `json:"tag_exists"`
-	Published     string           `json:"published"`
-	Packages      []StatusPackage  `json:"packages,omitempty"`
-	Pending       []string         `json:"pending_changes"`
-	LastRun       *state.RunRecord `json:"last_run,omitempty"`
-	Channel       string           `json:"channel,omitempty"`
+	SchemaVersion int             `json:"schema_version"`
+	Marker        *state.Marker   `json:"marker,omitempty"`
+	Tag           string          `json:"tag"`
+	TagExists     bool            `json:"tag_exists"`
+	Published     string          `json:"published"`
+	Packages      []StatusPackage `json:"packages,omitempty"`
+	// Publish is the recorded progress of the pending release. It names the
+	// package outcomes and the decisions of the run that released it.
+	Publish *state.LedgerEntry `json:"publish_ledger,omitempty"`
+	Pending []string           `json:"pending_changes"`
+	LastRun *state.RunRecord   `json:"last_run,omitempty"`
+	Channel string             `json:"channel,omitempty"`
 }
 
 // Status reports the current release state.
 func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
-	report := &StatusReport{SchemaVersion: 1, Published: "unknown"}
+	report := &StatusReport{SchemaVersion: 2, Published: "unknown"}
 	pre, err := state.LoadPreRelease(a.Root)
 	if err != nil {
 		return nil, err
@@ -51,6 +58,13 @@ func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
 		return nil, err
 	}
 	report.Marker = rel
+	// The ledger is what the release actually did, so qegg status reads it before
+	// it queries anything: a new runner has no local run record.
+	entry, err := release.LedgerEntryFor(ctx, a.deps(release.Options{}), !offline)
+	if err != nil {
+		return nil, err
+	}
+	report.Publish = entry
 
 	detected, err := registry.DetectAll(a.Root)
 	if err != nil {
@@ -81,6 +95,12 @@ func (a *App) Status(ctx context.Context, offline bool) (*StatusReport, error) {
 		entry := StatusPackage{Name: name, Version: pkg.Version, Tag: tag, Published: "unknown"}
 		if exists, err := a.Git.TagExists(ctx, tag); err == nil {
 			entry.TagExists = exists
+		}
+		if report.Publish != nil {
+			if record, ok := report.Publish.Packages[name]; ok {
+				entry.Outcome = string(record.Outcome)
+				entry.Reason = record.Reason
+			}
 		}
 		if !offline {
 			if status, err := registry.Precheck(ctx, a.HTTP, pkg, pkg.Version); err == nil {
