@@ -89,7 +89,8 @@ A Go file stays under 1000 lines. User-visible strings live only in
    The record rule only applies on the project clone's default branch: the
    hook compares the `origin` remote with `[project] repo` from the config, so
    feature branches and fork clones are left to the pull request check.
-5. Open a PR. CI runs `qegg check --ci` on it and posts the plan as a comment.
+5. Open a PR. CI runs `qegg check --ci` and uploads any release plan. The
+   comment workflow posts the plan on the PR.
 
 A record is required for changes under the directories in `[changes].scope` of
 `.quailegg.toml`. Docs, site and CI-only changes need no record, but they still
@@ -196,9 +197,9 @@ Good and bad examples:
 - `CHANGELOG.md` between `<!-- qegg:release X -->` and `<!-- qegg:release:end -->`
   is generated. Never edit inside those markers; prose that must change now is
   edited outside them, everything else waits for the next release.
-- The hook and the three workflows are generated from `internal/scaffold/assets/`.
-  Change the template, not the generated file. Templates use `[[ ]]` actions and
-  must stay LF.
+- The hook and workflows are generated from `internal/scaffold/assets/`.
+  Edit the templates and regenerate the outputs. Templates use `[[ ]]` actions
+  and must stay LF.
 - The generated release workflow runs only on release paths; the generated pull
   request workflow skips the release branch of this repository, whose
   verification is the publish run. A fork that reuses the release branch name

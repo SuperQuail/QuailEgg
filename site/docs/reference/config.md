@@ -112,7 +112,7 @@ PR 模式的版本准备 job 也会执行这些前置步骤。需要按发布阶
 
 ## [pr.workflow] 与 [status.workflow]
 
-分别控制生成的 `qegg-pr.yml` 与 `qegg-status.yml` 中 job 的 runner、超时和前置步骤。字段与 [`[release.workflow]`](#releaseworkflow) 的前置步骤部分相同，但没有 `mode`：这两个工作流总是由 QuailEgg 生成。
+分别控制生成的 `qegg-pr.yml` 与 `qegg-status.yml` 中 job 的 runner、超时和前置步骤。字段与 [`[release.workflow]`](#releaseworkflow) 的前置步骤部分相同，省略 `mode`。发布计划评论由 `qegg-pr-comment.yml` 在独立 runner 上处理。
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |

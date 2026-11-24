@@ -6,7 +6,7 @@ qegg 自己用 qegg 发布。这个仓库的版本号来自 git tag（Go 生态�
 
 - Go module 没有版本字段，版本就是 **可达 HEAD 的最高 `v*` tag**；没有 tag 时视为 `0.0.0`，因此首个 `feat` 记录得到 `v0.1.0`，首个 `patch` 记录得到 `v0.0.1`。
 - 生成的 workflow 安装 `@latest`（`go install ...@latest`），每次 CI 都用最新的已发布版本。发布流程只依赖已发布版本，**不会、也不能引用正在发布的版本**，所以不存在版本号自指或循环。
-- `@latest` 表示不可复现：新版本发布后 CI 自动用上它，新版本有缺陷时 CI 也会跟着坏；需要固定时执行 `qegg init --force --qegg-version vX.Y.Z`，把三个 workflow 的 pin 写死。
+- `@latest` 表示不可复现：新版本发布后 CI 自动用上它，新版本有缺陷时 CI 也会跟着坏；需要固定时执行 `qegg init --force --qegg-version vX.Y.Z`，固定检查、发布和状态工作流使用的 QuailEgg 版本。
 
 ## 阶段 A：本地全流程演练（无远端）
 
@@ -121,7 +121,7 @@ publish 阶段会先固定本次发布所用的源码提交，再构建、上传
 - commit 模式用发布提交自身的 SHA；pr 模式在目标分支的第一父提交历史里按 marker 内容找实际合入的发布快照，squash 与 merge commit 都能定位。
 - 主分支之后又有了新提交、甚至已经有下一版记录时，仍用原快照继续；本地 tag、远端 tag 都指向它。
 - marker 必须先提交：只存在于工作区的 `.quailegg/release.json` 会让 publish 在第一次外部写操作前停止（版本已经 bump、提交却失败时就是这种状态）。
-- 历史必须完整：浅克隆无法判断哪个提交引入了 marker，qegg 会直接报错并提示获取完整历史。生成的三个 workflow 都带 `fetch-depth: 0`；`mode = "external"` 的自维护工作流也要自己取全量历史。
+- 历史必须完整：浅克隆无法判断哪个提交引入了 marker，qegg 会直接报错并提示获取完整历史。生成的检查、发布和状态工作流都带 `fetch-depth: 0`。`mode = "external"` 的自维护工作流也要取全量历史。
 
 ## PR 模式
 
@@ -146,7 +146,7 @@ PR 模式下 release 分支是生成物：每次 push 到主分支，CI 都从�
 qegg init --force --develop --no-input
 ```
 
-它会写入顶层 `develop = true`，并把三个工作流的安装步骤改成：
+这会写入顶层 `develop = true`，并调整检查、发布和状态工作流的安装步骤。
 
 - 当前 checkout 是 QuailEgg 仓库（`go.mod` 的 module 为 `github.com/SuperQuail/QuailEgg` 且存在 `cmd/qegg`）时，直接 `go build ./cmd/qegg` 使用本地源码；
 - 其他仓库退回 `go install github.com/SuperQuail/QuailEgg/cmd/qegg@main`。

@@ -318,8 +318,10 @@ func TestExternalWorkflowSkipsReleaseWorkflow(t *testing.T) {
 	if file := workflowFile(t, plan, "qegg-release.yml"); file != nil {
 		t.Fatal("external mode must not generate the release workflow")
 	}
-	if file := workflowFile(t, plan, "qegg-pr.yml"); file == nil {
-		t.Fatal("the pull request workflow must still be generated")
+	for _, name := range []string{"qegg-pr.yml", "qegg-pr-comment.yml"} {
+		if workflowFile(t, plan, name) == nil {
+			t.Errorf("external release mode must still generate %s", name)
+		}
 	}
 	found := false
 	for _, warning := range plan.Warnings {
@@ -378,7 +380,7 @@ func TestPullRequestWorkflowRendersStage(t *testing.T) {
 		"    env:\n      UV_PYTHON: \"3.14\"",
 		"      - run: 'uv sync --locked'",
 		"      - name: Check\n        run: qegg check --ci",
-		"      - name: Preview\n        shell: bash",
+		"      - name: Preview\n        id: preview\n        shell: bash",
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("pull request workflow is missing %q:\n%s", want, content)

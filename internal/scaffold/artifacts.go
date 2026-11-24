@@ -50,6 +50,14 @@ var artifacts = []artifact{
 		Enabled: func(opts Options) bool { return opts.WithWorkflows },
 	},
 	{
+		ID:      "workflow-pr-comment",
+		Source:  "github/workflows/qegg-pr-comment.yml.tmpl",
+		Dest:    ".github/workflows/qegg-pr-comment.yml",
+		Perm:    0o644,
+		Reason:  "pull request comment workflow",
+		Enabled: func(opts Options) bool { return opts.WithWorkflows },
+	},
+	{
 		ID:      "workflow-status",
 		Source:  "github/workflows/qegg-status.yml.tmpl",
 		Dest:    ".github/workflows/qegg-status.yml",

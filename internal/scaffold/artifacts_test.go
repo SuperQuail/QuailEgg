@@ -3,8 +3,10 @@ package scaffold
 import (
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -18,12 +20,13 @@ import (
 )
 
 const (
-	configPlanPath          = ".quailegg.toml"
-	changesReadmePlanPath   = ".changes/README.md"
-	hookPlanPath            = ".git/hooks/pre-commit"
-	releaseWorkflowPlanPath = ".github/workflows/qegg-release.yml"
-	prWorkflowPlanPath      = ".github/workflows/qegg-pr.yml"
-	statusWorkflowPlanPath  = ".github/workflows/qegg-status.yml"
+	configPlanPath            = ".quailegg.toml"
+	changesReadmePlanPath     = ".changes/README.md"
+	hookPlanPath              = ".git/hooks/pre-commit"
+	releaseWorkflowPlanPath   = ".github/workflows/qegg-release.yml"
+	prWorkflowPlanPath        = ".github/workflows/qegg-pr.yml"
+	prCommentWorkflowPlanPath = ".github/workflows/qegg-pr-comment.yml"
+	statusWorkflowPlanPath    = ".github/workflows/qegg-status.yml"
 )
 
 func testOptions(t *testing.T) Options {
@@ -117,7 +120,7 @@ func TestArtifactMatrix(t *testing.T) {
 							want = append(want, hookPlanPath)
 						}
 						if gate.workflows {
-							want = append(want, releaseWorkflowPlanPath, prWorkflowPlanPath)
+							want = append(want, releaseWorkflowPlanPath, prWorkflowPlanPath, prCommentWorkflowPlanPath)
 						}
 						if gate.workflows && gate.status {
 							want = append(want, statusWorkflowPlanPath)
@@ -156,7 +159,7 @@ func TestArtifactMatrix(t *testing.T) {
 							}
 						}
 						if gate.workflows {
-							for _, rel := range []string{releaseWorkflowPlanPath, prWorkflowPlanPath} {
+							for _, rel := range []string{releaseWorkflowPlanPath, prWorkflowPlanPath, prCommentWorkflowPlanPath} {
 								if !strings.Contains(string(planFileByPath(t, plan, rel).Content), branch) {
 									t.Errorf("%s: base branch %q is missing", rel, branch)
 								}
@@ -173,7 +176,7 @@ func TestWorkflowAssetsAreValidYAML(t *testing.T) {
 	for _, eco := range []string{"", "npm", "python", "rust", "go"} {
 		opts := withEcosystem(testOptions(t), eco)
 		plan := mustBuild(t, opts)
-		for _, rel := range []string{releaseWorkflowPlanPath, prWorkflowPlanPath, statusWorkflowPlanPath} {
+		for _, rel := range []string{releaseWorkflowPlanPath, prWorkflowPlanPath, prCommentWorkflowPlanPath, statusWorkflowPlanPath} {
 			content := string(planFileByPath(t, plan, rel).Content)
 			var doc struct {
 				Jobs map[string]struct {
@@ -530,11 +533,87 @@ func TestReleaseWorkflowConfiguresEnvironment(t *testing.T) {
 	}
 }
 
-func TestPRWorkflowSkipsEmptyPreview(t *testing.T) {
-	pr := string(planFileByPath(t, mustBuild(t, testOptions(t)), prWorkflowPlanPath).Content)
-	for _, want := range []string{"if [ -s plan.md ]; then", "no pending release"} {
-		if !strings.Contains(pr, want) {
-			t.Errorf("PR workflow is missing %q", want)
+func TestPRWorkflowHandsOffReleasePlan(t *testing.T) {
+	opts := testOptions(t)
+	opts.BaseBranch = "maintenance/1.x-\"preview\""
+	plan := mustBuild(t, opts)
+
+	type step struct {
+		ID   string            `yaml:"id"`
+		If   string            `yaml:"if"`
+		Uses string            `yaml:"uses"`
+		Run  string            `yaml:"run"`
+		Env  map[string]string `yaml:"env"`
+		With map[string]string `yaml:"with"`
+	}
+	type workflow struct {
+		Name string `yaml:"name"`
+		On   map[string]struct {
+			Branches  []string `yaml:"branches"`
+			Types     []string `yaml:"types"`
+			Workflows []string `yaml:"workflows"`
+		} `yaml:"on"`
+		Permissions map[string]string `yaml:"permissions"`
+		Jobs        map[string]struct {
+			If    string `yaml:"if"`
+			Steps []step `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	var pr, comment workflow
+	for path, target := range map[string]*workflow{prWorkflowPlanPath: &pr, prCommentWorkflowPlanPath: &comment} {
+		if err := yaml.Unmarshal(planFileByPath(t, plan, path).Content, target); err != nil {
+			t.Fatalf("%s: %v", path, err)
 		}
+	}
+
+	prSteps := pr.Jobs["check"].Steps
+	if len(prSteps) < 2 {
+		t.Fatal("PR workflow must generate and upload the plan")
+	}
+	preview, upload := prSteps[len(prSteps)-2], prSteps[len(prSteps)-1]
+	if !maps.Equal(pr.Permissions, map[string]string{"contents": "read", "pull-requests": "read"}) {
+		t.Errorf("PR workflow permissions = %v", pr.Permissions)
+	}
+	if preview.ID != "preview" || !strings.Contains(preview.Run, "qegg plan --markdown") ||
+		!strings.Contains(preview.Run, `if [ -s "$plan" ]; then`) || !strings.Contains(preview.Run, "no pending release") {
+		t.Errorf("PR workflow does not gate preview upload on a nonempty plan: %+v", preview)
+	}
+	if upload.If != "steps.preview.outputs.has_plan == 'true'" || !strings.HasPrefix(upload.Uses, "actions/upload-artifact@") ||
+		upload.With["path"] != "${{ runner.temp }}/plan.md" || upload.With["name"] != "qegg-pr-plan-${{ github.run_attempt }}" {
+		t.Errorf("PR workflow uses unexpected upload settings: %+v", upload)
+	}
+
+	trigger := comment.On["workflow_run"]
+	if !slices.Equal(trigger.Workflows, []string{pr.Name}) || !slices.Equal(trigger.Types, []string{"completed"}) {
+		t.Errorf("comment workflow trigger = %+v", trigger)
+	}
+	if !maps.Equal(comment.Permissions, map[string]string{"actions": "read", "pull-requests": "write"}) {
+		t.Errorf("comment workflow permissions = %v", comment.Permissions)
+	}
+	job := comment.Jobs["comment"]
+	if len(job.Steps) != 3 {
+		t.Fatalf("comment workflow has %d steps, want artifact lookup, download and comment", len(job.Steps))
+	}
+	for _, condition := range []string{
+		"github.event.workflow_run.event == 'pull_request'",
+		"github.event.workflow_run.conclusion == 'success'",
+		"github.event.workflow_run.path == '" + prWorkflowPlanPath + "'",
+	} {
+		if !strings.Contains(job.If, condition) {
+			t.Errorf("comment workflow is missing condition %q", condition)
+		}
+	}
+	lookup, download, publish := job.Steps[0], job.Steps[1], job.Steps[2]
+	if lookup.Env["ARTIFACT_NAME"] != "qegg-pr-plan-${{ github.event.workflow_run.run_attempt }}" ||
+		lookup.Env["RUN_ID"] != "${{ github.event.workflow_run.id }}" {
+		t.Errorf("artifact lookup uses an unexpected run or artifact name: %v", lookup.Env)
+	}
+	if !strings.HasPrefix(download.Uses, "actions/download-artifact@") || download.With["run-id"] != lookup.Env["RUN_ID"] ||
+		download.With["artifact-ids"] != "${{ steps.artifact.outputs.id }}" || download.With["skip-decompress"] != "true" ||
+		download.If != "steps.artifact.outputs.id != ''" || publish.If != download.If {
+		t.Errorf("comment workflow uses unexpected download or publish settings: %+v", download)
+	}
+	if !slices.Equal(pr.On["pull_request"].Branches, []string{opts.BaseBranch}) || publish.Env["BASE_BRANCH"] != opts.BaseBranch {
+		t.Errorf("PR trigger and comment lookup must both use %q", opts.BaseBranch)
 	}
 }

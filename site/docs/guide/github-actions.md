@@ -6,13 +6,20 @@
 
 | 工作流 | 触发方式 | 用途 |
 | --- | --- | --- |
-| `qegg-pr.yml` | 向主分支发起或更新功能 PR | 检查变更记录，并评论发布计划 |
+| `qegg-pr.yml` | 向主分支发起或更新功能 PR | 检查变更记录，有发布计划时上传为运行产物 |
+| `qegg-pr-comment.yml` | PR 检查成功后 | 在同仓库或 fork 的 PR 中创建或更新发布计划评论 |
 | `qegg-release.yml` | 主分支上的发布相关路径发生变化，或手动触发 | 运行 `qegg release --yes` |
 | `qegg-status.yml` | 手动触发 | 输出 `qegg status --json` |
 
 默认 PR 模式会先创建发布 PR，合并后再发布。流程见[发布流程](./release-flow)。
 
-如果不需要状态查询工作流，初始化时加 `--no-status-workflow`；完全不生成工作流则使用 `--no-workflows`。
+如果不需要状态查询工作流，初始化时加 `--no-status-workflow`。可用 `--no-workflows` 跳过工作流生成。
+
+### PR 发布计划评论
+
+PR 检查使用只读的 `GITHUB_TOKEN` 生成计划。评论工作流用自己的 `GITHUB_TOKEN` 下载计划并发布到对应 PR，支持来自 fork 的贡献。有计划才会发表评论，评论失败会在评论工作流里单独报错。
+
+已有项目升级后可运行 `qegg init --force --no-input --no-add-packages` 刷新受管理的工作流。评论工作流合入 GitHub 默认分支后开始触发。[GitHub `workflow_run` 文档](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)
 
 ## 首次接入需要做什么
 

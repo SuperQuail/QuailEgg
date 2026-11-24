@@ -59,8 +59,9 @@ func (r renderer) execute(name, src string, data any) ([]byte, error) {
 		Delims(openAction, closeAction).
 		Option("missingkey=error").
 		Funcs(template.FuncMap{
-			"indent":  indent,
-			"shquote": shquote,
+			"indent":    indent,
+			"shquote":   shquote,
+			"yamlquote": yamlQuote,
 		}).
 		Parse(src)
 	if err != nil {

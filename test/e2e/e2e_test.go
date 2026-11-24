@@ -124,6 +124,7 @@ func TestInitCheckCommitPlan(t *testing.T) {
 		".changes/README.md",
 		".github/workflows/qegg-release.yml",
 		".github/workflows/qegg-pr.yml",
+		".github/workflows/qegg-pr-comment.yml",
 		".github/workflows/qegg-status.yml",
 	} {
 		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(expected))); err != nil {

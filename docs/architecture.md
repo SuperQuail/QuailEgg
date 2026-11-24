@@ -64,7 +64,7 @@ cli 直接引用 release、scaffold、changelog、semver、tui、config 与 ecos
 
 ## 生成的资产与模板
 
-`qegg init` 写出的 git hook 与三个 Actions 工作流不再内嵌在 Go 字符串里：
+`qegg init` 从模板生成 Git hook 和 GitHub Actions 工作流。
 
 - 正文放在 `internal/scaffold/assets/`，目录结构镜像产物布局；`.tmpl` 后缀表示需要变量替换，无后缀表示原样拷贝；
 - `assets.go` 用 `//go:embed assets` 打包，`render.go` 用 `text/template` 渲染，动作分隔符是 `[[` / `]]`，因此产物里的 `${{ secrets.X }}` 保持原样；需要字面量 `[[` 时写 `[[ "[[" ]]`；
