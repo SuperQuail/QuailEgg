@@ -1,5 +1,25 @@
 # Changelog
 
+<!-- qegg:release 0.15.0 -->
+## v0.15.0 - 2026-11-24
+
+### Features
+
+- [`42b9b55`](https://github.com/SuperQuail/QuailEgg/commit/42b9b559b4271a75d1b975c427880196c7edc8aa): Build every release from the exact source commit it was prepared on, even after the branch moves on.
+- [`62b4663`](https://github.com/SuperQuail/QuailEgg/commit/62b4663ee3f8787b3254bd7675f57ebdb424c136): Repair a missing GitHub Release when resuming an interrupted release.
+- [`d89c217`](https://github.com/SuperQuail/QuailEgg/commit/d89c217266bc72ea76292c7f32376354c00cbe73): Resume a half-finished publish one package at a time.
+
+### Bug Fixes
+
+- [`bd07303`](https://github.com/SuperQuail/QuailEgg/commit/bd073039ba3b7b40db448fcddce1b6c49817d616): Record release progress using the repository credentials already configured in CI.
+- [`0b58300`](https://github.com/SuperQuail/QuailEgg/commit/0b5830033e573577b4d4e2fb5fddbb081a475a58): Run the pull request check on fork branches that share the release branch name.
+- [`379c69b`](https://github.com/SuperQuail/QuailEgg/commit/379c69bc563273b3eb12753b703e791fcf2a7f54): Stop a release before any Maven manifest write that would drop content or break a dependency range.
+- [`21a1a31`](https://github.com/SuperQuail/QuailEgg/commit/21a1a31dd9af06d8eb8e7f994b716646013a7fc0): Show release plans on pull requests from forks.
+- [`022aaf2`](https://github.com/SuperQuail/QuailEgg/commit/022aaf2ff470b3553345a8f89e802c08c54818b8): Reject a commit or pull request that changes or deletes release-scoped files without a valid record.
+
+**Full Changelog**: https://github.com/SuperQuail/QuailEgg/compare/v0.14.1...v0.15.0
+<!-- qegg:release:end -->
+
 <!-- qegg:release 0.14.1 -->
 ## v0.14.1 - 2026-11-17
 
