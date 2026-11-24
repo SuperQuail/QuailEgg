@@ -67,12 +67,8 @@ func Run(ctx context.Context, d *Deps, plan *Plan) error {
 
 // recordPlannedRelease writes the ledger entry of the release this run plans.
 func (e *executor) recordPlannedRelease(ctx context.Context) error {
-	session, err := e.openLedger(ctx, true)
-	if err != nil {
-		return err
-	}
-	session.Close()
-	return nil
+	_, err := e.openLedger(ctx, true)
+	return err
 }
 
 func (e *executor) execute(ctx context.Context) error {

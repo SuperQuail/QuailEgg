@@ -24,10 +24,6 @@ const LedgerRefPrefix = "refs/qegg/ledger/"
 // LedgerPathInRef is the ledger file inside the ledger commit.
 const LedgerPathInRef = ".quailegg/publish-ledger.json"
 
-// ledgerTemplate is the placeholder the ledger lives in: an empty temporary git
-// directory used to build the ledger commit without touching the worktree index.
-const ledgerTemplate = "qegg-ledger-*"
-
 // GitLedgerStore keeps the ledger in a git commit under its release ref.
 // Every write is a compare-and-swap: the push is accepted only while the remote
 // ref still holds the revision this run read, so two concurrent resumes cannot
@@ -38,9 +34,8 @@ type GitLedgerStore struct {
 	// Dir is the working directory the git commands run in.
 	Dir string
 
-	url   string
-	tag   string
-	empty string
+	url string
+	tag string
 }
 
 // NewGitLedgerStore binds the ledger store to one remote URL and one release tag.
@@ -59,14 +54,6 @@ func (s *GitLedgerStore) Ref() string { return LedgerRefPrefix + s.tag }
 
 // Describe implements state.LedgerStore.
 func (s *GitLedgerStore) Describe() string { return s.Remote + " " + s.Ref() }
-
-// Close removes the temporary git directory used to build ledger commits.
-func (s *GitLedgerStore) Close() {
-	if s.empty != "" {
-		os.RemoveAll(s.empty)
-		s.empty = ""
-	}
-}
 
 // Load implements state.LedgerStore. A missing ref is an empty ledger, not an
 // error: the caller decides whether that counts as evidence.
@@ -93,36 +80,7 @@ func (s *GitLedgerStore) Load() (*state.Ledger, string, error) {
 // Save implements state.LedgerStore.
 func (s *GitLedgerStore) Save(ledger *state.Ledger, token string) (string, error) {
 	ctx := context.Background()
-	dir, err := s.gitDir(ctx)
-	if err != nil {
-		return "", err
-	}
-	data, err := ledger.Marshal()
-	if err != nil {
-		return "", err
-	}
-	payload := filepath.Join(dir, "payload.json")
-	if err := os.WriteFile(payload, data, 0o644); err != nil {
-		return "", err
-	}
-	defer os.Remove(payload)
-
-	blob, err := s.output(ctx, dir, "hash-object", "-w", payload)
-	if err != nil {
-		return "", err
-	}
-	if _, err := s.output(ctx, dir, "read-tree", "--empty"); err != nil {
-		return "", err
-	}
-	if _, err := s.output(ctx, dir, "update-index", "--add", "--cacheinfo", "100644,"+blob+","+LedgerPathInRef); err != nil {
-		return "", err
-	}
-	tree, err := s.output(ctx, dir, "write-tree")
-	if err != nil {
-		return "", err
-	}
-	commit, err := s.output(ctx, dir, "-c", "user.name=QuailEgg", "-c", "user.email=qegg@localhost",
-		"commit-tree", tree, "-m", ledgerCommitMessage())
+	commit, err := s.writeCommit(ctx, ledger)
 	if err != nil {
 		return "", err
 	}
@@ -133,7 +91,7 @@ func (s *GitLedgerStore) Save(ledger *state.Ledger, token string) (string, error
 		return "", state.ErrLedgerConflict
 	}
 	lease := "--force-with-lease=" + s.Ref() + ":" + token
-	_, pushErr := s.output(ctx, dir, "push", lease, s.url, commit+":"+s.Ref())
+	_, pushErr := s.output(ctx, "push", lease, "--", s.url, commit+":"+s.Ref())
 	if pushErr == nil {
 		return commit, nil
 	}
@@ -163,7 +121,7 @@ func ledgerCommitMessage() string {
 // remoteRef returns the commit the ledger ref points at, or "" when it does not
 // exist.
 func (s *GitLedgerStore) remoteRef(ctx context.Context) (string, error) {
-	res, err := s.Run.Run(ctx, s.Dir, "git", "ls-remote", s.url, s.Ref())
+	res, err := s.Run.Run(ctx, s.Dir, "git", "ls-remote", "--", s.url, s.Ref())
 	if err != nil {
 		return "", errors.New(i18n.Tf("release.err.ledger_read", s.Describe(), err))
 	}
@@ -176,44 +134,61 @@ func (s *GitLedgerStore) remoteRef(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// readFile reads the ledger file from a fetched ledger commit.
+// readFile fetches the ledger through the checkout so Git uses its credentials.
 func (s *GitLedgerStore) readFile(ctx context.Context, sha string) ([]byte, error) {
-	dir, err := s.gitDir(ctx)
-	if err != nil {
+	if _, err := s.output(ctx, "fetch", "--no-tags", "--no-write-fetch-head", "--no-recurse-submodules", "--refmap=", "--", s.url, s.Ref()); err != nil {
 		return nil, err
 	}
-	if _, err := s.output(ctx, dir, "fetch", "--depth=1", "--no-tags", s.url, s.Ref()); err != nil {
-		return nil, fmt.Errorf("%s: %w", i18n.T("release.err.ledger_read"), err)
-	}
-	out, err := s.output(ctx, dir, "cat-file", "-p", sha+":"+LedgerPathInRef)
+	out, err := s.output(ctx, "cat-file", "-p", sha+":"+LedgerPathInRef)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", i18n.Tf("release.err.ledger_file", LedgerPathInRef), err)
 	}
 	return []byte(out), nil
 }
 
-// gitDir creates the throwaway git directory the ledger commits are built in.
-func (s *GitLedgerStore) gitDir(ctx context.Context) (string, error) {
-	if s.empty != "" {
-		return s.empty, nil
+// writeCommit stores the ledger in the checkout's object database. A separate
+// index keeps the user's staged files out of the ledger tree.
+func (s *GitLedgerStore) writeCommit(ctx context.Context, ledger *state.Ledger) (string, error) {
+	run, ok := s.Run.(execx.EnvRunner)
+	if !ok {
+		return "", errors.New(i18n.T("release.err.ledger_runner"))
 	}
-	dir, err := os.MkdirTemp("", ledgerTemplate)
+	data, err := ledger.Marshal()
 	if err != nil {
 		return "", err
 	}
-	if _, err := s.Run.Run(ctx, "", "git", "init", "--bare", "-q", dir); err != nil {
-		os.RemoveAll(dir)
+	dir, err := os.MkdirTemp("", "qegg-ledger-*")
+	if err != nil {
 		return "", err
 	}
-	s.empty = dir
-	return dir, nil
+	defer os.RemoveAll(dir)
+
+	payload := filepath.Join(dir, "payload.json")
+	if err := os.WriteFile(payload, data, 0o600); err != nil {
+		return "", err
+	}
+	blob, err := s.output(ctx, "hash-object", "-w", "--no-filters", "--", payload)
+	if err != nil {
+		return "", err
+	}
+
+	env := []string{"GIT_INDEX_FILE=" + filepath.Join(dir, "index")}
+	if _, err := run.RunEnv(ctx, s.Dir, env, "git", "read-tree", "--empty"); err != nil {
+		return "", err
+	}
+	if _, err := run.RunEnv(ctx, s.Dir, env, "git", "update-index", "--add", "--cacheinfo", "100644,"+blob+","+LedgerPathInRef); err != nil {
+		return "", err
+	}
+	tree, err := run.RunEnv(ctx, s.Dir, env, "git", "write-tree")
+	if err != nil {
+		return "", err
+	}
+	return s.output(ctx, "-c", "user.name=QuailEgg", "-c", "user.email=qegg@localhost",
+		"commit-tree", "--no-gpg-sign", strings.TrimSpace(tree.Stdout), "-m", ledgerCommitMessage())
 }
 
-// output runs one git command inside the ledger directory and returns its
-// trimmed standard output.
-func (s *GitLedgerStore) output(ctx context.Context, dir string, args ...string) (string, error) {
-	full := append([]string{"--git-dir=" + dir}, args...)
-	res, err := s.Run.Run(ctx, dir, "git", full...)
+func (s *GitLedgerStore) output(ctx context.Context, args ...string) (string, error) {
+	res, err := s.Run.Run(ctx, s.Dir, "git", args...)
 	if err != nil {
 		return "", err
 	}

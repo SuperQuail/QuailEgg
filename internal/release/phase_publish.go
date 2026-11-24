@@ -31,7 +31,6 @@ func (e *executor) runPublish(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer session.Close()
 	e.ledger = session
 	if err := e.recordRound(); err != nil {
 		return err

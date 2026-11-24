@@ -43,7 +43,6 @@ func LedgerEntryFor(ctx context.Context, d *Deps, remote bool) (*state.LedgerEnt
 	if remote && d.Cfg.Git.Remote != "" {
 		if url, urlErr := remoteURL(ctx, d.Run, d.Root, d.Cfg.Git.Remote); urlErr == nil && url != "" {
 			if gitStore, storeErr := NewGitLedgerStore(d.Run, d.Root, d.Cfg.Git.Remote, url, ledgerRefTag(identity)); storeErr == nil {
-				defer gitStore.Close()
 				store = gitStore
 			}
 		}

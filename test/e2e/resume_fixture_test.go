@@ -134,8 +134,11 @@ func (r *fakeRunner) Run(ctx context.Context, dir, name string, args ...string) 
 	return execx.Result{}, nil
 }
 
-// RunEnv implements execx.EnvRunner; the asset builder needs it.
+// RunEnv forwards the environment to Git and fakes the remaining commands.
 func (r *fakeRunner) RunEnv(ctx context.Context, dir string, env []string, name string, args ...string) (execx.Result, error) {
+	if name == "git" {
+		return r.real.RunEnv(ctx, dir, env, name, args...)
+	}
 	return r.Run(ctx, dir, name, args...)
 }
 
@@ -382,7 +385,6 @@ func (f *publishFixture) seedPlannedRecord() {
 	if err != nil {
 		f.t.Fatalf("ledger store: %v", err)
 	}
-	defer store.Close()
 	if _, err := store.Save(ledger, ""); err != nil {
 		f.t.Fatalf("seed the planned record: %v", err)
 	}
@@ -520,7 +522,6 @@ func (f *publishFixture) ledger(tag string) *state.Ledger {
 	if err != nil {
 		f.t.Fatalf("ledger store: %v", err)
 	}
-	defer store.Close()
 	ledger, _, err := store.Load()
 	if err != nil {
 		f.t.Fatalf("ledger load: %v", err)

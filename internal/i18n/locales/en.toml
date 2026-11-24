@@ -394,6 +394,7 @@
 "resume.repair.prerelease_mismatch" = "GitHub Release %s is not marked as a prerelease but the recorded release is one"
 "resume.nothing" = "no interrupted release recorded; nothing to resume"
 "release.err.ledger_remote" = "the %s remote has no URL; qegg cannot record the release"
+"release.err.ledger_runner" = "the command runner cannot isolate the release ledger index"
 "release.err.ledger_read" = "cannot read the release ledger from %s: %v"
 "release.err.ledger_file" = "the release ledger ref does not contain %s"
 "release.err.ledger_write" = "cannot write the release ledger to %s: %v"

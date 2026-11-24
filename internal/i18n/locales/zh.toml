@@ -394,6 +394,7 @@
 "resume.repair.prerelease_mismatch" = "GitHub Release %s 未标记为预发布，但原始发布是预发布"
 "resume.nothing" = "没有记录到中断的发布，无需续跑"
 "release.err.ledger_remote" = "远端 %s 没有 URL，qegg 无法记录本次发布"
+"release.err.ledger_runner" = "命令执行器无法为发布账本设置独立的 Git 索引"
 "release.err.ledger_read" = "无法从 %s 读取发布执行记录：%v"
 "release.err.ledger_file" = "发布执行记录的引用中没有 %s"
 "release.err.ledger_write" = "无法把发布执行记录写入 %s：%v"

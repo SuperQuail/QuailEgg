@@ -16,7 +16,6 @@ import (
 // describes, and a failed write stops the release.
 type ledgerSession struct {
 	store    state.LedgerStore
-	closer   interface{ Close() }
 	ledger   *state.Ledger
 	entry    *state.LedgerEntry
 	identity state.ReleaseIdentity
@@ -29,13 +28,6 @@ type ledgerSession struct {
 	kind string
 	// root is the repository root, used for the local mirror of a remote record.
 	root string
-}
-
-// Close releases the resources the store may hold.
-func (s *ledgerSession) Close() {
-	if s != nil && s.closer != nil {
-		s.closer.Close()
-	}
 }
 
 // Identity implements the release progress contract.
@@ -252,20 +244,19 @@ func (e *executor) openLedger(ctx context.Context, planning bool) (*ledgerSessio
 	if err != nil {
 		return nil, err
 	}
-	store, closer, kind, err := e.ledgerStore(ctx, identity)
+	store, kind, err := e.ledgerStore(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
 	ledger, token, err := store.Load()
 	if err != nil {
-		closer.Close()
 		if errors.Is(err, state.ErrLedgerFormat) {
 			return nil, errors.New(i18n.Tf("release.err.ledger_format", store.Describe()))
 		}
 		return nil, errors.New(i18n.Tf("release.err.ledger_read", store.Describe(), err))
 	}
 	session := &ledgerSession{
-		store: store, closer: closer, ledger: ledger, token: token, identity: identity,
+		store: store, ledger: ledger, token: token, identity: identity,
 		runID: e.run.RunID, now: e.d.Now, source: identity.SourceCommit, kind: kind, root: e.d.Root,
 	}
 	entry := ledger.Find(identity)
@@ -458,22 +449,22 @@ func (e *executor) releaseFingerprint() string {
 // ledgerStore picks where the record of this release lives. A run that performs
 // no external write keeps it locally; every other run records it on the origin
 // remote so another runner can read it.
-func (e *executor) ledgerStore(ctx context.Context, identity state.ReleaseIdentity) (state.LedgerStore, interface{ Close() }, string, error) {
+func (e *executor) ledgerStore(ctx context.Context, identity state.ReleaseIdentity) (state.LedgerStore, string, error) {
 	local := state.LocalLedgerStore{Root: e.d.Root}
 	if !e.externalWrites() || e.d.Cfg.Git.Remote == "" {
-		return local, noCloser{}, ledgerStoreLocal, nil
+		return local, ledgerStoreLocal, nil
 	}
 	url, err := remoteURL(ctx, e.d.Run, e.d.Root, e.d.Cfg.Git.Remote)
 	if err != nil || url == "" {
 		// A repository without the configured remote keeps the record next to the
 		// run records, which is enough for a run that writes nothing outside.
-		return local, noCloser{}, ledgerStoreLocal, nil
+		return local, ledgerStoreLocal, nil
 	}
 	store, err := NewGitLedgerStore(e.d.Run, e.d.Root, e.d.Cfg.Git.Remote, url, ledgerRefTag(identity))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
-	return store, store, ledgerStoreRemote, nil
+	return store, ledgerStoreRemote, nil
 }
 
 // Ledger store kinds recorded in the release entry.
@@ -481,12 +472,6 @@ const (
 	ledgerStoreRemote = "remote"
 	ledgerStoreLocal  = "local"
 )
-
-// noCloser is the closer of a store that holds no resources.
-type noCloser struct{}
-
-// Close implements io.Closer.
-func (noCloser) Close() {}
 
 // externalWrites reports whether this run may touch the outside world.
 func (e *executor) externalWrites() bool {

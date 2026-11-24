@@ -2,6 +2,10 @@ package release
 
 import (
 	"context"
+	"encoding/base64"
+	"net/http"
+	"net/http/cgi"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,6 +56,72 @@ func ledgerEntryFor(repo, version string) *state.LedgerEntry {
 	return &state.LedgerEntry{Key: identity.Key(), Identity: identity, Packages: map[string]*state.PackageRecord{}}
 }
 
+func TestGitLedgerStoreUsesCheckoutCredentials(t *testing.T) {
+	root, remote := ledgerRepo(t)
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+	t.Setenv("GCM_INTERACTIVE", "never")
+	runGit(t, root, "--git-dir", remote, "config", "http.receivepack", "true")
+	backend := &cgi.Handler{
+		Path: git,
+		Args: []string{"http-backend"},
+		Env:  []string{"GIT_PROJECT_ROOT=" + filepath.Dir(remote), "GIT_HTTP_EXPORT_ALL=1"},
+	}
+	authorization := "Basic " + base64.StdEncoding.EncodeToString([]byte("checkout:ledger-test"))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != authorization {
+			w.Header().Set("WWW-Authenticate", "Basic realm=ledger")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		backend.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+
+	url := server.URL + "/" + filepath.Base(remote)
+	runGit(t, root, "remote", "set-url", "origin", url)
+	// Match the checkout action's URL-scoped extra header in the local Git config.
+	runGit(t, root, "config", "--local", "http."+server.URL+"/.extraHeader", "Authorization: "+authorization)
+	runGit(t, root, "fetch", "--no-tags", "origin", "refs/heads/main")
+	fetchHead := runGit(t, root, "rev-parse", "FETCH_HEAD")
+	if err := os.WriteFile(filepath.Join(root, "staged.txt"), []byte("keep this staged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", "staged.txt")
+	indexTree := runGit(t, root, "write-tree")
+
+	store, err := NewGitLedgerStore(execx.OSRunner{}, root, "origin", url, "v1.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger := state.NewLedger()
+	entry := ledgerEntryFor("github.com/example/demo", "1.2.0")
+	ledger.Put(entry)
+	sha, err := store.Save(ledger, "")
+	if err != nil {
+		t.Fatalf("save using checkout credentials: %v", err)
+	}
+	loaded, token, err := store.Load()
+	if err != nil {
+		t.Fatalf("load using checkout credentials: %v", err)
+	}
+	if token != sha || loaded.Find(entry.Identity) == nil {
+		t.Fatalf("loaded ledger is missing the saved release at %s", sha)
+	}
+	if _, err := store.Save(loaded, token); err != nil {
+		t.Fatalf("update using checkout credentials: %v", err)
+	}
+	if got := runGit(t, root, "write-tree"); got != indexTree {
+		t.Errorf("staged tree changed from %s to %s", indexTree, got)
+	}
+	if got := runGit(t, root, "rev-parse", "FETCH_HEAD"); got != fetchHead {
+		t.Errorf("FETCH_HEAD changed from %s to %s", fetchHead, got)
+	}
+}
+
 // TestGitLedgerStoreSurvivesANewRunner is the cross-runner guarantee: a second
 // clone reads the record an earlier run pushed, and a stale revision is rejected
 // so two resumes cannot both claim the same package.
@@ -61,7 +131,6 @@ func TestGitLedgerStoreSurvivesANewRunner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("store: %v", err)
 	}
-	defer store.Close()
 
 	ledger, token, err := store.Load()
 	if err != nil {
@@ -99,7 +168,6 @@ func TestGitLedgerStoreSurvivesANewRunner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer fresh.Close()
 	reloaded, freshToken, err := fresh.Load()
 	if err != nil {
 		t.Fatalf("reload: %v", err)
@@ -144,12 +212,10 @@ func TestGitLedgerStoreCreateIsExclusive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer first.Close()
 	second, err := NewGitLedgerStore(execx.OSRunner{}, root, "origin", remote, "v2.0.0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer second.Close()
 
 	ledgerA, tokenA, err := first.Load()
 	if err != nil {
